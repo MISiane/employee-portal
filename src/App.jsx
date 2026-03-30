@@ -44,42 +44,47 @@ const RoleBasedDashboard = () => {
 function App() {
   return (
     <AuthProvider>
-       <ErrorBoundary>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="/"
-            element={
-              <PrivateRoute>
-                <Layout />
-              </PrivateRoute>
-            }
-          >
-            <Route index element={<Navigate to="/dashboard" />} />
-            <Route path="dashboard" element={<RoleBasedDashboard />} />
-            
-            {/* Admin Only Routes */}
-            <Route path="employees" element={<Employees />} />
-            <Route path="leave-requests" element={<LeaveRequestsAdmin />} />
-            <Route path="attendance" element={<AttendanceAdmin />} />
-            <Route path="payslips" element={<AdminPayslips />} />
-            <Route path="reports" element={<Reports />} />
-            
-            {/* Employee Only Routes */}
-            <Route path="my-profile" element={<MyProfile />} />
-            <Route path="my-attendance" element={<MyAttendance />} />
-            <Route path="my-leave-requests" element={<MyLeaveRequests />} />
-            <Route path="my-payslips" element={<MyPayslips />} />
-            
-            {/* Shared Routes */}
-            <Route path="announcements" element={<Announcements />} />
-            <Route path="settings" element={<Settings />} />
+      <ErrorBoundary>
+        <Router
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/"
+              element={
+                <PrivateRoute>
+                  <Layout />
+                </PrivateRoute>
+              }
+            >
+              <Route index element={<Navigate to="/dashboard" />} />
+              <Route path="dashboard" element={<RoleBasedDashboard />} />
+              
+              {/* Admin Only Routes */}
+              <Route path="employees" element={<Employees />} />
+              <Route path="leave-requests" element={<LeaveRequestsAdmin />} />
+              <Route path="attendance" element={<AttendanceAdmin />} />
+              <Route path="payslips" element={<AdminPayslips />} />
+              <Route path="reports" element={<Reports />} />
+              
+              {/* Employee Only Routes */}
+              <Route path="my-profile" element={<MyProfile />} />
+              <Route path="my-attendance" element={<MyAttendance />} />
+              <Route path="my-leave-requests" element={<MyLeaveRequests />} />
+              <Route path="my-payslips" element={<MyPayslips />} />
+              
+              {/* Shared Routes */}
+              <Route path="announcements" element={<Announcements />} />
+              <Route path="settings" element={<Settings />} />
 
               <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </Router>
+            </Route>
+          </Routes>
+        </Router>
       </ErrorBoundary>
     </AuthProvider>
   );
