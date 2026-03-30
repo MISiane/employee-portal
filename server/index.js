@@ -15,11 +15,11 @@ const pool = require('./config/database');
 
 const app = express();
 
-// ============ CORS CONFIGURATION - ALLOW ALL VERCEL DOMAINS ============
-// More permissive CORS for development/production
+// ============ CORS CONFIGURATION ============
+// Allow all vercel domains and localhost
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin
     if (!origin) {
       return callback(null, true);
     }
@@ -40,7 +40,7 @@ const corsOptions = {
     }
     
     console.log(`CORS blocked origin: ${origin}`);
-    callback(new Error('Not allowed by CORS'));
+    callback(null, false);
   },
   credentials: true,
   optionsSuccessStatus: 200,
@@ -48,11 +48,8 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
 };
 
-// Apply CORS middleware BEFORE any routes
+// Apply CORS middleware - this handles both regular and preflight requests
 app.use(cors(corsOptions));
-
-// Handle preflight requests explicitly
-app.options('*', cors(corsOptions));
 
 // Regular middleware
 app.use(express.json());
@@ -124,10 +121,12 @@ app.get('/', (req, res) => {
 });
 
 // ============ ERROR HANDLING ============
+// 404 handler for undefined routes
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
+// Error handling middleware (should be last)
 app.use(errorHandler);
 
 // ============ START SERVER ============
@@ -136,5 +135,5 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   logger.info(`🚀 Server is running on port ${PORT}`);
   logger.info(`📡 API URL: http://localhost:${PORT}/api`);
-  logger.info(`🌐 CORS enabled for all localhost and vercel.app domains`);
+  logger.info(`🌐 CORS enabled for localhost and vercel.app domains`);
 });
