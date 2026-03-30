@@ -521,27 +521,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="rounded-[28px] bg-[#800080] p-6 text-white shadow-[0_18px_40px_-20px_rgba(128,0,128,0.45)]">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="mb-2 text-lg font-semibold">Need Help?</h3>
-                <p className="mb-4 text-sm text-white/80">Contact HR for any assistance</p>
-                <div className="space-y-2">
-                  <div className="flex items-center space-x-2">
-                    <EnvelopeIcon className="h-4 w-4" />
-                    <span className="text-sm">hr@company.com</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <PhoneIcon className="h-4 w-4" />
-                    <span className="text-sm">+1 (555) 123-4567</span>
-                  </div>
-                </div>
-              </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-md">
-                <UsersIcon className="h-6 w-6 text-[#800080]" />
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

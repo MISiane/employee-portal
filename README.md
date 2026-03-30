@@ -9,8 +9,6 @@ A comprehensive employee management system for HR departments and employees.
 - **Leave Management**: Approve or reject leave requests with notes
 - **Payslip Generation**: Create and manage employee payslips
 - **Announcements**: Post company announcements with expiration dates
-- **Reports**: Generate employee and payroll reports
-- **Department Management**: Organize employees by departments
 
 ### For Employees
 - **Profile Management**: View and edit personal information
