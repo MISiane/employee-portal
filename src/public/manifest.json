@@ -6,7 +6,6 @@
   "display": "standalone",
   "theme_color": "#800080",
   "background_color": "#ffffff",
-  "orientation": "portrait",
   "icons": [
     {
       "src": "/icon-72.png",
@@ -45,8 +44,8 @@
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-387.png",
-      "sizes": "387x387",
+      "src": "/icon-384.png",
+      "sizes": "384x384",
       "type": "image/png",
       "purpose": "any"
     },
@@ -55,40 +54,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    }
-  ],
-  "screenshots": [
-    {
-      "src": "/screenshot-mobile.png",
-      "sizes": "360x640",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Employee Dashboard"
-    }
-  ],
-  "categories": ["business", "productivity"],
-  "prefer_related_applications": false,
-  "shortcuts": [
-    {
-      "name": "Dashboard",
-      "short_name": "Home",
-      "description": "Go to dashboard",
-      "url": "/dashboard",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "My Profile",
-      "short_name": "Profile",
-      "description": "View your profile",
-      "url": "/my-profile",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Leave Requests",
-      "short_name": "Leaves",
-      "description": "View leave requests",
-      "url": "/my-leave-requests",
-      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
