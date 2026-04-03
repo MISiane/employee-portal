@@ -66,12 +66,24 @@ export const getDepartments = async () => {
   }
 };
 
+// Get upcoming birthdays
 export const getUpcomingBirthdays = async () => {
   try {
     const response = await api.get('/employees/upcoming-birthdays');
     return response.data;
   } catch (error) {
     console.error('Error fetching upcoming birthdays:', error);
+    throw error;
+  }
+};
+
+// Reset employee password
+export const resetEmployeePassword = async (employeeId) => {
+  try {
+    const response = await api.post(`/employees/${employeeId}/reset-password`);
+    return response.data;
+  } catch (error) {
+    console.error('Error resetting password:', error);
     throw error;
   }
 };

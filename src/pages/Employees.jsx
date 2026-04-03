@@ -12,9 +12,12 @@ import {
   XMarkIcon,
   ArrowUpIcon,
   ArrowDownIcon,
-  ArrowsUpDownIcon
+  ArrowsUpDownIcon,
+  KeyIcon,
+  ClipboardDocumentIcon,
+  CheckIcon
 } from '@heroicons/react/24/outline';
-import { getEmployees, deleteEmployee, getDepartments, updateEmployee } from '../api/employees';
+import { getEmployees, deleteEmployee, getDepartments, updateEmployee, resetEmployeePassword } from '../api/employees';
 import { useAuth } from '../context/AuthContext';
 import EmployeeModal from '../components/Employees/EmployeeModal';
 import DeleteConfirmModal from '../components/Employees/DeleteConfirmModal';
@@ -35,14 +38,21 @@ const Employees = () => {
   const [totalEmployees, setTotalEmployees] = useState(0);
   
   // Sorting state
-  const [sortField, setSortField] = useState('employee_code'); // Default sort by employee code
-  const [sortDirection, setSortDirection] = useState('asc'); // 'asc' or 'desc'
+  const [sortField, setSortField] = useState('employee_code');
+  const [sortDirection, setSortDirection] = useState('asc');
 
   const [showEmployeeModal, setShowEmployeeModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showReactivateModal, setShowReactivateModal] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [modalMode, setModalMode] = useState('add');
+  const [resetPasswordData, setResetPasswordData] = useState({
+    password: '',
+    employeeName: '',
+    employeeEmail: ''
+  });
+  const [copied, setCopied] = useState(false);
 
   const isAdmin = user?.role === 'admin';
 
@@ -92,14 +102,12 @@ const Employees = () => {
 
   const handleSort = (field) => {
     if (sortField === field) {
-      // Toggle direction if same field
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
-      // New field, default to ascending
       setSortField(field);
       setSortDirection('asc');
     }
-    setCurrentPage(1); // Reset to first page when sorting
+    setCurrentPage(1);
   };
 
   const getSortIcon = (field) => {
@@ -140,6 +148,33 @@ const Employees = () => {
       console.error('Error reactivating employee:', error);
       alert('Error reactivating employee');
     }
+  };
+
+  const handleResetPassword = async (employee) => {
+    if (!confirm(`Reset password for ${employee.first_name} ${employee.last_name}? They will need to use the new temporary password to log in.`)) {
+      return;
+    }
+    
+    try {
+      const response = await resetEmployeePassword(employee.id);
+      if (response.success) {
+        setResetPasswordData({
+          password: response.temporary_password,
+          employeeName: response.employee_name,
+          employeeEmail: response.employee_email
+        });
+        setShowPasswordModal(true);
+      }
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      alert('Error resetting password: ' + (error.response?.data?.error || 'Please try again.'));
+    }
+  };
+
+  const handleCopyPassword = () => {
+    navigator.clipboard.writeText(resetPasswordData.password);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   const handleEdit = (employee) => {
@@ -187,7 +222,6 @@ const Employees = () => {
     );
   };
 
-  // Function to check for duplicate employee codes
   const checkForDuplicates = () => {
     const codes = employees.map(emp => emp.employee_code).filter(code => code);
     const duplicates = codes.filter((code, index) => codes.indexOf(code) !== index);
@@ -198,7 +232,6 @@ const Employees = () => {
     return [];
   };
 
-  // Check for duplicates on load
   useEffect(() => {
     if (employees.length > 0) {
       const duplicates = checkForDuplicates();
@@ -260,8 +293,8 @@ const Employees = () => {
             onClick={() => setShowFilters(!showFilters)}
             className={`px-4 py-2 border rounded-xl transition-colors ${
               showFilters 
-  ? 'bg-[#800080] text-white border-[#800080]' 
-  : 'border-[#e6cce6] hover:bg-[#f5e6f7]'
+                ? 'bg-[#800080] text-white border-[#800080]' 
+                : 'border-[#e6cce6] hover:bg-[#f5e6f7]'
             }`}
           >
             <FunnelIcon className="h-5 w-5" />
@@ -321,166 +354,19 @@ const Employees = () => {
         )}
       </div>
 
-     {/* Table - Responsive with horizontal scroll on mobile */}
-<div className="bg-white border border-purple-100 rounded-2xl shadow-sm overflow-hidden">
-  {/* Mobile view - Card layout for small screens (optional alternative) */}
-  <div className="block md:hidden divide-y divide-gray-200">
-    {loading ? (
-      <div className="p-6 text-center">
-        <div className="flex justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-        </div>
-        <p className="mt-2 text-gray-500">Loading employees...</p>
-      </div>
-    ) : employees.length === 0 ? (
-      <div className="p-6 text-center text-gray-400">
-        <UserCircleIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-        <p>No employees found</p>
-        {hasActiveFilters && (
-          <button onClick={clearFilters} className="mt-2 text-purple-600 hover:text-purple-700 text-sm">
-            Clear filters to see all employees
-          </button>
-        )}
-      </div>
-    ) : (
-      employees.map((emp) => (
-        <div key={emp.id} className="p-4 hover:bg-purple-50 transition-colors">
-          {/* Employee Info */}
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center font-semibold shadow ring-2 ring-purple-200">
-                {emp.first_name?.[0]}{emp.last_name?.[0]}
-              </div>
-              <div>
-                <p className="font-medium text-gray-900">
-                  {emp.first_name} {emp.last_name}
-                </p>
-                <p className="text-xs text-gray-500">{emp.email}</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={() => handleView(emp)} 
-                className="p-1.5 text-purple-600 hover:text-purple-800 transition rounded-lg hover:bg-purple-50"
-                title="View"
-              >
-                <EyeIcon className="h-4 w-4" />
-              </button>
-              <button 
-                onClick={() => handleEdit(emp)} 
-                className="p-1.5 text-indigo-600 hover:text-indigo-800 transition rounded-lg hover:bg-indigo-50"
-                title="Edit"
-              >
-                <PencilIcon className="h-4 w-4" />
-              </button>
-              {emp.is_active ? (
-                <button 
-                  onClick={() => {
-                    setSelectedEmployee(emp);
-                    setShowDeleteModal(true);
-                  }} 
-                  className="p-1.5 text-rose-500 hover:text-rose-700 transition rounded-lg hover:bg-rose-50"
-                  title="Deactivate"
-                >
-                  <TrashIcon className="h-4 w-4" />
-                </button>
-              ) : (
-                <button 
-                  onClick={() => handleReactivate(emp)} 
-                  className="p-1.5 text-green-600 hover:text-green-800 transition rounded-lg hover:bg-green-50"
-                  title="Reactivate"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
-          
-          {/* Employee Details Grid */}
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-xs text-gray-500">Employee Code</p>
-              <p className="font-medium text-gray-800">{emp.employee_code || '-'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Department</p>
-              {emp.department ? (
-                <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getDepartmentStyle(emp.department).color}`}>
-                  {emp.department}
-                </span>
-              ) : (
-                <p className="font-medium text-gray-800">-</p>
-              )}
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Position</p>
-              <p className="font-medium text-gray-800">{emp.position || '-'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Status</p>
-              {getStatusBadge(emp.is_active)}
-            </div>
-          </div>
-        </div>
-      ))
-    )}
-  </div>
-
-  {/* Desktop view - Table for larger screens */}
-  <div className="hidden md:block overflow-x-auto">
-    <table className="min-w-full">
-      <thead className="bg-purple-50">
-        <tr>
-          <th 
-            className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-purple-500 uppercase tracking-wider cursor-pointer hover:bg-purple-100 transition whitespace-nowrap"
-            onClick={() => handleSort('first_name')}
-          >
-            Employee {getSortIcon('first_name')}
-          </th>
-          <th 
-            className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-purple-500 uppercase tracking-wider cursor-pointer hover:bg-purple-100 transition whitespace-nowrap"
-            onClick={() => handleSort('employee_code')}
-          >
-            Code {getSortIcon('employee_code')}
-          </th>
-          <th 
-            className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-purple-500 uppercase tracking-wider cursor-pointer hover:bg-purple-100 transition whitespace-nowrap"
-            onClick={() => handleSort('department')}
-          >
-            Department {getSortIcon('department')}
-          </th>
-          <th 
-            className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-purple-500 uppercase tracking-wider cursor-pointer hover:bg-purple-100 transition whitespace-nowrap"
-            onClick={() => handleSort('position')}
-          >
-            Position {getSortIcon('position')}
-          </th>
-          <th 
-            className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-purple-500 uppercase tracking-wider cursor-pointer hover:bg-purple-100 transition whitespace-nowrap"
-            onClick={() => handleSort('is_active')}
-          >
-            Status {getSortIcon('is_active')}
-          </th>
-          <th className="px-4 lg:px-6 py-3 text-right text-xs font-medium text-purple-500 uppercase tracking-wider whitespace-nowrap">
-            Actions
-          </th>
-        </tr>
-      </thead>
-      <tbody className="bg-white divide-y divide-gray-200">
-        {loading ? (
-          <tr>
-            <td colSpan="6" className="px-6 py-8 text-center">
+      {/* Table - Responsive */}
+      <div className="bg-white border border-purple-100 rounded-2xl shadow-sm overflow-hidden">
+        {/* Mobile view - Card layout */}
+        <div className="block md:hidden divide-y divide-gray-200">
+          {loading ? (
+            <div className="p-6 text-center">
               <div className="flex justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
               </div>
               <p className="mt-2 text-gray-500">Loading employees...</p>
-            </td>
-          </tr>
-        ) : employees.length === 0 ? (
-          <tr>
-            <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
+            </div>
+          ) : employees.length === 0 ? (
+            <div className="p-6 text-center text-gray-400">
               <UserCircleIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
               <p>No employees found</p>
               {hasActiveFilters && (
@@ -488,116 +374,339 @@ const Employees = () => {
                   Clear filters to see all employees
                 </button>
               )}
-            </td>
-          </tr>
-        ) : (
-          employees.map(emp => (
-            <tr key={emp.id} className="hover:bg-purple-50 transition">
-              <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
-                <div className="flex items-center">
-                  <div className="h-9 w-9 lg:h-10 lg:w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center font-semibold shadow ring-2 ring-purple-200">
-                    {emp.first_name?.[0]}{emp.last_name?.[0]}
+            </div>
+          ) : (
+            employees.map((emp) => (
+              <div key={emp.id} className="p-4 hover:bg-purple-50 transition-colors">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center font-semibold shadow ring-2 ring-purple-200">
+                      {emp.first_name?.[0]}{emp.last_name?.[0]}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {emp.first_name} {emp.last_name}
+                      </p>
+                      <p className="text-xs text-gray-500">{emp.email}</p>
+                    </div>
                   </div>
-                  <div className="ml-3">
-                    <div className="text-sm font-medium text-gray-900">
-                      {emp.first_name} {emp.last_name}
-                    </div>
-                    <div className="text-xs text-gray-500 truncate max-w-[120px] lg:max-w-none">
-                      {emp.email}
-                    </div>
+                  <div className="flex items-center space-x-2">
+                    <button 
+                      onClick={() => handleView(emp)} 
+                      className="p-1.5 text-purple-600 hover:text-purple-800 transition rounded-lg hover:bg-purple-50"
+                      title="View"
+                    >
+                      <EyeIcon className="h-4 w-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleEdit(emp)} 
+                      className="p-1.5 text-indigo-600 hover:text-indigo-800 transition rounded-lg hover:bg-indigo-50"
+                      title="Edit"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                    {emp.is_active && (
+                      <button 
+                        onClick={() => handleResetPassword(emp)} 
+                        className="p-1.5 text-yellow-600 hover:text-yellow-800 transition rounded-lg hover:bg-yellow-50"
+                        title="Reset Password"
+                      >
+                        <KeyIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                    {emp.is_active ? (
+                      <button 
+                        onClick={() => {
+                          setSelectedEmployee(emp);
+                          setShowDeleteModal(true);
+                        }} 
+                        className="p-1.5 text-rose-500 hover:text-rose-700 transition rounded-lg hover:bg-rose-50"
+                        title="Deactivate"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => handleReactivate(emp)} 
+                        className="p-1.5 text-green-600 hover:text-green-800 transition rounded-lg hover:bg-green-50"
+                        title="Reactivate"
+                      >
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
-              </td>
-              <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                {emp.employee_code || '-'}
-              </td>
-              <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
-                {emp.department ? (
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDepartmentStyle(emp.department).color}`}>
-                    {emp.department}
-                  </span>
-                ) : '-'}
-              </td>
-              <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                {emp.position || '-'}
-              </td>
-              <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
-                {getStatusBadge(emp.is_active)}
-              </td>
-              <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right space-x-1 lg:space-x-2">
-                <button 
-                  onClick={() => handleView(emp)} 
-                  className="p-1.5 lg:p-2 text-purple-600 hover:text-purple-800 transition rounded-lg hover:bg-purple-50"
-                  title="View"
-                >
-                  <EyeIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                </button>
-                <button 
-                  onClick={() => handleEdit(emp)} 
-                  className="p-1.5 lg:p-2 text-indigo-600 hover:text-indigo-800 transition rounded-lg hover:bg-indigo-50"
-                  title="Edit"
-                >
-                  <PencilIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                </button>
                 
-                {emp.is_active ? (
-                  <button 
-                    onClick={() => {
-                      setSelectedEmployee(emp);
-                      setShowDeleteModal(true);
-                    }} 
-                    className="p-1.5 lg:p-2 text-rose-500 hover:text-rose-700 transition rounded-lg hover:bg-rose-50"
-                    title="Deactivate"
-                  >
-                    <TrashIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                  </button>
-                ) : (
-                  <button 
-                    onClick={() => handleReactivate(emp)} 
-                    className="p-1.5 lg:p-2 text-green-600 hover:text-green-800 transition rounded-lg hover:bg-green-50"
-                    title="Reactivate"
-                  >
-                    <svg className="h-4 w-4 lg:h-5 lg:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                  </button>
-                )}
-              </td>
-            </tr>
-          ))
-        )}
-      </tbody>
-    </table>
-  </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-gray-500">Employee Code</p>
+                    <p className="font-medium text-gray-800">{emp.employee_code || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Department</p>
+                    {emp.department ? (
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getDepartmentStyle(emp.department).color}`}>
+                        {emp.department}
+                      </span>
+                    ) : (
+                      <p className="font-medium text-gray-800">-</p>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Position</p>
+                    <p className="font-medium text-gray-800">{emp.position || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Status</p>
+                    {getStatusBadge(emp.is_active)}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
 
-  {/* Pagination - Responsive */}
-  {totalPages > 1 && (
-    <div className="px-4 lg:px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-      <div className="text-xs sm:text-sm text-gray-700 text-center sm:text-left">
-        Showing page {currentPage} of {totalPages} ({totalEmployees} total employees)
+        {/* Desktop view - Table */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-purple-50">
+              <tr>
+                <th 
+                  className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-purple-500 uppercase tracking-wider cursor-pointer hover:bg-purple-100 transition whitespace-nowrap"
+                  onClick={() => handleSort('first_name')}
+                >
+                  Employee {getSortIcon('first_name')}
+                </th>
+                <th 
+                  className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-purple-500 uppercase tracking-wider cursor-pointer hover:bg-purple-100 transition whitespace-nowrap"
+                  onClick={() => handleSort('employee_code')}
+                >
+                  Code {getSortIcon('employee_code')}
+                </th>
+                <th 
+                  className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-purple-500 uppercase tracking-wider cursor-pointer hover:bg-purple-100 transition whitespace-nowrap"
+                  onClick={() => handleSort('department')}
+                >
+                  Department {getSortIcon('department')}
+                </th>
+                <th 
+                  className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-purple-500 uppercase tracking-wider cursor-pointer hover:bg-purple-100 transition whitespace-nowrap"
+                  onClick={() => handleSort('position')}
+                >
+                  Position {getSortIcon('position')}
+                </th>
+                <th 
+                  className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-purple-500 uppercase tracking-wider cursor-pointer hover:bg-purple-100 transition whitespace-nowrap"
+                  onClick={() => handleSort('is_active')}
+                >
+                  Status {getSortIcon('is_active')}
+                </th>
+                <th className="px-4 lg:px-6 py-3 text-right text-xs font-medium text-purple-500 uppercase tracking-wider whitespace-nowrap">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-8 text-center">
+                    <div className="flex justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                    </div>
+                    <p className="mt-2 text-gray-500">Loading employees...</p>
+                  </td>
+                </tr>
+              ) : employees.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
+                    <UserCircleIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <p>No employees found</p>
+                    {hasActiveFilters && (
+                      <button onClick={clearFilters} className="mt-2 text-purple-600 hover:text-purple-700 text-sm">
+                        Clear filters to see all employees
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                employees.map(emp => (
+                  <tr key={emp.id} className="hover:bg-purple-50 transition">
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-9 w-9 lg:h-10 lg:w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center font-semibold shadow ring-2 ring-purple-200">
+                          {emp.first_name?.[0]}{emp.last_name?.[0]}
+                        </div>
+                        <div className="ml-3">
+                          <div className="text-sm font-medium text-gray-900">
+                            {emp.first_name} {emp.last_name}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate max-w-[120px] lg:max-w-none">
+                            {emp.email}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {emp.employee_code || '-'}
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                      {emp.department ? (
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDepartmentStyle(emp.department).color}`}>
+                          {emp.department}
+                        </span>
+                      ) : '-'}
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {emp.position || '-'}
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(emp.is_active)}
+                    </td>
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right space-x-1 lg:space-x-2">
+                      <button 
+                        onClick={() => handleView(emp)} 
+                        className="p-1.5 lg:p-2 text-purple-600 hover:text-purple-800 transition rounded-lg hover:bg-purple-50"
+                        title="View"
+                      >
+                        <EyeIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                      </button>
+                      <button 
+                        onClick={() => handleEdit(emp)} 
+                        className="p-1.5 lg:p-2 text-indigo-600 hover:text-indigo-800 transition rounded-lg hover:bg-indigo-50"
+                        title="Edit"
+                      >
+                        <PencilIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                      </button>
+                      {emp.is_active && (
+                        <button 
+                          onClick={() => handleResetPassword(emp)} 
+                          className="p-1.5 lg:p-2 text-yellow-600 hover:text-yellow-800 transition rounded-lg hover:bg-yellow-50"
+                          title="Reset Password"
+                        >
+                          <KeyIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                        </button>
+                      )}
+                      {emp.is_active ? (
+                        <button 
+                          onClick={() => {
+                            setSelectedEmployee(emp);
+                            setShowDeleteModal(true);
+                          }} 
+                          className="p-1.5 lg:p-2 text-rose-500 hover:text-rose-700 transition rounded-lg hover:bg-rose-50"
+                          title="Deactivate"
+                        >
+                          <TrashIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => handleReactivate(emp)} 
+                          className="p-1.5 lg:p-2 text-green-600 hover:text-green-800 transition rounded-lg hover:bg-green-50"
+                          title="Reactivate"
+                        >
+                          <svg className="h-4 w-4 lg:h-5 lg:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-4 lg:px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-xs sm:text-sm text-gray-700 text-center sm:text-left">
+              Showing page {currentPage} of {totalPages} ({totalEmployees} total employees)
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition text-sm"
+              >
+                Previous
+              </button>
+              <span className="px-3 py-1.5 text-sm hidden sm:inline-block">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition text-sm"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-      <div className="flex gap-2">
-        <button
-          onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-          disabled={currentPage === 1}
-          className="px-3 py-1.5 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition text-sm"
-        >
-          Previous
-        </button>
-        <span className="px-3 py-1.5 text-sm hidden sm:inline-block">
-          Page {currentPage} of {totalPages}
-        </span>
-        <button
-          onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-          disabled={currentPage === totalPages}
-          className="px-3 py-1.5 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition text-sm"
-        >
-          Next
-        </button>
-      </div>
-    </div>
-  )}
-</div>
+
+      {/* Password Reset Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Password Reset</h3>
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-2">
+              New temporary password for <strong>{resetPasswordData.employeeName}</strong> ({resetPasswordData.employeeEmail}):
+            </p>
+            
+            <div className="bg-yellow-50 p-3 rounded-lg mb-4 flex items-center justify-between">
+              <code className="text-lg font-mono font-bold text-yellow-800">
+                {resetPasswordData.password}
+              </code>
+              <button
+                onClick={handleCopyPassword}
+                className="p-1.5 text-yellow-600 hover:text-yellow-800 hover:bg-yellow-100 rounded-lg transition"
+                title="Copy to clipboard"
+              >
+                {copied ? (
+                  <CheckIcon className="h-5 w-5 text-green-600" />
+                ) : (
+                  <ClipboardDocumentIcon className="h-5 w-5" />
+                )}
+              </button>
+            </div>
+            
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+              <p className="text-xs text-amber-800">
+                ⚠️ <strong>Important:</strong> Please save this password now and provide it to the employee. 
+                This is the only time it will be displayed. The employee will be prompted to change it on first login.
+              </p>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={handleCopyPassword}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition flex items-center justify-center gap-2"
+              >
+                <ClipboardDocumentIcon className="h-4 w-4" />
+                Copy Password
+              </button>
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="flex-1 px-4 py-2 bg-[#800080] text-white rounded-lg hover:bg-[#660066] transition"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       <EmployeeModal

@@ -285,7 +285,7 @@ const createEmployee = async (req, res) => {
   }
 };
 
-// Update employee - COMPLETE FIX
+// Update employee
 const updateEmployee = async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
@@ -746,13 +746,99 @@ const getUpcomingBirthdays = async (req, res) => {
   }
 };
 
+// Reset employee password (admin only)
+const resetEmployeePassword = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  }
+  
+  const { id } = req.params;
+  
+  try {
+    // Check if employee exists
+    const employeeCheck = await pool.query(
+      `SELECT u.id, u.email, ep.first_name, ep.last_name 
+       FROM users u
+       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+       WHERE u.id = $1 AND u.role = 'employee'`,
+      [id]
+    );
+    
+    if (employeeCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    
+    const employee = employeeCheck.rows[0];
+    
+    // Generate a new temporary password
+    // Format: Word + Number + Symbol (more user-friendly)
+    const adjectives = ['Happy', 'Sunny', 'Bright', 'Clear', 'Smart', 'Quick', 'Brave', 'Calm'];
+    const nouns = ['Sky', 'Star', 'Moon', 'Cloud', 'Tree', 'Bird', 'Fish', 'Lion'];
+    const randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+    const randomNum = Math.floor(Math.random() * 900 + 100);
+    const tempPassword = `${randomAdj}${randomNoun}${randomNum}!`;
+    
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    
+    // Update the password
+    await pool.query(
+      'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
+      [hashedPassword, id]
+    );
+    
+    res.json({
+      success: true,
+      message: 'Password reset successfully',
+      temporary_password: tempPassword,
+      employee_name: `${employee.first_name} ${employee.last_name}`,
+      employee_email: employee.email
+    });
+  } catch (error) {
+    console.error('Error in resetEmployeePassword:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
+  }
+};
+
+// Get employee by employee code (for HR/Admin lookup)
+const getEmployeeByCode = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  }
+  
+  const { employeeCode } = req.params;
+  
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.email, u.role, u.is_active,
+              ep.first_name, ep.last_name, ep.employee_code, ep.department, ep.position
+       FROM users u
+       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+       WHERE ep.employee_code = $1 AND u.role = 'employee'`,
+      [employeeCode]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error in getEmployeeByCode:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 module.exports = {
   getEmployees,
   getEmployeeById,
+  getEmployeeByCode,   
   createEmployee,
   updateEmployee,
   updateProfile,
   deleteEmployee,
+  resetEmployeePassword,  
   getDepartments,
   getEmployeeStats,
   getDepartmentDistribution,

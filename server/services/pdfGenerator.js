@@ -334,7 +334,7 @@ const approvedSigPath = path.join(__dirname, 'romualdo r. santos.png');
 
         salaryBox('Monthly', monthly, 20, 146, 140, 16);
         salaryBox('Semi-monthly', semiMonthly, 160, 146, 140, 16);
-        salaryBox('DAILY', daily, 20, 177, 140, 16);
+        salaryBox('DAILY', '505.00', 20, 177, 140, 16);
         salaryBox('HOURLY', hourly, 160, 177, 140, 16);
 
         // EARNINGS
