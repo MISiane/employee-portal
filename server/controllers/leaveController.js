@@ -364,7 +364,11 @@ const updateLeaveRequestStatus = async (req, res) => {
     
     const leave = leaveRequest.rows[0];
     
-    if (status === 'approved' && leave.status !== 'approved') {
+    // Determine pay type (use provided value or default to 'with_pay')
+    const payType = leave_pay_type || leave.leave_pay_type || 'with_pay';
+    
+    // ONLY deduct balance for WITH PAY approvals
+    if (status === 'approved' && leave.status !== 'approved' && payType === 'with_pay') {
       const days = Math.ceil((new Date(leave.end_date) - new Date(leave.start_date)) / (1000 * 60 * 60 * 24)) + 1;
       const year = new Date(leave.start_date).getFullYear();
       
@@ -401,6 +405,12 @@ const updateLeaveRequestStatus = async (req, res) => {
           });
         }
       }
+    }
+    
+    // For WITHOUT PAY approval, skip balance deduction but still approve
+    if (status === 'approved' && leave.status !== 'approved' && payType === 'without_pay') {
+      // No balance deduction - just log that it's without pay
+      console.log(`Approving leave request ${id} as WITHOUT PAY - no balance deducted`);
     }
     
     const updateFields = [];
@@ -455,9 +465,17 @@ const updateLeaveRequestStatus = async (req, res) => {
     
     await client.query('COMMIT');
     
+    // Custom success message based on pay type
+    let successMessage = `Leave request ${status} successfully`;
+    if (status === 'approved' && payType === 'without_pay') {
+      successMessage = `Leave request approved WITHOUT PAY - no leave balance deducted`;
+    } else if (status === 'approved' && payType === 'with_pay') {
+      successMessage = `Leave request approved WITH PAY - leave balance deducted`;
+    }
+    
     res.json({
       success: true,
-      message: `Leave request ${status} successfully`,
+      message: successMessage,
       leaveRequest: result.rows[0]
     });
   } catch (error) {

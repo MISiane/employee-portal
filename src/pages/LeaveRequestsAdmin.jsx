@@ -7,6 +7,9 @@ import {
   EyeIcon,
   MagnifyingGlassIcon,
   XMarkIcon,
+  ChatBubbleLeftIcon,
+  UserCircleIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import api from '../api/config';
 
@@ -100,10 +103,8 @@ const LeaveRequestsAdmin = () => {
   const hasSufficientBalance = () => {
     if (!selectedRequest || !leaveBalances) return false;
     
-    // For WITHOUT PAY, always return true (no balance needed)
     if (approvePayType === 'without_pay') return true;
     
-    // For WITH PAY, check balance
     const days = calculateDays(selectedRequest.start_date, selectedRequest.end_date);
 
     switch (selectedRequest.leave_type) {
@@ -151,7 +152,6 @@ const LeaveRequestsAdmin = () => {
   const handleApprove = async () => {
     if (!selectedRequest) return;
 
-    // For WITH PAY requests, check balance first
     if (approvePayType === 'with_pay' && !hasSufficientBalance()) {
       alert(`Cannot approve: Insufficient leave balance. Only ${getCurrentBalance()} days available.`);
       return;
@@ -163,6 +163,7 @@ const LeaveRequestsAdmin = () => {
         comments: approvalNotes,
         leave_pay_type: approvePayType,
         medical_certificate: selectedRequest.leave_type === 'Sick Leave' ? approveMedCert : null,
+        approval_notes: approvalNotes || null,
       };
 
       await api.put(`/leave/requests/${selectedRequest.id}`, updateData);
@@ -221,6 +222,18 @@ const LeaveRequestsAdmin = () => {
     });
   };
 
+  const formatDateTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric', 
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   const formatShortDate = (dateString) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -254,6 +267,19 @@ const LeaveRequestsAdmin = () => {
           </span>
         );
     }
+  };
+
+  const getPayTypeBadge = (payType) => {
+    if (!payType) return null;
+    return payType === 'with_pay' ? (
+      <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+        With Pay
+      </span>
+    ) : (
+      <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+        Without Pay
+      </span>
+    );
   };
 
   const getLeaveTypeColor = (type) => {
@@ -393,290 +419,323 @@ const LeaveRequestsAdmin = () => {
         </div>
       </div>
 
-     {/* Leave Requests Table */}
-<div className="overflow-hidden rounded-[24px] border border-[#e6cce6] bg-white shadow-sm">
-  {/* Mobile view - Card layout */}
-  <div className="block md:hidden divide-y divide-[#eee5ef]">
-    {loading ? (
-      <div className="p-6 text-center">
-        <div className="flex justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#800080]"></div>
-        </div>
-        <p className="mt-2 text-gray-500">Loading leave requests...</p>
-      </div>
-    ) : requests.length === 0 ? (
-      <div className="p-6 text-center text-gray-500">
-        No leave requests found
-      </div>
-    ) : (
-      requests.map((request) => {
-        const days =
-          Math.ceil(
-            (new Date(request.end_date) - new Date(request.start_date)) /
-              (1000 * 60 * 60 * 24)
-          ) + 1;
-
-        return (
-          <div key={request.id} className="p-4 hover:bg-[#fcf8fc] transition-colors">
-            {/* Header with Employee Info and Status */}
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center space-x-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#dbeafe]">
-                  <span className="text-sm font-medium text-blue-600">
-                    {request.first_name?.charAt(0)}
-                    {request.last_name?.charAt(0)}
-                  </span>
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">
-                    {request.first_name} {request.last_name}
-                  </p>
-                  <p className="text-xs text-gray-500">{request.employee_code}</p>
-                </div>
-              </div>
-              {getStatusBadge(request.status)}
-            </div>
-            
-            {/* Leave Details Grid */}
-            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
-              <div>
-                <p className="text-xs text-gray-500">Leave Type</p>
-                <span className={`inline-block mt-1 rounded-full px-2 py-1 text-xs font-medium ${getLeaveTypeColor(request.leave_type)}`}>
-                  {request.leave_type}
-                </span>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Days</p>
-                <p className="font-medium text-gray-800">{days} day{days !== 1 ? 's' : ''}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-xs text-gray-500">Duration</p>
-                <p className="font-medium text-gray-800 text-sm">
-                  {formatDate(request.start_date)} - {formatDate(request.end_date)}
-                </p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-xs text-gray-500">Reason</p>
-                <p className="text-sm text-gray-600 break-words">{request.reason || '-'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Date Filed</p>
-                <p className="text-sm text-gray-500">{formatDate(request.created_at)}</p>
-              </div>
-            </div>
-            
-            {/* Action Buttons */}
-            <div className="flex justify-end space-x-2 pt-2 border-t border-[#f1e7f2]">
-              <button
-                onClick={() => handleView(request)}
-                className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
-                title="View Details"
-              >
-                <EyeIcon className="h-4 w-4" />
-              </button>
-              {request.status === 'pending' && (
-                <>
-                  <button
-                    onClick={() => handleApproveClick(request)}
-                    className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition"
-                    title="Approve"
-                  >
-                    <CheckCircleIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleReject(request.id)}
-                    className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
-                    title="Reject"
-                  >
-                    <XCircleIcon className="h-4 w-4" />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        );
-      })
-    )}
-  </div>
-
-  {/* Desktop view - Table */}
-  <div className="hidden md:block overflow-x-auto">
-    <table className="min-w-full divide-y divide-[#eee5ef]">
-      <thead className="bg-[#faf5fb]">
-        <tr>
-          <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
-            Employee
-          </th>
-          <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
-            Leave Type
-          </th>
-          <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
-            Duration
-          </th>
-          <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
-            Days
-          </th>
-          <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
-            Reason
-          </th>
-          <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
-            Status
-          </th>
-          <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
-            Date Filed
-          </th>
-          <th className="px-4 lg:px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
-            Actions
-          </th>
-        </tr>
-      </thead>
-
-      <tbody className="divide-y divide-[#f1e7f2] bg-white">
-        {loading ? (
-          <tr>
-            <td colSpan="8" className="px-6 py-10 text-center text-gray-500">
+      {/* Leave Requests Table */}
+      <div className="overflow-hidden rounded-[24px] border border-[#e6cce6] bg-white shadow-sm">
+        {/* Mobile view - Card layout */}
+        <div className="block md:hidden divide-y divide-[#eee5ef]">
+          {loading ? (
+            <div className="p-6 text-center">
               <div className="flex justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#800080]"></div>
               </div>
-              <p className="mt-2">Loading leave requests...</p>
-            </td>
-          </tr>
-        ) : requests.length === 0 ? (
-          <tr>
-            <td colSpan="8" className="px-6 py-10 text-center text-gray-500">
+              <p className="mt-2 text-gray-500">Loading leave requests...</p>
+            </div>
+          ) : requests.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
               No leave requests found
-            </td>
-          </tr>
-        ) : (
-          requests.map((request) => {
-            const days =
-              Math.ceil(
-                (new Date(request.end_date) - new Date(request.start_date)) /
-                  (1000 * 60 * 60 * 24)
-              ) + 1;
+            </div>
+          ) : (
+            requests.map((request) => {
+              const days = calculateDays(request.start_date, request.end_date);
 
-            return (
-              <tr key={request.id} className="transition hover:bg-[#fcf8fc]">
-                <td className="whitespace-nowrap px-4 lg:px-6 py-4">
-                  <div className="flex items-center">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dbeafe]">
-                      <span className="text-sm font-medium text-blue-600">
-                        {request.first_name?.charAt(0)}
-                        {request.last_name?.charAt(0)}
-                      </span>
+              return (
+                <div 
+                  key={request.id} 
+                  className="p-4 hover:bg-[#fcf8fc] transition-colors cursor-pointer"
+                  onClick={() => handleView(request)}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#dbeafe]">
+                        <span className="text-sm font-medium text-blue-600">
+                          {request.first_name?.charAt(0)}
+                          {request.last_name?.charAt(0)}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {request.first_name} {request.last_name}
+                        </p>
+                        <p className="text-xs text-gray-500">{request.employee_code}</p>
+                      </div>
                     </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">
-                        {request.first_name} {request.last_name}
+                    {getStatusBadge(request.status)}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                    <div>
+                      <p className="text-xs text-gray-500">Leave Type</p>
+                      <div className="flex items-center flex-wrap gap-1 mt-1">
+                        <span className={`inline-block rounded-full px-2 py-1 text-xs font-medium ${getLeaveTypeColor(request.leave_type)}`}>
+                          {request.leave_type}
+                        </span>
+                        {getPayTypeBadge(request.leave_pay_type)}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Days</p>
+                      <p className="font-medium text-gray-800">{days} day{days !== 1 ? 's' : ''}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-xs text-gray-500">Duration</p>
+                      <p className="font-medium text-gray-800 text-sm">
+                        {formatDate(request.start_date)} - {formatDate(request.end_date)}
                       </p>
-                      <p className="text-xs text-gray-500 truncate max-w-[100px] lg:max-w-none">
-                        {request.employee_code}
-                      </p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-xs text-gray-500">Reason</p>
+                      <p className="text-sm text-gray-600 break-words">{request.reason || '-'}</p>
+                    </div>
+                    
+                    {/* Show Approval Notes for Approved requests */}
+                    {request.status === 'approved' && request.approval_notes && (
+                      <div className="col-span-2 mt-1 rounded-lg bg-blue-50 p-2">
+                        <div className="flex items-start space-x-2">
+                          <ChatBubbleLeftIcon className="mt-0.5 h-3 w-3 text-blue-500" />
+                          <p className="text-xs text-blue-700">{request.approval_notes}</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div>
+                      <p className="text-xs text-gray-500">Date Filed</p>
+                      <p className="text-sm text-gray-500">{formatDate(request.created_at)}</p>
                     </div>
                   </div>
-                </td>
-
-                <td className="whitespace-nowrap px-4 lg:px-6 py-4">
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-medium ${getLeaveTypeColor(
-                      request.leave_type
-                    )}`}
-                  >
-                    {request.leave_type}
-                  </span>
-                </td>
-
-                <td className="whitespace-nowrap px-4 lg:px-6 py-4 text-sm text-gray-600">
-                  {formatShortDate(request.start_date)} - {formatShortDate(request.end_date)}
-                </td>
-
-                <td className="whitespace-nowrap px-4 lg:px-6 py-4 text-sm text-gray-600">
-                  {days} day{days !== 1 ? 's' : ''}
-                </td>
-
-                <td className="px-4 lg:px-6 py-4">
-                  <div
-                    className="max-w-[150px] lg:max-w-xs truncate text-sm text-gray-600"
-                    title={request.reason}
-                  >
-                    {request.reason || '-'}
+                  
+                  <div className="flex justify-end space-x-2 pt-2 border-t border-[#f1e7f2]">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleView(request);
+                      }}
+                      className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                      title="View Details"
+                    >
+                      <EyeIcon className="h-4 w-4" />
+                    </button>
+                    {request.status === 'pending' && (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleApproveClick(request);
+                          }}
+                          className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition"
+                          title="Approve"
+                        >
+                          <CheckCircleIcon className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReject(request.id);
+                          }}
+                          className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
+                          title="Reject"
+                        >
+                          <XCircleIcon className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
-                </td>
+                </div>
+              );
+            })
+          )}
+        </div>
 
-                <td className="whitespace-nowrap px-4 lg:px-6 py-4">
-                  {getStatusBadge(request.status)}
-                </td>
-
-                <td className="whitespace-nowrap px-4 lg:px-6 py-4 text-sm text-gray-500">
-                  {formatShortDate(request.created_at)}
-                </td>
-
-                <td className="whitespace-nowrap px-4 lg:px-6 py-4 text-right text-sm font-medium">
-                  <button
-                    onClick={() => handleView(request)}
-                    className="p-1.5 mr-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
-                    title="View Details"
-                  >
-                    <EyeIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                  </button>
-
-                  {request.status === 'pending' && (
-                    <>
-                      <button
-                        onClick={() => handleApproveClick(request)}
-                        className="p-1.5 mr-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition"
-                        title="Approve"
-                      >
-                        <CheckCircleIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                      </button>
-                      <button
-                        onClick={() => handleReject(request.id)}
-                        className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
-                        title="Reject"
-                      >
-                        <XCircleIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                      </button>
-                    </>
-                  )}
-                </td>
+        {/* Desktop view - Table */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="min-w-full divide-y divide-[#eee5ef]">
+            <thead className="bg-[#faf5fb]">
+              <tr>
+                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                  Employee
+                </th>
+                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                  Leave Type
+                </th>
+                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                  Duration
+                </th>
+                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                  Days
+                </th>
+                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                  Reason
+                </th>
+                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                  Approval Notes
+                </th>
+                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                  Status
+                </th>
+                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                  Date Filed
+                </th>
+                <th className="px-4 lg:px-6 py-4 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                  Actions
+                </th>
               </tr>
-            );
-          })
+            </thead>
+
+            <tbody className="divide-y divide-[#f1e7f2] bg-white">
+              {loading ? (
+                <tr>
+                  <td colSpan="9" className="px-6 py-10 text-center text-gray-500">
+                    <div className="flex justify-center">
+                      <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#800080]"></div>
+                    </div>
+                    <p className="mt-2">Loading leave requests...</p>
+                   </td>
+                 </tr>
+              ) : requests.length === 0 ? (
+                <tr>
+                  <td colSpan="9" className="px-6 py-10 text-center text-gray-500">
+                    No leave requests found
+                   </td>
+                 </tr>
+              ) : (
+                requests.map((request) => {
+                  const days = calculateDays(request.start_date, request.end_date);
+
+                  return (
+                    <tr key={request.id} className="transition hover:bg-[#fcf8fc]">
+                      <td className="whitespace-nowrap px-4 lg:px-6 py-4">
+                        <div className="flex items-center">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#dbeafe]">
+                            <span className="text-sm font-medium text-blue-600">
+                              {request.first_name?.charAt(0)}
+                              {request.last_name?.charAt(0)}
+                            </span>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm font-medium text-gray-900">
+                              {request.first_name} {request.last_name}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate max-w-[100px] lg:max-w-none">
+                              {request.employee_code}
+                            </p>
+                          </div>
+                        </div>
+                       </td>
+
+                      <td className="whitespace-nowrap px-4 lg:px-6 py-4">
+                        <div className="flex items-center flex-wrap gap-1">
+                          <span className={`rounded-full px-2 py-1 text-xs font-medium ${getLeaveTypeColor(request.leave_type)}`}>
+                            {request.leave_type}
+                          </span>
+                          {getPayTypeBadge(request.leave_pay_type)}
+                        </div>
+                       </td>
+
+                      <td className="whitespace-nowrap px-4 lg:px-6 py-4 text-sm text-gray-600">
+                        {formatShortDate(request.start_date)} - {formatShortDate(request.end_date)}
+                       </td>
+
+                      <td className="whitespace-nowrap px-4 lg:px-6 py-4 text-sm text-gray-600">
+                        {days} day{days !== 1 ? 's' : ''}
+                       </td>
+
+                      <td className="px-4 lg:px-6 py-4">
+                        <div
+                          className="max-w-[150px] lg:max-w-xs truncate text-sm text-gray-600"
+                          title={request.reason}
+                        >
+                          {request.reason || '-'}
+                        </div>
+                       </td>
+
+                      <td className="px-4 lg:px-6 py-4">
+                        {request.status === 'approved' && request.approval_notes ? (
+                          <div className="flex items-center">
+                            <ChatBubbleLeftIcon className="mr-1 h-4 w-4 text-blue-500" />
+                            <span className="text-sm text-gray-600 truncate max-w-[200px]" title={request.approval_notes}>
+                              {request.approval_notes}
+                            </span>
+                          </div>
+                        ) : request.status === 'approved' ? (
+                          <span className="text-sm text-gray-400">-</span>
+                        ) : (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
+                       </td>
+
+                      <td className="whitespace-nowrap px-4 lg:px-6 py-4">
+                        {getStatusBadge(request.status)}
+                       </td>
+
+                      <td className="whitespace-nowrap px-4 lg:px-6 py-4 text-sm text-gray-500">
+                        {formatShortDate(request.created_at)}
+                       </td>
+
+                      <td className="whitespace-nowrap px-4 lg:px-6 py-4 text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleView(request)}
+                          className="p-1.5 mr-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                          title="View Details"
+                        >
+                          <EyeIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                        </button>
+
+                        {request.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleApproveClick(request)}
+                              className="p-1.5 mr-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition"
+                              title="Approve"
+                            >
+                              <CheckCircleIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                            </button>
+                            <button
+                              onClick={() => handleReject(request.id)}
+                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
+                              title="Reject"
+                            >
+                              <XCircleIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                            </button>
+                          </>
+                        )}
+                       </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination - Responsive */}
+        {pagination.totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#eee5ef] px-4 lg:px-6 py-4">
+            <div className="text-xs sm:text-sm text-gray-700 text-center sm:text-left">
+              Showing page {pagination.page} of {pagination.totalPages}
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+                disabled={pagination.page === 1}
+                className="rounded-lg border border-[#e6cce6] px-3 py-1.5 text-sm text-[#800080] transition hover:bg-[#faf5fb] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="px-3 py-1.5 text-sm hidden sm:inline-block text-gray-600">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              <button
+                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+                disabled={pagination.page === pagination.totalPages}
+                className="rounded-lg border border-[#e6cce6] px-3 py-1.5 text-sm text-[#800080] transition hover:bg-[#faf5fb] disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
         )}
-      </tbody>
-    </table>
-  </div>
-
-  {/* Pagination - Responsive */}
-  {pagination.totalPages > 1 && (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-[#eee5ef] px-4 lg:px-6 py-4">
-      <div className="text-xs sm:text-sm text-gray-700 text-center sm:text-left">
-        Showing page {pagination.page} of {pagination.totalPages}
       </div>
-      <div className="flex space-x-2">
-        <button
-          onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-          disabled={pagination.page === 1}
-          className="rounded-lg border border-[#e6cce6] px-3 py-1.5 text-sm text-[#800080] transition hover:bg-[#faf5fb] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Previous
-        </button>
-        <span className="px-3 py-1.5 text-sm hidden sm:inline-block text-gray-600">
-          Page {pagination.page} of {pagination.totalPages}
-        </span>
-        <button
-          onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-          disabled={pagination.page === pagination.totalPages}
-          className="rounded-lg border border-[#e6cce6] px-3 py-1.5 text-sm text-[#800080] transition hover:bg-[#faf5fb] disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          Next
-        </button>
-      </div>
-    </div>
-  )}
-</div>
 
-      {/* View Request Modal */}
+      {/* View Request Modal - Enhanced with Approval Notes */}
       {showViewModal && selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-[24px] border border-[#e6cce6] bg-white p-6 shadow-2xl">
@@ -686,7 +745,7 @@ const LeaveRequestsAdmin = () => {
                 onClick={() => setShowViewModal(false)}
                 className="text-gray-500 transition hover:text-[#800080]"
               >
-                <XCircleIcon className="h-6 w-6" />
+                <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
 
@@ -703,11 +762,19 @@ const LeaveRequestsAdmin = () => {
                 </div>
 
                 <div className="text-sm text-gray-500">Leave Type:</div>
-                <div className="text-sm font-medium text-gray-800">{selectedRequest.leave_type}</div>
+                <div className="text-sm font-medium text-gray-800">
+                  {selectedRequest.leave_type}
+                  {getPayTypeBadge(selectedRequest.leave_pay_type)}
+                </div>
 
                 <div className="text-sm text-gray-500">Duration:</div>
                 <div className="text-sm font-medium text-gray-800">
                   {formatDate(selectedRequest.start_date)} - {formatDate(selectedRequest.end_date)}
+                </div>
+
+                <div className="text-sm text-gray-500">Days:</div>
+                <div className="text-sm font-medium text-gray-800">
+                  {calculateDays(selectedRequest.start_date, selectedRequest.end_date)} days
                 </div>
 
                 <div className="text-sm text-gray-500">Reason:</div>
@@ -720,21 +787,93 @@ const LeaveRequestsAdmin = () => {
 
                 <div className="text-sm text-gray-500">Date Filed:</div>
                 <div className="text-sm font-medium text-gray-800">
-                  {formatDate(selectedRequest.created_at)}
+                  {formatDateTime(selectedRequest.created_at)}
                 </div>
-
-                {selectedRequest.comments && (
-                  <>
-                    <div className="text-sm text-gray-500">Comments:</div>
-                    <div className="text-sm font-medium text-gray-800">
-                      {selectedRequest.comments}
-                    </div>
-                  </>
-                )}
               </div>
+
+              {/* Approval Details Section - Only show for approved/rejected requests */}
+              {(selectedRequest.status === 'approved' || selectedRequest.status === 'rejected') && (
+                <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <h4 className="mb-3 text-sm font-semibold text-gray-700">Approval Details</h4>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-start">
+                      <UserCircleIcon className="mr-2 h-4 w-4 text-gray-400 mt-0.5" />
+                      <div>
+                        <span className="text-gray-500">Approved by:</span>
+                        <span className="ml-2 font-medium text-gray-800">
+                          Admin
+                        </span>
+                      </div>
+                    </div>
+                    
+                    {selectedRequest.updated_at && selectedRequest.status === 'approved' && (
+                      <div className="flex items-start">
+                        <ClockIcon className="mr-2 h-4 w-4 text-gray-400 mt-0.5" />
+                        <div>
+                          <span className="text-gray-500">Approved on:</span>
+                          <span className="ml-2 text-gray-600">
+                            {formatDateTime(selectedRequest.updated_at)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedRequest.approval_notes && (
+                      <div className="mt-2 rounded-lg bg-blue-50 p-3">
+                        <div className="flex items-start">
+                          <DocumentTextIcon className="mr-2 h-4 w-4 text-blue-500 mt-0.5" />
+                          <div>
+                            <p className="text-xs font-medium text-blue-700 mb-1">Approval Notes:</p>
+                            <p className="text-sm text-blue-800">{selectedRequest.approval_notes}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedRequest.medical_certificate && (
+                      <div className="mt-2 rounded-lg bg-yellow-50 p-2">
+                        <p className="text-xs text-yellow-700">
+                          ⚠️ Medical Certificate required for this sick leave.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {selectedRequest.comments && (
+                <>
+                  <div className="text-sm text-gray-500">Additional Comments:</div>
+                  <div className="text-sm font-medium text-gray-800">
+                    {selectedRequest.comments}
+                  </div>
+                </>
+              )}
             </div>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-end space-x-3">
+              {selectedRequest.status === 'pending' && (
+                <>
+                  <button
+                    onClick={() => {
+                      setShowViewModal(false);
+                      handleApproveClick(selectedRequest);
+                    }}
+                    className="rounded-lg bg-green-600 px-4 py-2 font-medium text-white transition hover:bg-green-700"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowViewModal(false);
+                      handleReject(selectedRequest.id);
+                    }}
+                    className="rounded-lg bg-red-600 px-4 py-2 font-medium text-white transition hover:bg-red-700"
+                  >
+                    Reject
+                  </button>
+                </>
+              )}
               <button
                 onClick={() => setShowViewModal(false)}
                 className="rounded-lg bg-[#f5e6f7] px-4 py-2 font-medium text-[#800080] transition hover:bg-[#edd8ef]"
@@ -746,8 +885,7 @@ const LeaveRequestsAdmin = () => {
         </div>
       )}
 
-      
-           {/* Approve Modal - Updated */}
+      {/* Approve Modal */}
       {showApproveModal && selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[24px] border border-[#e6cce6] bg-white p-6 shadow-2xl">
@@ -927,8 +1065,11 @@ const LeaveRequestsAdmin = () => {
                       onChange={(e) => setApprovalNotes(e.target.value)}
                       rows="3"
                       className="w-full rounded-lg border border-[#e6cce6] px-3 py-2 focus:border-[#800080] focus:outline-none focus:ring-2 focus:ring-[#800080]/20"
-                      placeholder="Add notes about this approval..."
+                      placeholder="Add notes about this approval (these will be visible to the employee)..."
                     />
+                    <p className="mt-1 text-xs text-gray-400">
+                      These notes will be displayed to the employee when they view their leave request.
+                    </p>
                   </div>
                 </div>
 
