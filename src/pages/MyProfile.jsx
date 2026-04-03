@@ -20,6 +20,50 @@ import {
 import { getEmployeeById, updateEmployee } from '../api/employees';
 import ChangePasswordModal from '../components/Profile/ChangePasswordModal';
 
+// Move InfoField outside the component to prevent re-creation
+const InfoField = ({ label, value, icon: Icon, editField, type = 'text', isEditable = true, editing, formData, onInputChange }) => (
+  <div className="border-b border-gray-200 pb-3">
+    <div className="flex items-center mb-1">
+      <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 mr-2" />
+      <span className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase">{label}</span>
+    </div>
+    {editing && editField && isEditable ? (
+      type === 'textarea' ? (
+        <textarea
+          name={editField}
+          value={formData[editField] || ''}
+          onChange={onInputChange}
+          rows="2"
+          className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      ) : (
+        <input
+          type={type}
+          name={editField}
+          value={formData[editField] || ''}
+          onChange={onInputChange}
+          className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      )
+    ) : (
+      <p className="text-gray-800 font-medium mt-1 text-sm sm:text-base">{value || 'Not provided'}</p>
+    )}
+  </div>
+);
+
+// Move StatCard outside the component
+const StatCard = ({ title, value, icon: Icon, color }) => (
+  <div className={`bg-gradient-to-r ${color} rounded-xl sm:rounded-2xl p-4 sm:p-6`}>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-xs sm:text-sm text-white/80 font-medium">{title}</p>
+        <p className="text-lg sm:text-2xl font-bold text-white mt-1">{value}</p>
+      </div>
+      <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-white/80" />
+    </div>
+  </div>
+);
+
 const MyProfile = () => {
   const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
@@ -107,48 +151,6 @@ const MyProfile = () => {
     });
     setErrorMessage('');
   };
-
-  const InfoField = ({ label, value, icon: Icon, editField, type = 'text', isEditable = true }) => (
-    <div className="border-b border-gray-200 pb-3">
-      <div className="flex items-center mb-1">
-        <Icon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 mr-2" />
-        <span className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase">{label}</span>
-      </div>
-      {editing && editField && isEditable ? (
-        type === 'textarea' ? (
-          <textarea
-            name={editField}
-            value={formData[editField] || ''}
-            onChange={handleInputChange}
-            rows="2"
-            className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        ) : (
-          <input
-            type={type}
-            name={editField}
-            value={formData[editField] || ''}
-            onChange={handleInputChange}
-            className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        )
-      ) : (
-        <p className="text-gray-800 font-medium mt-1 text-sm sm:text-base">{value || 'Not provided'}</p>
-      )}
-    </div>
-  );
-
-  const StatCard = ({ title, value, icon: Icon, color }) => (
-    <div className={`bg-gradient-to-r ${color} rounded-xl sm:rounded-2xl p-4 sm:p-6`}>
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs sm:text-sm text-white/80 font-medium">{title}</p>
-          <p className="text-lg sm:text-2xl font-bold text-white mt-1">{value}</p>
-        </div>
-        <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-white/80" />
-      </div>
-    </div>
-  );
 
   if (loading && !profile) {
     return (
@@ -283,12 +285,18 @@ const MyProfile = () => {
               value={`${profile?.first_name} ${profile?.last_name}`} 
               icon={UserCircleIcon}
               isEditable={false}
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
             <InfoField 
               label="Email Address" 
               value={user?.email} 
               icon={EnvelopeIcon}
               isEditable={false}
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
             <InfoField 
               label="Phone Number" 
@@ -296,6 +304,9 @@ const MyProfile = () => {
               icon={PhoneIcon}
               editField="phone"
               type="tel"
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
           </div>
         </div>
@@ -312,24 +323,36 @@ const MyProfile = () => {
               value={profile?.employee_code || 'Not assigned'} 
               icon={BriefcaseIcon}
               isEditable={false}
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
             <InfoField 
               label="Department" 
               value={profile?.department || 'Not assigned'} 
               icon={BriefcaseIcon}
               isEditable={false}
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
             <InfoField 
               label="Position" 
               value={profile?.position || 'Not assigned'} 
               icon={BriefcaseIcon}
               isEditable={false}
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
             <InfoField 
               label="Hire Date" 
               value={profile?.hire_date ? new Date(profile.hire_date).toLocaleDateString() : 'Not set'} 
               icon={CalendarIcon}
               isEditable={false}
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
             <InfoField 
               label="Employment Status" 
@@ -345,6 +368,9 @@ const MyProfile = () => {
               }
               icon={BriefcaseIcon}
               isEditable={false}
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
             {profile?.regularization_date && (
               <InfoField 
@@ -352,6 +378,9 @@ const MyProfile = () => {
                 value={new Date(profile.regularization_date).toLocaleDateString()} 
                 icon={CalendarIcon}
                 isEditable={false}
+                editing={editing}
+                formData={formData}
+                onInputChange={handleInputChange}
               />
             )}
           </div>
@@ -369,6 +398,9 @@ const MyProfile = () => {
               value={profile?.address} 
               icon={MapPinIcon}
               editField="address"
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
               <InfoField 
@@ -376,12 +408,18 @@ const MyProfile = () => {
                 value={profile?.city} 
                 icon={MapPinIcon}
                 editField="city"
+                editing={editing}
+                formData={formData}
+                onInputChange={handleInputChange}
               />
               <InfoField 
                 label="State" 
                 value={profile?.state} 
                 icon={MapPinIcon}
                 editField="state"
+                editing={editing}
+                formData={formData}
+                onInputChange={handleInputChange}
               />
             </div>
             <InfoField 
@@ -389,6 +427,9 @@ const MyProfile = () => {
               value={profile?.zip_code} 
               icon={MapPinIcon}
               editField="zip_code"
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
           </div>
         </div>
@@ -405,6 +446,9 @@ const MyProfile = () => {
               value={profile?.emergency_contact_name} 
               icon={UserGroupIcon}
               editField="emergency_contact_name"
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
             <InfoField 
               label="Contact Phone" 
@@ -412,6 +456,9 @@ const MyProfile = () => {
               icon={PhoneIcon}
               editField="emergency_contact_phone"
               type="tel"
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
             />
           </div>
         </div>
