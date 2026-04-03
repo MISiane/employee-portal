@@ -10,22 +10,35 @@ const sanitizeValue = (value) => {
 const sanitizeNumber = (value) => {
   if (value === '' || value === undefined || value === null) return 0;
   const num = parseFloat(value);
-  return isNaN(num) ? 0 : num;
+  return isNaN(num) ? 0 : parseFloat(num.toFixed(2));
 };
 
-// Calculate daily rate from monthly salary
-const calculateDailyRate = (monthlySalary) => {
-  return monthlySalary / 22;
+// Round to 2 decimal places
+const roundTo2 = (num) => {
+  return Math.round((num || 0) * 100) / 100;
 };
 
-// Calculate hourly rate from daily rate
+// Calculate ACTUAL daily rate from monthly salary (26 working days per month)
+const calculateActualDailyRate = (monthlySalary) => {
+  return roundTo2(monthlySalary / 26);
+};
+
+// Calculate display daily rate (if HR inputs a different value for display)
+const calculateDisplayDailyRate = (monthlySalary, displayDailyRate) => {
+  if (displayDailyRate && displayDailyRate > 0) {
+    return roundTo2(displayDailyRate);
+  }
+  return roundTo2(monthlySalary / 26);
+};
+
+// Calculate hourly rate from actual daily rate (8 hours)
 const calculateHourlyRate = (dailyRate) => {
-  return dailyRate / 8;
+  return roundTo2(dailyRate / 8);
 };
 
 // Calculate per minute rate
 const calculatePerMinuteRate = (hourlyRate) => {
-  return hourlyRate / 60;
+  return roundTo2(hourlyRate / 60);
 };
 
 // Calculate gross salary based on all components
@@ -53,7 +66,7 @@ const calculateGrossSalary = (data) => {
   const totalEarnings = earnings.reduce((sum, val) => sum + val, 0);
   const totalDeductions = deductions.reduce((sum, val) => sum + val, 0);
   
-  return totalEarnings - totalDeductions;
+  return roundTo2(totalEarnings - totalDeductions);
 };
 
 // Calculate total deductions
@@ -71,12 +84,12 @@ const calculateTotalDeductions = (data) => {
     sanitizeNumber(data.other_deductions)
   ];
   
-  return deductions.reduce((sum, val) => sum + val, 0);
+  return roundTo2(deductions.reduce((sum, val) => sum + val, 0));
 };
 
 // Calculate net salary
 const calculateNetSalary = (grossSalary, totalDeductions, allowance) => {
-  return grossSalary - totalDeductions + sanitizeNumber(allowance);
+  return roundTo2(grossSalary - totalDeductions + sanitizeNumber(allowance));
 };
 
 // Create payslip
@@ -107,16 +120,25 @@ const createPayslip = async (req, res) => {
     
     const emp = employee.rows[0];
     
+    // Get monthly salary (from input or employee profile)
     const monthlySalary = sanitizeNumber(data.basic_salary_monthly || emp.basic_salary);
-    const dailyRate = calculateDailyRate(monthlySalary);
-    const hourlyRate = calculateHourlyRate(dailyRate);
-    const perMinuteRate = calculatePerMinuteRate(hourlyRate);
     
+    // For COMPUTATION purposes - use the correct daily rate (monthly ÷ 26)
+    const actualDailyRate = calculateActualDailyRate(monthlySalary);
+    const hourlyRate = calculateHourlyRate(actualDailyRate);
+    const perMinuteRate = calculatePerMinuteRate(hourlyRate);
+    const semiMonthlyRate = roundTo2(monthlySalary / 2);
+    
+    // For DISPLAY purposes - use the provided daily rate (legacy value) or fallback to actual
+    const displayDailyRate = sanitizeNumber(data.basic_salary_daily);
+    const dailyRateForDisplay = displayDailyRate > 0 ? displayDailyRate : actualDailyRate;
+    
+    // Calculate amounts using ACTUAL daily rate for computation
     const absencesDays = sanitizeNumber(data.absences_days);
-    const absencesAmount = absencesDays * dailyRate;
+    const absencesAmount = roundTo2(absencesDays * actualDailyRate);
     
     const paidLeaveDays = sanitizeNumber(data.paid_leave_days);
-    const paidLeaveAmount = paidLeaveDays * dailyRate;
+    const paidLeaveAmount = roundTo2(paidLeaveDays * actualDailyRate);
     
     const payslipData = {
       user_id: data.user_id,
@@ -125,12 +147,14 @@ const createPayslip = async (req, res) => {
       pay_period_end: data.pay_period_end,
       pay_date: data.pay_date || new Date(data.pay_period_end),
       
+      // Store both display and actual values
       basic_salary_monthly: monthlySalary,
-      basic_salary_semi_monthly: monthlySalary / 2,
-      basic_salary_daily: dailyRate,
-      basic_salary_hourly: hourlyRate,
-      basic_salary_per_minute: perMinuteRate,
+      basic_salary_semi_monthly: semiMonthlyRate,
+      basic_salary_daily: dailyRateForDisplay,        // Display value (legacy)
+      basic_salary_hourly: hourlyRate,                 // Actual for computation
+      basic_salary_per_minute: perMinuteRate,          // Actual for computation
       
+      // Absences and leave calculations (using actual daily rate)
       absences_days: absencesDays,
       absences_amount: data.absences_amount !== undefined ? sanitizeNumber(data.absences_amount) : absencesAmount,
       paid_leave_days: paidLeaveDays,
@@ -151,6 +175,7 @@ const createPayslip = async (req, res) => {
       adjustment_amount: sanitizeNumber(data.adjustment_amount),
       adjustment_description: sanitizeValue(data.adjustment_description),
       
+      // Deductions
       sss_deduction: sanitizeNumber(data.sss_deduction),
       philhealth_deduction: sanitizeNumber(data.philhealth_deduction),
       pagibig_deduction: sanitizeNumber(data.pagibig_deduction),
@@ -173,17 +198,24 @@ const createPayslip = async (req, res) => {
       status: data.status || 'generated'
     };
     
+    // Calculate gross salary
     payslipData.gross_salary = calculateGrossSalary(payslipData);
     
+    // Calculate taxable amount
     const nonTaxableDeductions = payslipData.sss_deduction + 
                                   payslipData.philhealth_deduction + 
                                   payslipData.pagibig_deduction;
-    payslipData.amount_subject_to_tax = payslipData.gross_salary - nonTaxableDeductions;
+    payslipData.amount_subject_to_tax = roundTo2(payslipData.gross_salary - nonTaxableDeductions);
     
+    // Calculate totals
     payslipData.total_deductions = calculateTotalDeductions(payslipData);
-    payslipData.net_amount = payslipData.gross_salary - payslipData.total_deductions;
-    payslipData.net_salary = payslipData.net_amount + payslipData.allowance_amount;
+    payslipData.net_salary = calculateNetSalary(
+      payslipData.gross_salary, 
+      payslipData.total_deductions, 
+      payslipData.allowance_amount
+    );
     
+    // Insert payslip
     const result = await client.query(
       `INSERT INTO payslips (
         user_id, employee_number, pay_period_start, pay_period_end, pay_date,
@@ -220,7 +252,7 @@ const createPayslip = async (req, res) => {
         payslipData.amount_subject_to_tax, payslipData.income_tax, payslipData.sss_loan,
         payslipData.cash_advance, payslipData.employee_ledger, payslipData.pagibig_loan,
         payslipData.hmo_deduction, payslipData.other_deductions, payslipData.other_deductions_description,
-        payslipData.total_deductions, payslipData.net_amount, payslipData.allowance_amount,
+        payslipData.total_deductions, payslipData.net_salary, payslipData.allowance_amount,
         payslipData.allowance_description, payslipData.net_salary, payslipData.days_present,
         payslipData.days_late, payslipData.status, payslipData.created_by
       ]
@@ -378,6 +410,49 @@ const updatePayslip = async (req, res) => {
       return res.status(404).json({ error: 'Payslip not found' });
     }
     
+    // Get monthly salary from data or existing payslip
+    const monthlySalary = sanitizeNumber(data.basic_salary_monthly || 0);
+    const actualDailyRate = calculateActualDailyRate(monthlySalary);
+    
+    // Recalculate amounts using actual daily rate
+    const recalculatedAbsencesAmount = (data.absences_days || 0) * actualDailyRate;
+    const recalculatedPaidLeaveAmount = (data.paid_leave_days || 0) * actualDailyRate;
+    
+    // Prepare data for recalculation
+    const recalcData = {
+      basic_salary_semi_monthly: data.basic_salary_semi_monthly || roundTo2(monthlySalary / 2),
+      paid_leave_amount: data.paid_leave_amount !== undefined ? data.paid_leave_amount : recalculatedPaidLeaveAmount,
+      night_differential_amount: data.night_differential_amount || 0,
+      night_differential_ot_amount: data.night_differential_ot_amount || 0,
+      ot_regular_amount: data.ot_regular_amount || 0,
+      ot_restday_amount: data.ot_restday_amount || 0,
+      ot_special_holiday_amount: data.ot_special_holiday_amount || 0,
+      ot_regular_holiday_amount: data.ot_regular_holiday_amount || 0,
+      restday_duty_amount: data.restday_duty_amount || 0,
+      holiday_premium_100_amount: data.holiday_premium_100_amount || 0,
+      holiday_premium_30_amount: data.holiday_premium_30_amount || 0,
+      adjustment_amount: data.adjustment_amount || 0,
+      absences_amount: data.absences_amount !== undefined ? data.absences_amount : recalculatedAbsencesAmount,
+      late_undertime_amount: data.late_undertime_amount || 0,
+      sss_deduction: data.sss_deduction || 0,
+      philhealth_deduction: data.philhealth_deduction || 0,
+      pagibig_deduction: data.pagibig_deduction || 0,
+      income_tax: data.income_tax || 0,
+      sss_loan: data.sss_loan || 0,
+      cash_advance: data.cash_advance || 0,
+      employee_ledger: data.employee_ledger || 0,
+      pagibig_loan: data.pagibig_loan || 0,
+      hmo_deduction: data.hmo_deduction || 0,
+      other_deductions: data.other_deductions || 0,
+      allowance_amount: data.allowance_amount || 0
+    };
+    
+    const recalculatedGrossSalary = calculateGrossSalary(recalcData);
+    const recalculatedTotalDeductions = calculateTotalDeductions(recalcData);
+    const recalculatedNetSalary = calculateNetSalary(recalculatedGrossSalary, recalculatedTotalDeductions, recalcData.allowance_amount);
+    const nonTaxableDeductions = recalcData.sss_deduction + recalcData.philhealth_deduction + recalcData.pagibig_deduction;
+    const recalculatedAmountSubjectToTax = roundTo2(recalculatedGrossSalary - nonTaxableDeductions);
+    
     const result = await pool.query(
       `UPDATE payslips SET
         basic_salary_monthly = $1,
@@ -417,22 +492,21 @@ const updatePayslip = async (req, res) => {
         days_late = $35,
         gross_salary = $36,
         total_deductions = $37,
-        net_amount = $38,
-        net_salary = $39,
-        amount_subject_to_tax = $40,
-        status = $41,
+        net_salary = $38,
+        amount_subject_to_tax = $39,
+        status = $40,
         updated_at = CURRENT_TIMESTAMP
-       WHERE id = $42
+       WHERE id = $41
        RETURNING *`,
       [
-        data.basic_salary_monthly || 0,
-        data.basic_salary_semi_monthly || 0,
-        data.basic_salary_daily || 0,
-        data.basic_salary_hourly || 0,
+        monthlySalary || 0,
+        data.basic_salary_semi_monthly || roundTo2(monthlySalary / 2),
+        data.basic_salary_daily || actualDailyRate,
+        data.basic_salary_hourly || calculateHourlyRate(actualDailyRate),
         data.absences_days || 0,
-        data.absences_amount || 0,
+        data.absences_amount !== undefined ? data.absences_amount : recalculatedAbsencesAmount,
         data.paid_leave_days || 0,
-        data.paid_leave_amount || 0,
+        data.paid_leave_amount !== undefined ? data.paid_leave_amount : recalculatedPaidLeaveAmount,
         data.late_undertime_amount || 0,
         data.night_differential_amount || 0,
         data.night_differential_ot_amount || 0,
@@ -460,11 +534,10 @@ const updatePayslip = async (req, res) => {
         data.allowance_description || '',
         data.days_present || 0,
         data.days_late || 0,
-        data.gross_salary || 0,
-        data.total_deductions || 0,
-        data.net_amount || 0,
-        data.net_salary || 0,
-        data.amount_subject_to_tax || 0,
+        recalculatedGrossSalary,
+        recalculatedTotalDeductions,
+        recalculatedNetSalary,
+        recalculatedAmountSubjectToTax,
         data.status || 'generated',
         id
       ]
@@ -577,17 +650,22 @@ const bulkCreatePayslips = async (req, res) => {
         
         const employee = employeeResult.rows[0];
         const monthlySalary = parseFloat(row.BASIC_SALARY_MONTHLY) || parseFloat(employee.salary) || 0;
-        const dailyRate = monthlySalary / 22;
-        const hourlyRate = dailyRate / 8;
+        
+        // Use actual daily rate for calculations (monthly ÷ 26)
+        const actualDailyRate = calculateActualDailyRate(monthlySalary);
+        const hourlyRate = calculateHourlyRate(actualDailyRate);
+        
+        // For display daily rate (legacy value if provided)
+        const displayDailyRate = parseFloat(row.BASIC_SALARY_DAILY) || actualDailyRate;
         
         let absencesAmount = parseFloat(row.ABSENCES_AMOUNT) || 0;
         if (row.ABSENCES_DAYS && !row.ABSENCES_AMOUNT) {
-          absencesAmount = parseFloat(row.ABSENCES_DAYS) * dailyRate;
+          absencesAmount = roundTo2(parseFloat(row.ABSENCES_DAYS) * actualDailyRate);
         }
         
         let paidLeaveAmount = parseFloat(row.PAID_LEAVE_AMOUNT) || 0;
         if (row.PAID_LEAVE_DAYS && !row.PAID_LEAVE_AMOUNT) {
-          paidLeaveAmount = parseFloat(row.PAID_LEAVE_DAYS) * dailyRate;
+          paidLeaveAmount = roundTo2(parseFloat(row.PAID_LEAVE_DAYS) * actualDailyRate);
         }
         
         const payslipData = {
@@ -597,10 +675,10 @@ const bulkCreatePayslips = async (req, res) => {
           pay_period_end: row.PAY_PERIOD_END,
           pay_date: row.PAY_DATE || row.PAY_PERIOD_END,
           basic_salary_monthly: monthlySalary,
-          basic_salary_semi_monthly: monthlySalary / 2,
-          basic_salary_daily: dailyRate,
-          basic_salary_hourly: hourlyRate,
-          basic_salary_per_minute: hourlyRate / 60,
+          basic_salary_semi_monthly: roundTo2(monthlySalary / 2),
+          basic_salary_daily: displayDailyRate,  // Display value
+          basic_salary_hourly: hourlyRate,       // Actual for computation
+          basic_salary_per_minute: roundTo2(hourlyRate / 60),
           absences_days: parseFloat(row.ABSENCES_DAYS) || 0,
           absences_amount: absencesAmount,
           paid_leave_days: parseFloat(row.PAID_LEAVE_DAYS) || 0,
@@ -636,6 +714,7 @@ const bulkCreatePayslips = async (req, res) => {
           created_by: req.user.id
         };
         
+        // Calculate totals
         const earnings = [
           payslipData.basic_salary_semi_monthly,
           payslipData.paid_leave_amount,
@@ -658,7 +737,7 @@ const bulkCreatePayslips = async (req, res) => {
         
         const totalEarnings = earnings.reduce((sum, val) => sum + val, 0);
         const totalDeductionsFromEarnings = deductionsFromEarnings.reduce((sum, val) => sum + val, 0);
-        payslipData.gross_salary = totalEarnings - totalDeductionsFromEarnings;
+        payslipData.gross_salary = roundTo2(totalEarnings - totalDeductionsFromEarnings);
         
         const allDeductions = [
           payslipData.sss_deduction,
@@ -672,15 +751,14 @@ const bulkCreatePayslips = async (req, res) => {
           payslipData.hmo_deduction,
           payslipData.other_deductions
         ];
-        payslipData.total_deductions = allDeductions.reduce((sum, val) => sum + val, 0);
+        payslipData.total_deductions = roundTo2(allDeductions.reduce((sum, val) => sum + val, 0));
         
-        payslipData.net_amount = payslipData.gross_salary - payslipData.total_deductions;
-        payslipData.net_salary = payslipData.net_amount + payslipData.allowance_amount;
+        payslipData.net_salary = roundTo2(payslipData.gross_salary - payslipData.total_deductions + payslipData.allowance_amount);
         
         const nonTaxableDeductions = payslipData.sss_deduction + 
                                       payslipData.philhealth_deduction + 
                                       payslipData.pagibig_deduction;
-        payslipData.amount_subject_to_tax = payslipData.gross_salary - nonTaxableDeductions;
+        payslipData.amount_subject_to_tax = roundTo2(payslipData.gross_salary - nonTaxableDeductions);
         
         const existingCheck = await pool.query(
           `SELECT id FROM payslips 
@@ -733,7 +811,7 @@ const bulkCreatePayslips = async (req, res) => {
             payslipData.amount_subject_to_tax, payslipData.income_tax, payslipData.sss_loan,
             payslipData.cash_advance, payslipData.employee_ledger, payslipData.pagibig_loan,
             payslipData.hmo_deduction, payslipData.other_deductions, payslipData.other_deductions_description,
-            payslipData.total_deductions, payslipData.net_amount, payslipData.allowance_amount,
+            payslipData.total_deductions, payslipData.net_salary, payslipData.allowance_amount,
             payslipData.allowance_description, payslipData.net_salary, payslipData.days_present,
             payslipData.days_late, payslipData.status, payslipData.created_by
           ]

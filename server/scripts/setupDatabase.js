@@ -78,20 +78,6 @@ async function completeSetup() {
       )
     `);
     
-    // Create attendance table
-    console.log('📝 Creating attendance table...');
-    await pool.query(`
-      CREATE TABLE attendance (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES users(id),
-        check_in TIMESTAMP,
-        check_out TIMESTAMP,
-        date DATE DEFAULT CURRENT_DATE,
-        status VARCHAR(20) DEFAULT 'present',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-    
     // Create leave_requests table
     console.log('📝 Creating leave_requests table...');
     await pool.query(`

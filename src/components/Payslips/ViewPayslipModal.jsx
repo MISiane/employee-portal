@@ -105,7 +105,7 @@ const ViewPayslipModal = ({ isOpen, onClose, payslip }) => {
               </div>
               <div>
                 <p className="text-xs text-gray-500">Daily</p>
-                <p className="font-medium text-gray-800">{formatCurrency(payslip.basic_salary_daily)}</p>
+                <p className="font-medium text-gray-800">{formatCurrency("505.00")}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500">Hourly</p>

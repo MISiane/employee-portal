@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   root: './',  // This tells Vite that index.html is in the root
   server: {
-    port: 5173,
+    port: 5175,
   },
   build: {
     outDir: 'dist',

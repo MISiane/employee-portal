@@ -7,7 +7,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "setup-db": "node scripts/setupDatabase.js",
-    "create-admin": "node scripts/createAdmin.js"
+    "create-admin": "node scripts/createAdmin.js",
+     "dev:clean": "taskkill /F /IM node.exe 2>nul & npm run dev"
   },
   "keywords": [],
   "author": "",
