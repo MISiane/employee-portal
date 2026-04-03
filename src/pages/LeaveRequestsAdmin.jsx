@@ -6,6 +6,7 @@ import {
   ClockIcon,
   EyeIcon,
   MagnifyingGlassIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import api from '../api/config';
 
@@ -98,7 +99,11 @@ const LeaveRequestsAdmin = () => {
 
   const hasSufficientBalance = () => {
     if (!selectedRequest || !leaveBalances) return false;
-
+    
+    // For WITHOUT PAY, always return true (no balance needed)
+    if (approvePayType === 'without_pay') return true;
+    
+    // For WITH PAY, check balance
     const days = calculateDays(selectedRequest.start_date, selectedRequest.end_date);
 
     switch (selectedRequest.leave_type) {
@@ -146,13 +151,18 @@ const LeaveRequestsAdmin = () => {
   const handleApprove = async () => {
     if (!selectedRequest) return;
 
+    // For WITH PAY requests, check balance first
+    if (approvePayType === 'with_pay' && !hasSufficientBalance()) {
+      alert(`Cannot approve: Insufficient leave balance. Only ${getCurrentBalance()} days available.`);
+      return;
+    }
+
     try {
       const updateData = {
         status: 'approved',
         comments: approvalNotes,
         leave_pay_type: approvePayType,
         medical_certificate: selectedRequest.leave_type === 'Sick Leave' ? approveMedCert : null,
-        approval_notes: null,
       };
 
       await api.put(`/leave/requests/${selectedRequest.id}`, updateData);
@@ -163,10 +173,14 @@ const LeaveRequestsAdmin = () => {
       setApproveMedCert(false);
       setApprovalNotes('');
       setLeaveBalances(null);
-      alert('Leave request approved successfully!');
+      
+      const message = approvePayType === 'with_pay' 
+        ? 'Leave request approved successfully!'
+        : 'Leave request approved successfully (Without Pay - no balance deducted).';
+      alert(message);
     } catch (error) {
       console.error('Error approving leave request:', error);
-      alert('Error approving leave request');
+      alert('Error approving leave request: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -208,10 +222,10 @@ const LeaveRequestsAdmin = () => {
   };
 
   const formatShortDate = (dateString) => {
-  if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-};
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -732,7 +746,8 @@ const LeaveRequestsAdmin = () => {
         </div>
       )}
 
-      {/* Approve Modal */}
+      
+           {/* Approve Modal - Updated */}
       {showApproveModal && selectedRequest && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[24px] border border-[#e6cce6] bg-white p-6 shadow-2xl">
@@ -742,7 +757,7 @@ const LeaveRequestsAdmin = () => {
                 onClick={resetApproveModal}
                 className="text-gray-500 transition hover:text-[#800080]"
               >
-                <XCircleIcon className="h-6 w-6" />
+                <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
 
@@ -802,6 +817,11 @@ const LeaveRequestsAdmin = () => {
                         <span className="ml-2 text-sm text-gray-700">Without Pay</span>
                       </label>
                     </div>
+                    {approvePayType === 'without_pay' && (
+                      <p className="mt-1 text-xs text-green-600">
+                        ✓ No leave balance deduction for Without Pay approvals.
+                      </p>
+                    )}
                   </div>
 
                   {selectedRequest.leave_type === 'Sick Leave' && (
@@ -867,17 +887,19 @@ const LeaveRequestsAdmin = () => {
                     </div>
                   </div>
 
-                  {!hasSufficientBalance() && (
+                  {approvePayType === 'with_pay' && !hasSufficientBalance() && (
                     <div className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
                       <strong>⚠️ Insufficient Balance!</strong>
                       <br />
                       Employee only has {getCurrentBalance()} days available.
                       {' '}
                       {calculateDays(selectedRequest.start_date, selectedRequest.end_date)} days requested.
+                      <br />
+                      <span className="text-xs">Consider approving as "Without Pay" instead.</span>
                     </div>
                   )}
 
-                  {hasSufficientBalance() && (
+                  {approvePayType === 'with_pay' && hasSufficientBalance() && (
                     <div className="rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700">
                       <strong>✓ Sufficient Balance</strong>
                       <br />
@@ -888,12 +910,13 @@ const LeaveRequestsAdmin = () => {
                     </div>
                   )}
 
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs text-blue-700">
-                    <strong>Note:</strong> Leave days are deducted from balance regardless of pay type.
-                    {approvePayType === 'with_pay'
-                      ? ' Employee will receive salary for this leave.'
-                      : ' Employee will NOT receive salary for this leave.'}
-                  </div>
+                  {approvePayType === 'without_pay' && (
+                    <div className="rounded-lg border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                      <strong>✓ Without Pay Approval</strong>
+                      <br />
+                      No leave balance will be deducted. Employee will not receive salary for these days.
+                    </div>
+                  )}
 
                   <div>
                     <label className="mb-1 block text-sm font-medium text-gray-700">
@@ -918,7 +941,6 @@ const LeaveRequestsAdmin = () => {
                   </button>
                   <button
                     onClick={handleApprove}
-                    disabled={approvePayType === 'with_pay' && !hasSufficientBalance()}
                     className={`flex-1 rounded-lg px-4 py-2 text-white ${
                       approvePayType === 'with_pay' && !hasSufficientBalance()
                         ? 'cursor-not-allowed bg-gray-400'
