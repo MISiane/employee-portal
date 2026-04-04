@@ -9,12 +9,14 @@ import {
   MegaphoneIcon,
   UserCircleIcon,
   XMarkIcon,
-  Bars3Icon
+  Bars3Icon,
+  BookOpenIcon 
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
   UsersIcon as UsersIconSolid,
 } from '@heroicons/react/24/solid';
+
 
 const Sidebar = () => {
   const { user } = useAuth();
@@ -49,21 +51,22 @@ const Sidebar = () => {
   }, [isMobileMenuOpen]);
 
   const adminNavigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, iconSolid: HomeIconSolid },
-    { name: 'Employees', href: '/employees', icon: UsersIcon, iconSolid: UsersIconSolid },
-    { name: 'Payslips', href: '/payslips', icon: CurrencyDollarIcon },
-    { name: 'Leave Requests', href: '/leave-requests', icon: CalendarIcon },
-    { name: 'Announcements', href: '/announcements', icon: MegaphoneIcon },
-  ];
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, iconSolid: HomeIconSolid },
+  { name: 'Employees', href: '/employees', icon: UsersIcon, iconSolid: UsersIconSolid },
+  { name: 'Payslips', href: '/payslips', icon: CurrencyDollarIcon },
+  { name: 'Leave Requests', href: '/leave-requests', icon: CalendarIcon },
+  { name: 'Announcements', href: '/announcements', icon: MegaphoneIcon },
+  { name: 'Employee Handbook', href: '/policies', icon: BookOpenIcon },
+];
 
-  const employeeNavigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, iconSolid: HomeIconSolid },
-    { name: 'My Profile', href: '/my-profile', icon: UserCircleIcon },
-    { name: 'My Payslips', href: '/my-payslips', icon: CurrencyDollarIcon },
-    { name: 'My Leave Requests', href: '/my-leave-requests', icon: CalendarIcon },
-    { name: 'Announcements', href: '/announcements', icon: MegaphoneIcon },
-  ];
-
+const employeeNavigation = [
+  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, iconSolid: HomeIconSolid },
+  { name: 'My Profile', href: '/my-profile', icon: UserCircleIcon },
+  { name: 'My Payslips', href: '/my-payslips', icon: CurrencyDollarIcon },
+  { name: 'My Leave Requests', href: '/my-leave-requests', icon: CalendarIcon },
+  { name: 'Announcements', href: '/announcements', icon: MegaphoneIcon },
+  { name: 'Employee Handbook', href: '/policies', icon: BookOpenIcon },
+];
   const navigation = isAdmin ? adminNavigation : employeeNavigation;
 
   // Sidebar content component

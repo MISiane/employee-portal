@@ -17,6 +17,7 @@ import Settings from './pages/Settings';
 import Layout from './components/Layout/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import NotFound from './pages/NotFound';
+import CompanyPolicies from './pages/CompanyPolicies';
 
 // Private Route Component
 const PrivateRoute = ({ children }) => {
@@ -80,6 +81,7 @@ function App() {
               {/* Shared Routes */}
               <Route path="announcements" element={<Announcements />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="/policies" element={<CompanyPolicies />} />
 
               <Route path="*" element={<NotFound />} />
             </Route>
