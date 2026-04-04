@@ -349,14 +349,15 @@ const updateEmployee = async (req, res) => {
       'position', 'phone', 'hire_date', 'salary', 'address', 'city',
       'state', 'zip_code', 'emergency_contact_name', 'emergency_contact_phone',
       'sss_number', 'philhealth_number', 'pagibig_number', 'tin_number',
-      'employment_status', 'regularization_date', 'probationary_end_date'
+      'employment_status', 'regularization_date', 'probationary_end_date',
+      'date_of_birth'  // ← ADD THIS LINE
     ];
     
     for (const field of profileFields) {
       if (updates[field] !== undefined) {
         let value = updates[field];
         
-        if (field === 'hire_date' || field === 'regularization_date' || field === 'probationary_end_date') {
+        if (field === 'hire_date' || field === 'regularization_date' || field === 'probationary_end_date' || field === 'date_of_birth') {
           value = sanitizeDate(value);
         } else if (field === 'salary') {
           value = sanitizeNumber(value);

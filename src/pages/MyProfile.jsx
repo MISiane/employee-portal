@@ -15,7 +15,8 @@ import {
   CheckIcon,
   KeyIcon,
   IdentificationIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  CakeIcon
 } from '@heroicons/react/24/outline';
 import { getEmployeeById, updateEmployee } from '../api/employees';
 import ChangePasswordModal from '../components/Profile/ChangePasswordModal';
@@ -34,6 +35,14 @@ const InfoField = ({ label, value, icon: Icon, editField, type = 'text', isEdita
           value={formData[editField] || ''}
           onChange={onInputChange}
           rows="2"
+          className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      ) : type === 'date' ? (
+        <input
+          type="date"
+          name={editField}
+          value={formData[editField] || ''}
+          onChange={onInputChange}
           className="mt-1 w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       ) : (
@@ -75,6 +84,9 @@ const MyProfile = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [editSection, setEditSection] = useState(null);
 
+  // Check if user is admin
+  const isAdmin = user?.role === 'admin';
+
   useEffect(() => {
     fetchProfile();
   }, [user]);
@@ -91,6 +103,7 @@ const MyProfile = () => {
         zip_code: data.zip_code || '',
         emergency_contact_name: data.emergency_contact_name || '',
         emergency_contact_phone: data.emergency_contact_phone || '',
+        date_of_birth: data.date_of_birth ? data.date_of_birth.split('T')[0] : '',
         sss_number: data.sss_number || '',
         philhealth_number: data.philhealth_number || '',
         pagibig_number: data.pagibig_number || '',
@@ -144,6 +157,7 @@ const MyProfile = () => {
       zip_code: profile?.zip_code || '',
       emergency_contact_name: profile?.emergency_contact_name || '',
       emergency_contact_phone: profile?.emergency_contact_phone || '',
+      date_of_birth: profile?.date_of_birth ? profile.date_of_birth.split('T')[0] : '',
       sss_number: profile?.sss_number || '',
       philhealth_number: profile?.philhealth_number || '',
       pagibig_number: profile?.pagibig_number || '',
@@ -308,6 +322,16 @@ const MyProfile = () => {
               formData={formData}
               onInputChange={handleInputChange}
             />
+            <InfoField 
+              label="Birth Date" 
+              value={profile?.date_of_birth ? new Date(profile.date_of_birth).toLocaleDateString() : 'Not provided'} 
+              icon={CakeIcon}
+              editField="date_of_birth"
+              type="date"
+              editing={editing}
+              formData={formData}
+              onInputChange={handleInputChange}
+            />
           </div>
         </div>
 
@@ -464,11 +488,14 @@ const MyProfile = () => {
         </div>
       </div>
 
-      {/* Government IDs Section */}
+      {/* Government IDs Section - Read-only for employees */}
       <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-4 sm:p-6">
         <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
           <IdentificationIcon className="h-5 w-5 mr-2 text-blue-600" />
           Government IDs
+          {!isAdmin && editing && (
+            <span className="ml-2 text-xs text-gray-400 font-normal">(Read-only - Contact HR for changes)</span>
+          )}
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div className="border-b border-gray-200 pb-3">
@@ -476,7 +503,7 @@ const MyProfile = () => {
               <DocumentTextIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 mr-2" />
               <span className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase">SSS Number</span>
             </div>
-            {editing ? (
+            {editing && isAdmin ? (
               <input
                 type="text"
                 name="sss_number"
@@ -495,7 +522,7 @@ const MyProfile = () => {
               <DocumentTextIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 mr-2" />
               <span className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase">PhilHealth Number</span>
             </div>
-            {editing ? (
+            {editing && isAdmin ? (
               <input
                 type="text"
                 name="philhealth_number"
@@ -514,7 +541,7 @@ const MyProfile = () => {
               <DocumentTextIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 mr-2" />
               <span className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase">Pag-IBIG Number</span>
             </div>
-            {editing ? (
+            {editing && isAdmin ? (
               <input
                 type="text"
                 name="pagibig_number"
@@ -533,7 +560,7 @@ const MyProfile = () => {
               <DocumentTextIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-400 mr-2" />
               <span className="text-[10px] sm:text-xs font-medium text-gray-500 uppercase">TIN Number</span>
             </div>
-            {editing ? (
+            {editing && isAdmin ? (
               <input
                 type="text"
                 name="tin_number"
@@ -547,6 +574,12 @@ const MyProfile = () => {
             )}
           </div>
         </div>
+        {!isAdmin && (
+          <p className="text-xs text-gray-400 mt-3 text-center">
+            For security reasons, government ID numbers can only be updated by HR/Admin.
+            Please contact your HR department for any changes.
+          </p>
+        )}
       </div>
 
       {/* Change Password Modal */}

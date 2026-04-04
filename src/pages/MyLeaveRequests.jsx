@@ -8,7 +8,8 @@ import {
   ArrowPathIcon,
   ChatBubbleLeftIcon,
   UserCircleIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import LeaveRequestModal from '../components/LeaveRequests/LeaveRequestModal';
 import api from '../api/config';
@@ -75,8 +76,13 @@ const MyLeaveRequests = () => {
     }
   };
 
-  const getPayTypeBadge = (payType) => {
-    if (!payType) return null;
+  // Only show pay type badge for approved requests
+  const getPayTypeBadge = (payType, status) => {
+    // Only show pay type for approved requests
+    if (status !== 'approved') return null;
+    
+    if (!payType || payType === 'pending') return null;
+    
     return payType === 'with_pay' ? (
       <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
         With Pay
@@ -221,12 +227,12 @@ const MyLeaveRequests = () => {
                   className="p-4 hover:bg-[#fcf8fc] transition-colors cursor-pointer"
                   onClick={() => handleViewDetails(request)}
                 >
-                  {/* Header with Leave Type and Status */}
+                  {/* Header with Leave Type, Pay Type (if approved), and Status */}
                   <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center flex-wrap gap-1">
                       <CalendarIcon className="h-5 w-5 text-[#800080]" />
                       <span className="font-medium text-gray-900">{request.leave_type}</span>
-                      {getPayTypeBadge(request.leave_pay_type)}
+                      {getPayTypeBadge(request.leave_pay_type, request.status)}
                     </div>
                     {getStatusBadge(request.status)}
                   </div>
@@ -290,6 +296,9 @@ const MyLeaveRequests = () => {
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                      Pay Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 whitespace-nowrap">
                       Approval Notes
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 whitespace-nowrap">
@@ -308,7 +317,6 @@ const MyLeaveRequests = () => {
                         <div className="flex items-center">
                           <CalendarIcon className="mr-2 h-5 w-5 text-[#800080]" />
                           <span className="text-sm text-gray-900">{request.leave_type}</span>
-                          {getPayTypeBadge(request.leave_pay_type)}
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
@@ -331,6 +339,11 @@ const MyLeaveRequests = () => {
                       </td>
                       <td className="whitespace-nowrap px-6 py-4">
                         {getStatusBadge(request.status)}
+                      </td>
+                      <td className="whitespace-nowrap px-6 py-4">
+                        {getPayTypeBadge(request.leave_pay_type, request.status) || (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {request.status === 'approved' && request.approval_notes ? (
@@ -378,7 +391,7 @@ const MyLeaveRequests = () => {
                 onClick={() => setShowDetailsModal(false)}
                 className="text-gray-500 transition hover:text-[#800080]"
               >
-                <XCircleIcon className="h-6 w-6" />
+                <XMarkIcon className="h-6 w-6" />
               </button>
             </div>
 
@@ -387,11 +400,24 @@ const MyLeaveRequests = () => {
                 <div className="text-gray-500">Leave Type:</div>
                 <div className="font-medium text-gray-800">
                   {selectedRequest.leave_type}
-                  {getPayTypeBadge(selectedRequest.leave_pay_type)}
                 </div>
 
                 <div className="text-gray-500">Status:</div>
                 <div>{getStatusBadge(selectedRequest.status)}</div>
+
+                {/* Only show Pay Type for approved requests */}
+                {selectedRequest.status === 'approved' && (
+                  <>
+                    <div className="text-gray-500">Pay Type:</div>
+                    <div className="font-medium">
+                      {selectedRequest.leave_pay_type === 'with_pay' ? (
+                        <span className="text-green-600">With Pay</span>
+                      ) : (
+                        <span className="text-gray-600">Without Pay</span>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 <div className="text-gray-500">Duration:</div>
                 <div className="font-medium text-gray-800">

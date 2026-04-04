@@ -8,7 +8,7 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
     start_date: '',
     end_date: '',
     reason: '',
-    leave_pay_type: 'with_pay',
+    leave_pay_type: 'pending',
     medical_certificate: false
   });
   const [loading, setLoading] = useState(false);
@@ -22,6 +22,16 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
   useEffect(() => {
     if (isOpen) {
       fetchLeaveBalances();
+      // Reset form when modal opens
+      setFormData({
+        leave_type: '',
+        start_date: '',
+        end_date: '',
+        reason: '',
+        leave_pay_type: 'pending',
+        medical_certificate: false
+      });
+      setError('');
     }
   }, [isOpen]);
 
@@ -39,7 +49,6 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
           response.data.emergency_leave === 0) {
         setIsProbationary(true);
         setProbationaryMessage('You appear to be on probationary status with zero leave balances.');
-        setFormData(prev => ({ ...prev, leave_pay_type: 'without_pay' }));
       } else {
         setIsProbationary(false);
         setProbationaryMessage('');
@@ -87,12 +96,6 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
-  const getRemainingAfterRequest = () => {
-    const currentBalance = getCurrentBalance();
-    const daysRequested = calculateDays();
-    return currentBalance - daysRequested;
-  };
-
   const hasSufficientBalance = () => {
     if (!formData.leave_type) return true;
     const currentBalance = getCurrentBalance();
@@ -100,40 +103,43 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
     return currentBalance >= daysRequested;
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // Only check balance for regular employees with "with pay" option
-  // Probationary employees automatically get without pay and don't need balance check
-  if (!isProbationary && formData.leave_pay_type === 'with_pay' && !hasSufficientBalance()) {
-    setError(`Insufficient balance. You only have ${getCurrentBalance()} days available for ${formData.leave_type}.`);
-    return;
-  }
-  
-  setLoading(true);
-  setError('');
-  
-  try {
-    await api.post('/leave/requests', formData);
-    onSuccess();
-  } catch (err) {
-    setError(err.response?.data?.error || 'Error submitting request. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // No confirmation dialog - just submit and let admin decide
+    setLoading(true);
+    setError('');
+    
+    // Prepare data without pay type (admin will decide)
+    const submitData = {
+      leave_type: formData.leave_type,
+      start_date: formData.start_date,
+      end_date: formData.end_date,
+      reason: formData.reason,
+      medical_certificate: formData.medical_certificate,
+      leave_pay_type: 'pending' // Admin will decide
+    };
+    
+    try {
+      await api.post('/leave/requests', submitData);
+      onSuccess();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Error submitting request. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
   const daysRequested = calculateDays();
   const currentBalance = getCurrentBalance();
-  const remainingBalance = getRemainingAfterRequest();
   const sufficientBalance = hasSufficientBalance();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
           <h2 className="text-xl font-bold text-gray-800">New Leave Request</h2>
           <button
             onClick={onClose}
@@ -164,7 +170,7 @@ const handleSubmit = async (e) => {
                 <div>
                   <p className="text-sm font-medium text-yellow-800">Probationary Employee</p>
                   <p className="text-xs text-yellow-700 mt-1">
-                    {probationaryMessage || 'As a probationary employee, your leave will be processed as WITHOUT PAY.'}
+                    {probationaryMessage || 'As a probationary employee, admin will decide your pay type upon approval.'}
                   </p>
                 </div>
               </div>
@@ -192,54 +198,9 @@ const handleSubmit = async (e) => {
               </select>
             </div>
 
-            {/* Pay Type Selection */}
-            {formData.leave_type && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pay Type *
-                </label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="leave_pay_type"
-                      value="with_pay"
-                      checked={formData.leave_pay_type === 'with_pay'}
-                      onChange={handleChange}
-                      disabled={isProbationary}
-                      className="h-4 w-4 text-blue-600 disabled:opacity-50"
-                    />
-                    <span className={`ml-2 text-sm ${isProbationary ? 'text-gray-400' : 'text-gray-700'}`}>
-                      With Pay
-                    </span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="leave_pay_type"
-                      value="without_pay"
-                      checked={formData.leave_pay_type === 'without_pay'}
-                      onChange={handleChange}
-                      className="h-4 w-4 text-yellow-600"
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Without Pay</span>
-                  </label>
-                </div>
-                {isProbationary && (
-                  <p className="text-xs text-yellow-600 mt-1">
-                    ⚠️ Probationary employees are automatically on leave without pay.
-                  </p>
-                )}
-                <p className="text-xs text-gray-500 mt-1">
-                  <strong>Note:</strong> Leave days are deducted from your balance regardless of pay type. 
-                  The difference is whether you receive salary during the leave period.
-                </p>
-              </div>
-            )}
-
             {/* Medical Certificate Option */}
             {formData.leave_type === 'Sick Leave' && (
-              <div className="border-t pt-3">
+              <div>
                 <label className="flex items-center">
                   <input
                     type="checkbox"
@@ -258,67 +219,64 @@ const handleSubmit = async (e) => {
               </div>
             )}
 
-            {/* Leave Balance Display - Only show for regular employees */}
-{!isProbationary && fetchingBalance ? (
-  <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-center">
-    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
-    <span className="text-sm text-gray-500">Loading balance...</span>
-  </div>
-) : !isProbationary && leaveBalances && formData.leave_type && (
-  <div className={`rounded-lg p-3 ${sufficientBalance ? 'bg-blue-50' : 'bg-red-50'}`}>
-    <div className="flex items-start space-x-2">
-      <InformationCircleIcon className={`h-5 w-5 mt-0.5 ${sufficientBalance ? 'text-blue-500' : 'text-red-500'}`} />
-      <div className="flex-1">
-        <p className={`text-sm font-medium ${sufficientBalance ? 'text-blue-800' : 'text-red-800'}`}>
-          Current {formData.leave_type} Balance
-        </p>
-        <p className={`text-lg font-bold ${sufficientBalance ? 'text-blue-600' : 'text-red-600'}`}>
-          {currentBalance} days
-        </p>
-        {formData.start_date && formData.end_date && (
-          <>
-            <p className={`text-sm mt-2 ${sufficientBalance ? 'text-blue-700' : 'text-red-700'}`}>
-              After this request: <strong>{remainingBalance} days</strong>
-              {remainingBalance < 0 && (
-                <span className="block text-xs text-red-600 mt-1">
-                  ⚠️ This will exceed your available balance!
-                </span>
-              )}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {formData.leave_pay_type === 'with_pay' 
-                ? '✓ You will receive salary during this leave period.' 
-                : '⚠️ You will NOT receive salary during this leave period.'}
-              Leave days are deducted from your balance in either case.
-            </p>
-          </>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+            {/* Leave Balance Display - Informational only */}
+            {fetchingBalance ? (
+              <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
+                <span className="text-sm text-gray-500">Loading balance...</span>
+              </div>
+            ) : leaveBalances && formData.leave_type && (
+              <div className={`rounded-lg p-3 ${sufficientBalance ? 'bg-blue-50' : 'bg-yellow-50'}`}>
+                <div className="flex items-start space-x-2">
+                  <InformationCircleIcon className={`h-5 w-5 mt-0.5 ${sufficientBalance ? 'text-blue-500' : 'text-yellow-500'}`} />
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${sufficientBalance ? 'text-blue-800' : 'text-yellow-800'}`}>
+                      Current {formData.leave_type} Balance
+                    </p>
+                    <p className={`text-lg font-bold ${sufficientBalance ? 'text-blue-600' : 'text-yellow-600'}`}>
+                      {currentBalance} days
+                    </p>
+                    {formData.start_date && formData.end_date && (
+                      <>
+                        <p className={`text-sm mt-2 ${sufficientBalance ? 'text-blue-700' : 'text-yellow-700'}`}>
+                          You are requesting: <strong>{daysRequested} days</strong>
+                          {!sufficientBalance && (
+                            <span className="block text-xs text-red-600 mt-1">
+                              ⚠️ This exceeds your available balance! Admin may approve as "Without Pay".
+                            </span>
+                          )}
+                          {sufficientBalance && (
+                            <span className="block text-xs text-green-600 mt-1">
+                              ✓ You have sufficient balance. Admin will decide pay type upon approval.
+                            </span>
+                          )}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
-{/* For probationary employees, show a different message */}
-{isProbationary && (
-  <div className="bg-green-50 rounded-lg p-3">
-    <div className="flex items-start space-x-2">
-      <InformationCircleIcon className="h-5 w-5 text-green-500 mt-0.5" />
-      <div className="flex-1">
-        <p className="text-sm font-medium text-green-800">Probationary Employee</p>
-        <p className="text-xs text-green-700 mt-1">
-          As a probationary employee, you can apply for leave even with zero balance.
-          Your leave will be processed as <strong>WITHOUT PAY</strong>.
-        </p>
-        {formData.start_date && formData.end_date && (
-          <p className="text-xs text-green-600 mt-2">
-            You are requesting {daysRequested} day{daysRequested !== 1 ? 's' : ''} of leave.
-            This will be recorded as <strong>Without Pay</strong>.
-          </p>
-        )}
-      </div>
-    </div>
-  </div>
-)}
+            {/* For probationary employees, show a different message */}
+            {isProbationary && (
+              <div className="bg-green-50 rounded-lg p-3">
+                <div className="flex items-start space-x-2">
+                  <InformationCircleIcon className="h-5 w-5 text-green-500 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-green-800">Probationary Employee</p>
+                    <p className="text-xs text-green-700 mt-1">
+                      As a probationary employee, admin will decide if your leave is with or without pay upon approval.
+                    </p>
+                    {formData.start_date && formData.end_date && (
+                      <p className="text-xs text-green-600 mt-2">
+                        You are requesting {daysRequested} day{daysRequested !== 1 ? 's' : ''} of leave.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Date Selection */}
             <div className="grid grid-cols-2 gap-4">
@@ -354,12 +312,12 @@ const handleSubmit = async (e) => {
 
             {/* Days Calculation */}
             {formData.start_date && formData.end_date && (
-              <div className={`rounded-lg p-3 ${sufficientBalance ? 'bg-blue-50' : 'bg-red-50'}`}>
+              <div className={`rounded-lg p-3 ${sufficientBalance ? 'bg-blue-50' : 'bg-yellow-50'}`}>
                 <div className="flex items-center justify-between">
-                  <span className={`text-sm ${sufficientBalance ? 'text-blue-700' : 'text-red-700'}`}>
+                  <span className={`text-sm ${sufficientBalance ? 'text-blue-700' : 'text-yellow-700'}`}>
                     Total days requested:
                   </span>
-                  <span className={`text-lg font-bold ${sufficientBalance ? 'text-blue-700' : 'text-red-700'}`}>
+                  <span className={`text-lg font-bold ${sufficientBalance ? 'text-blue-700' : 'text-yellow-700'}`}>
                     {daysRequested} day{daysRequested !== 1 ? 's' : ''}
                   </span>
                 </div>
@@ -383,17 +341,6 @@ const handleSubmit = async (e) => {
             </div>
           </div>
 
-          {/* Warning if insufficient balance */}
-          {formData.leave_type && formData.start_date && formData.end_date && !sufficientBalance && (
-            <div className="mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-              <p className="font-medium">⚠️ Insufficient Leave Balance</p>
-              <p className="text-sm mt-1">
-                You have {currentBalance} days available, but you're requesting {daysRequested} days.
-                Please adjust your request.
-              </p>
-            </div>
-          )}
-
           <div className="flex space-x-3 mt-6">
             <button
               type="button"
@@ -403,22 +350,27 @@ const handleSubmit = async (e) => {
               Cancel
             </button>
             <button
-  type="submit"
-  disabled={loading || (!isProbationary && formData.leave_pay_type === 'with_pay' && formData.leave_type && formData.start_date && formData.end_date && !sufficientBalance)}
-  className={`flex-1 px-4 py-2 rounded-lg text-white ${
-    loading || (!isProbationary && formData.leave_pay_type === 'with_pay' && formData.leave_type && formData.start_date && formData.end_date && !sufficientBalance)
-      ? 'bg-gray-400 cursor-not-allowed'
-      : 'bg-blue-600 hover:bg-blue-700'
-  }`}
->
-  {loading ? 'Submitting...' : 'Submit Request'}
-</button>
+              type="submit"
+              disabled={loading || !formData.leave_type || !formData.start_date || !formData.end_date || !formData.reason}
+              className={`flex-1 px-4 py-2 rounded-lg text-white ${
+                loading || !formData.leave_type || !formData.start_date || !formData.end_date || !formData.reason
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700'
+              }`}
+            >
+              {loading ? 'Submitting...' : 'Submit Request'}
+            </button>
           </div>
 
           {/* Info Note */}
           <div className="mt-4 pt-3 border-t border-gray-100">
             <p className="text-xs text-gray-500 text-center">
-              Leave requests require approval. You will be notified once your request is processed.
+              ⚠️ <strong>Important:</strong> Admin will decide whether your leave is WITH PAY or WITHOUT PAY upon approval.
+              {!sufficientBalance && formData.leave_type && formData.start_date && formData.end_date && (
+                <span className="block text-yellow-600 mt-1">
+                  Note: You have insufficient balance. Your request may be approved as WITHOUT PAY.
+                </span>
+              )}
             </p>
           </div>
         </form>

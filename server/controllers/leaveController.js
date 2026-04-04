@@ -207,18 +207,16 @@ const createLeaveRequest = async (req, res) => {
     const emp = employee.rows[0];
     const isProbationary = emp.employment_status === 'probationary';
     
-    let finalPayType = leave_pay_type;
-    let payTypeNote = '';
-    
-    if (isProbationary) {
-      finalPayType = 'without_pay';
-      payTypeNote = 'Probationary employees are automatically on leave without pay.';
-    }
+    // Always set to 'pending' - admin will decide upon approval
+    // No automatic assignment for probationary employees anymore
+    const finalPayType = 'pending';
     
     let hasSufficientBalance = true;
     let currentBalance = 0;
+    let balanceWarning = null;
     
-    if (!isProbationary && finalPayType === 'with_pay') {
+    // Check balance but don't block submission - just warn
+    if (!isProbationary) {
       const year = new Date(start_date).getFullYear();
       const balance = await client.query(
         `SELECT * FROM leave_balances 
@@ -238,10 +236,8 @@ const createLeaveRequest = async (req, res) => {
       
       if (currentBalance < days) {
         hasSufficientBalance = false;
-        await client.query('ROLLBACK');
-        return res.status(400).json({ 
-          error: `Insufficient leave balance. You only have ${currentBalance} days available.` 
-        });
+        balanceWarning = `Note: You only have ${currentBalance} days available. Admin may need to approve as "Without Pay".`;
+        // Don't block submission - just continue with warning
       }
     }
     
@@ -256,14 +252,28 @@ const createLeaveRequest = async (req, res) => {
     
     await client.query('COMMIT');
     
+    // Prepare response message
+    let successMessage = 'Leave request submitted successfully!';
+    let warningMessage = null;
+    
+    if (!hasSufficientBalance) {
+      warningMessage = balanceWarning;
+      successMessage = 'Leave request submitted, but you have insufficient balance. Admin will review and may approve as "Without Pay".';
+    } else if (isProbationary) {
+      warningMessage = 'As a probationary employee, admin will decide if your leave is with or without pay upon approval.';
+    } else {
+      successMessage = 'Leave request submitted successfully! Admin will determine pay type upon approval.';
+    }
+    
     res.status(201).json({
       success: true,
-      message: isProbationary 
-        ? 'Leave request submitted (Without Pay - Probationary Employee)' 
-        : 'Leave request submitted successfully',
+      message: successMessage,
+      warning: warningMessage,
       leaveRequest: result.rows[0],
       isProbationary,
-      payTypeNote
+      hasSufficientBalance,
+      currentBalance: hasSufficientBalance ? currentBalance : null,
+      daysRequested: days
     });
   } catch (error) {
     await client.query('ROLLBACK');
