@@ -13,6 +13,7 @@ const EmployeeModal = ({ isOpen, onClose, employee, mode, departments }) => {
     position: '',
     phone: '',
     hire_date: '',
+    date_of_birth: '',  // Added birth date field
     salary: '',
     address: '',
     city: '',
@@ -50,65 +51,67 @@ const EmployeeModal = ({ isOpen, onClose, employee, mode, departments }) => {
   const [newEmployeeEmail, setNewEmployeeEmail] = useState('');
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (employee && mode !== 'add') {
-      setFormData({
-        first_name: employee.first_name || '',
-        last_name: employee.last_name || '',
-        email: employee.email || '',
-        employee_code: employee.employee_code || '',
-        department: employee.department || '',
-        position: employee.position || '',
-        phone: employee.phone || '',
-        hire_date: employee.hire_date ? employee.hire_date.split('T')[0] : '',
-        salary: employee.salary || '',
-        address: employee.address || '',
-        city: employee.city || '',
-        state: employee.state || '',
-        zip_code: employee.zip_code || '',
-        emergency_contact_name: employee.emergency_contact_name || '',
-        emergency_contact_phone: employee.emergency_contact_phone || '',
-        sss_number: employee.sss_number || '',
-        philhealth_number: employee.philhealth_number || '',
-        pagibig_number: employee.pagibig_number || '',
-        tin_number: employee.tin_number || '',
-        employment_status: employee.employment_status || 'regular',
-        regularization_date: employee.regularization_date ? employee.regularization_date.split('T')[0] : '',
-        probationary_end_date: employee.probationary_end_date ? employee.probationary_end_date.split('T')[0] : '',
-        role: employee.role || 'employee'
-      });
-      
-      if (mode !== 'add') {
-        fetchLeaveBalances(employee.id);
-      }
-    } else {
-      setFormData({
-        first_name: '',
-        last_name: '',
-        email: '',
-        employee_code: '',
-        department: '',
-        position: '',
-        phone: '',
-        hire_date: '',
-        salary: '',
-        address: '',
-        city: '',
-        state: '',
-        zip_code: '',
-        emergency_contact_name: '',
-        emergency_contact_phone: '',
-        sss_number: '',
-        philhealth_number: '',
-        pagibig_number: '',
-        tin_number: '',
-        employment_status: 'regular',
-        regularization_date: '',
-        probationary_end_date: '',
-        role: 'employee'
-      });
+useEffect(() => {
+  if (employee && mode !== 'add') {
+    setFormData({
+      first_name: employee.first_name || '',
+      last_name: employee.last_name || '',
+      email: employee.email || '',
+      employee_code: employee.employee_code || '',
+      department: employee.department || '',
+      position: employee.position || '',
+      phone: employee.phone || '',
+      hire_date: employee.hire_date || '',
+      date_of_birth: employee.date_of_birth || '',
+      salary: employee.salary || '',
+      address: employee.address || '',
+      city: employee.city || '',
+      state: employee.state || '',
+      zip_code: employee.zip_code || '',
+      emergency_contact_name: employee.emergency_contact_name || '',
+      emergency_contact_phone: employee.emergency_contact_phone || '',
+      sss_number: employee.sss_number || '',
+      philhealth_number: employee.philhealth_number || '',
+      pagibig_number: employee.pagibig_number || '',
+      tin_number: employee.tin_number || '',
+      employment_status: employee.employment_status || 'regular',
+      regularization_date: employee.regularization_date || '',
+      probationary_end_date: employee.probationary_end_date || '',
+      role: employee.role || 'employee'
+    });
+    
+    if (mode !== 'add') {
+      fetchLeaveBalances(employee.id);
     }
-  }, [employee, mode]);
+  } else {
+    setFormData({
+      first_name: '',
+      last_name: '',
+      email: '',
+      employee_code: '',
+      department: '',
+      position: '',
+      phone: '',
+      hire_date: '',
+      date_of_birth: '',
+      salary: '',
+      address: '',
+      city: '',
+      state: '',
+      zip_code: '',
+      emergency_contact_name: '',
+      emergency_contact_phone: '',
+      sss_number: '',
+      philhealth_number: '',
+      pagibig_number: '',
+      tin_number: '',
+      employment_status: 'regular',
+      regularization_date: '',
+      probationary_end_date: '',
+      role: 'employee'
+    });
+  }
+}, [employee, mode]);
 
   const fetchLeaveBalances = async (userId) => {
     try {
@@ -156,56 +159,65 @@ const EmployeeModal = ({ isOpen, onClose, employee, mode, departments }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-const handlePasswordModalClose = () => {
-  setShowPasswordModal(false);
-  setCopied(false);
-  setLoading(false); // Make sure loading is false
-  setFormData({
-    first_name: '',
-    last_name: '',
-    email: '',
-    employee_code: '',
-    department: '',
-    position: '',
-    phone: '',
-    hire_date: '',
-    salary: '',
-    address: '',
-    city: '',
-    state: '',
-    zip_code: '',
-    emergency_contact_name: '',
-    emergency_contact_phone: '',
-    sss_number: '',
-    philhealth_number: '',
-    pagibig_number: '',
-    tin_number: '',
-    employment_status: 'regular',
-    regularization_date: '',
-    probationary_end_date: '',
-    role: 'employee'
-  }); // Reset form data
-  onClose(); // Close the main modal after password is acknowledged
-};
+  const handlePasswordModalClose = () => {
+    setShowPasswordModal(false);
+    setCopied(false);
+    setLoading(false);
+    // Reset form data for next use
+    setFormData({
+      first_name: '',
+      last_name: '',
+      email: '',
+      employee_code: '',
+      department: '',
+      position: '',
+      phone: '',
+      hire_date: '',
+      date_of_birth: '',
+      salary: '',
+      address: '',
+      city: '',
+      state: '',
+      zip_code: '',
+      emergency_contact_name: '',
+      emergency_contact_phone: '',
+      sss_number: '',
+      philhealth_number: '',
+      pagibig_number: '',
+      tin_number: '',
+      employment_status: 'regular',
+      regularization_date: '',
+      probationary_end_date: '',
+      role: 'employee'
+    });
+    onClose();
+  };
 
-const handleSubmit = async (e) => {
+ const handleSubmit = async (e) => {
   e.preventDefault();
   setLoading(true);
   setError('');
 
+  // Create a copy of formData
+  const submitData = { ...formData };
+  
+  // Ensure date_of_birth is in correct format without timezone
+  if (submitData.date_of_birth) {
+    // The input type="date" gives YYYY-MM-DD
+    // Keep it exactly as is
+    submitData.date_of_birth = submitData.date_of_birth;
+  }
+
   try {
     if (mode === 'add') {
-      const response = await createEmployee(formData);
-      // Reset loading BEFORE showing password modal
+      const response = await createEmployee(submitData);
       setLoading(false);
-      // Show password modal with the temporary password
       setNewPassword(response.tempPassword);
       setNewEmployeeName(`${response.profile.first_name} ${response.profile.last_name}`);
       setNewEmployeeEmail(response.user.email);
       setShowPasswordModal(true);
-      // Don't close the main modal yet - wait for password modal to close
     } else {
-      await updateEmployee(employee.id, formData);
+      await updateEmployee(employee.id, submitData);
       alert('Employee updated successfully!');
       setLoading(false);
       onClose();
@@ -306,6 +318,10 @@ const handleSubmit = async (e) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hire Date</label>
                   <input type="date" name="hire_date" value={formData.hire_date} onChange={handleChange} disabled={mode === 'view'} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Birth Date</label>
+                  <input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} disabled={mode === 'view'} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
                 </div>
               </div>
             )}

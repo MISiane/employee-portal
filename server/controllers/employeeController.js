@@ -7,9 +7,19 @@ const sanitizeValue = (value) => {
   return value;
 };
 
-// Helper function to sanitize date fields
+// Helper function to sanitize date fields - SIMPLIFIED
 const sanitizeDate = (value) => {
   if (value === '' || value === undefined || value === null) return null;
+  
+  // If it's a string in YYYY-MM-DD format, return as is
+  if (typeof value === 'string') {
+    // Extract just the date part
+    const dateMatch = value.match(/^\d{4}-\d{2}-\d{2}/);
+    if (dateMatch) {
+      return dateMatch[0];
+    }
+  }
+  
   return value;
 };
 
@@ -20,6 +30,7 @@ const sanitizeNumber = (value) => {
   return isNaN(num) ? null : num;
 };
 
+
 // Get all employees with filters
 const getEmployees = async (req, res) => {
   if (req.user.role !== 'admin') {
@@ -29,14 +40,18 @@ const getEmployees = async (req, res) => {
   const { search, department, status, page = 1, limit = 10, sort = 'created_at', order = 'DESC'} = req.query;
   const offset = (page - 1) * limit;
   
-  try {
+   try {
     let query = `
       SELECT u.id, u.email, u.role, u.is_active, u.last_login,
              ep.first_name, ep.last_name, ep.employee_code, ep.department, 
-             ep.position, ep.phone, ep.hire_date, ep.salary,
+             ep.position, ep.phone, ep.salary,
              ep.address, ep.city, ep.state, ep.zip_code,
              ep.emergency_contact_name, ep.emergency_contact_phone,
-             ep.sss_number, ep.philhealth_number, ep.pagibig_number, ep.tin_number
+             ep.sss_number, ep.philhealth_number, ep.pagibig_number, ep.tin_number,
+             TO_CHAR(ep.hire_date, 'YYYY-MM-DD') as hire_date,
+             TO_CHAR(ep.date_of_birth, 'YYYY-MM-DD') as date_of_birth,
+             TO_CHAR(ep.regularization_date, 'YYYY-MM-DD') as regularization_date,
+             TO_CHAR(ep.probationary_end_date, 'YYYY-MM-DD') as probationary_end_date
       FROM users u
       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
       WHERE u.role = 'employee'
@@ -145,13 +160,10 @@ const getEmployeeById = async (req, res) => {
     const result = await pool.query(
       `SELECT u.id, u.email, u.role, u.is_active, u.last_login,
               ep.*,
-              ep.employment_status,
-              ep.regularization_date,
-              ep.probationary_end_date,
-              ep.sss_number,
-              ep.philhealth_number,
-              ep.pagibig_number,
-              ep.tin_number
+              TO_CHAR(ep.date_of_birth, 'YYYY-MM-DD') as date_of_birth,
+              TO_CHAR(ep.hire_date, 'YYYY-MM-DD') as hire_date,
+              TO_CHAR(ep.regularization_date, 'YYYY-MM-DD') as regularization_date,
+              TO_CHAR(ep.probationary_end_date, 'YYYY-MM-DD') as probationary_end_date
        FROM users u
        LEFT JOIN employee_profiles ep ON u.id = ep.user_id
        WHERE u.id = $1`,
@@ -169,7 +181,7 @@ const getEmployeeById = async (req, res) => {
   }
 };
 
-// Create new employee
+/// Create new employee
 const createEmployee = async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied. Admin only.' });
@@ -184,6 +196,7 @@ const createEmployee = async (req, res) => {
     position,
     phone,
     hire_date,
+    date_of_birth,  // ← ADD THIS
     salary,
     address,
     city,
@@ -235,28 +248,28 @@ const createEmployee = async (req, res) => {
       empCode = `EMP${String(num).padStart(4, '0')}`;
     }
     
-    const profileResult = await client.query(
-      `INSERT INTO employee_profiles (
-        user_id, first_name, last_name, employee_code, department,
-        position, phone, hire_date, salary, address, city,
-        state, zip_code, emergency_contact_name, emergency_contact_phone,
-        sss_number, philhealth_number, pagibig_number, tin_number,
-        employment_status, regularization_date, probationary_end_date
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
-      RETURNING *`,
-      [
-        user.id, first_name, last_name, empCode,
-        sanitizeValue(department), sanitizeValue(position), sanitizeValue(phone),
-        sanitizeDate(hire_date), sanitizeNumber(salary), sanitizeValue(address),
-        sanitizeValue(city), sanitizeValue(state), sanitizeValue(zip_code),
-        sanitizeValue(emergency_contact_name), sanitizeValue(emergency_contact_phone),
-        sanitizeValue(sss_number), sanitizeValue(philhealth_number),
-        sanitizeValue(pagibig_number), sanitizeValue(tin_number),
-        sanitizeValue(employment_status) || 'regular',
-        sanitizeDate(regularization_date),
-        sanitizeDate(probationary_end_date)
-      ]
-    );
+  const profileResult = await client.query(
+  `INSERT INTO employee_profiles (
+    user_id, first_name, last_name, employee_code, department,
+    position, phone, hire_date, date_of_birth, salary, address, city,
+    state, zip_code, emergency_contact_name, emergency_contact_phone,
+    sss_number, philhealth_number, pagibig_number, tin_number,
+    employment_status, regularization_date, probationary_end_date
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+  RETURNING *`,
+  [
+    user.id, first_name, last_name, empCode,
+    sanitizeValue(department), sanitizeValue(position), sanitizeValue(phone),
+    sanitizeDate(hire_date), sanitizeDate(date_of_birth), sanitizeNumber(salary), sanitizeValue(address),
+    sanitizeValue(city), sanitizeValue(state), sanitizeValue(zip_code),
+    sanitizeValue(emergency_contact_name), sanitizeValue(emergency_contact_phone),
+    sanitizeValue(sss_number), sanitizeValue(philhealth_number),
+    sanitizeValue(pagibig_number), sanitizeValue(tin_number),
+    sanitizeValue(employment_status) || 'regular',
+    sanitizeDate(regularization_date),
+    sanitizeDate(probationary_end_date)
+  ]
+);
     
     await client.query(
       `INSERT INTO leave_balances (user_id, year, vacation_leave, sick_leave, emergency_leave, special_leave)
@@ -350,27 +363,28 @@ const updateEmployee = async (req, res) => {
       'state', 'zip_code', 'emergency_contact_name', 'emergency_contact_phone',
       'sss_number', 'philhealth_number', 'pagibig_number', 'tin_number',
       'employment_status', 'regularization_date', 'probationary_end_date',
-      'date_of_birth'  // ← ADD THIS LINE
+      'date_of_birth'  // ← ADD THIS
     ];
     
     for (const field of profileFields) {
-      if (updates[field] !== undefined) {
-        let value = updates[field];
-        
-        if (field === 'hire_date' || field === 'regularization_date' || field === 'probationary_end_date' || field === 'date_of_birth') {
-          value = sanitizeDate(value);
-        } else if (field === 'salary') {
-          value = sanitizeNumber(value);
-        } else {
-          value = sanitizeValue(value);
-        }
-        
-        profileUpdates.push(`${field} = $${profileParamCount}`);
-        profileValues.push(value);
-        profileParamCount++;
-      }
-    }
+  if (updates[field] !== undefined) {
+    let value = updates[field];
     
+    // For date fields, just use the sanitized value without casting
+if (field === 'hire_date' || field === 'regularization_date' || field === 'probationary_end_date' || field === 'date_of_birth') {
+  value = sanitizeDate(value);
+  // Don't add ::DATE, just use the value as is
+} else if (field === 'salary') {
+  value = sanitizeNumber(value);
+} else {
+  value = sanitizeValue(value);
+}
+
+profileUpdates.push(`${field} = $${profileParamCount}`);
+profileValues.push(value);
+profileParamCount++;
+  }
+}
     if (profileUpdates.length > 0) {
       profileUpdates.push(`updated_at = CURRENT_TIMESTAMP`);
       profileValues.push(id);
