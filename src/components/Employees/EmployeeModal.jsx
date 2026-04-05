@@ -156,40 +156,65 @@ const EmployeeModal = ({ isOpen, onClose, employee, mode, departments }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handlePasswordModalClose = () => {
-    setShowPasswordModal(false);
-    setCopied(false);
-    onClose(); // Close the main modal after password is acknowledged
-  };
+const handlePasswordModalClose = () => {
+  setShowPasswordModal(false);
+  setCopied(false);
+  setLoading(false); // Make sure loading is false
+  setFormData({
+    first_name: '',
+    last_name: '',
+    email: '',
+    employee_code: '',
+    department: '',
+    position: '',
+    phone: '',
+    hire_date: '',
+    salary: '',
+    address: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    emergency_contact_name: '',
+    emergency_contact_phone: '',
+    sss_number: '',
+    philhealth_number: '',
+    pagibig_number: '',
+    tin_number: '',
+    employment_status: 'regular',
+    regularization_date: '',
+    probationary_end_date: '',
+    role: 'employee'
+  }); // Reset form data
+  onClose(); // Close the main modal after password is acknowledged
+};
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError('');
 
-    try {
-      if (mode === 'add') {
-        const response = await createEmployee(formData);
-        // Show password modal with the temporary password
-        setNewPassword(response.tempPassword);
-        setNewEmployeeName(`${response.profile.first_name} ${response.profile.last_name}`);
-        setNewEmployeeEmail(response.user.email);
-        setShowPasswordModal(true);
-        // Don't close the main modal yet - wait for password modal to close
-      } else {
-        await updateEmployee(employee.id, formData);
-        alert('Employee updated successfully!');
-        onClose();
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || 'An error occurred');
+  try {
+    if (mode === 'add') {
+      const response = await createEmployee(formData);
+      // Reset loading BEFORE showing password modal
       setLoading(false);
-    } finally {
-      if (mode !== 'add') {
-        setLoading(false);
-      }
+      // Show password modal with the temporary password
+      setNewPassword(response.tempPassword);
+      setNewEmployeeName(`${response.profile.first_name} ${response.profile.last_name}`);
+      setNewEmployeeEmail(response.user.email);
+      setShowPasswordModal(true);
+      // Don't close the main modal yet - wait for password modal to close
+    } else {
+      await updateEmployee(employee.id, formData);
+      alert('Employee updated successfully!');
+      setLoading(false);
+      onClose();
     }
-  };
+  } catch (err) {
+    setError(err.response?.data?.error || 'An error occurred');
+    setLoading(false);
+  }
+};
 
   if (!isOpen) return null;
 
