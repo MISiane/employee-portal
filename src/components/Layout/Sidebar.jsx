@@ -10,7 +10,9 @@ import {
   UserCircleIcon,
   XMarkIcon,
   Bars3Icon,
-  BookOpenIcon 
+  BookOpenIcon,
+  ChatBubbleLeftIcon, 
+  QuestionMarkCircleIcon 
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -57,6 +59,7 @@ const Sidebar = () => {
   { name: 'Leave Requests', href: '/leave-requests', icon: CalendarIcon },
   { name: 'Announcements', href: '/announcements', icon: MegaphoneIcon },
   { name: 'Employee Handbook', href: '/policies', icon: BookOpenIcon },
+    { name: 'Feedback', href: '/feedback', icon: ChatBubbleLeftIcon }
 ];
 
 const employeeNavigation = [
@@ -66,6 +69,7 @@ const employeeNavigation = [
   { name: 'My Leave Requests', href: '/my-leave-requests', icon: CalendarIcon },
   { name: 'Announcements', href: '/announcements', icon: MegaphoneIcon },
   { name: 'Employee Handbook', href: '/policies', icon: BookOpenIcon },
+    { name: 'Support', href: '/support', icon: ChatBubbleLeftIcon },
 ];
   const navigation = isAdmin ? adminNavigation : employeeNavigation;
 

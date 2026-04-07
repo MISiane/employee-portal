@@ -52,7 +52,25 @@ const EmployeeModal = ({ isOpen, onClose, employee, mode, departments }) => {
   const [copied, setCopied] = useState(false);
 
 useEffect(() => {
+  const formatDate = (dateValue) => {
+    if (!dateValue) return '';
+    if (typeof dateValue === 'string') {
+      const match = dateValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (match) {
+        return `${match[1]}-${match[2]}-${match[3]}`;
+      }
+    }
+    const date = new Date(dateValue);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0];
+    }
+    return '';
+  };
+
   if (employee && mode !== 'add') {
+    console.log('Employee data loaded:', employee); // Debug: Check what's coming from API
+    console.log('Employment status from API:', employee.employment_status); // Debug
+    
     setFormData({
       first_name: employee.first_name || '',
       last_name: employee.last_name || '',
@@ -61,8 +79,8 @@ useEffect(() => {
       department: employee.department || '',
       position: employee.position || '',
       phone: employee.phone || '',
-      hire_date: employee.hire_date || '',
-      date_of_birth: employee.date_of_birth || '',
+      hire_date: formatDate(employee.hire_date),
+      date_of_birth: formatDate(employee.date_of_birth),
       salary: employee.salary || '',
       address: employee.address || '',
       city: employee.city || '',
@@ -74,9 +92,9 @@ useEffect(() => {
       philhealth_number: employee.philhealth_number || '',
       pagibig_number: employee.pagibig_number || '',
       tin_number: employee.tin_number || '',
-      employment_status: employee.employment_status || 'regular',
-      regularization_date: employee.regularization_date || '',
-      probationary_end_date: employee.probationary_end_date || '',
+      employment_status: employee.employment_status || 'regular', // Make sure this is set correctly
+      regularization_date: formatDate(employee.regularization_date),
+      probationary_end_date: formatDate(employee.probationary_end_date),
       role: employee.role || 'employee'
     });
     

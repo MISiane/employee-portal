@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import FeedbackButton from '../Feedback/FeedbackButton';
 
 const Layout = () => {
   return (
@@ -22,6 +23,7 @@ const Layout = () => {
           </div>
         </main>
       </div>
+      <FeedbackButton />
     </div>
   );
 };

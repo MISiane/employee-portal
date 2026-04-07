@@ -18,6 +18,8 @@ import Layout from './components/Layout/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import NotFound from './pages/NotFound';
 import CompanyPolicies from './pages/CompanyPolicies';
+import Support from './pages/Support';
+import AdminFeedback from './pages/AdminFeedback';
 
 // Private Route Component
 const PrivateRoute = ({ children }) => {
@@ -71,6 +73,7 @@ function App() {
               <Route path="attendance" element={<AttendanceAdmin />} />
               <Route path="payslips" element={<AdminPayslips />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="feedback" element={<AdminFeedback />} />
               
               {/* Employee Only Routes */}
               <Route path="my-profile" element={<MyProfile />} />
@@ -82,6 +85,7 @@ function App() {
               <Route path="announcements" element={<Announcements />} />
               <Route path="settings" element={<Settings />} />
               <Route path="/policies" element={<CompanyPolicies />} />
+              <Route path="/support" element={<Support />} />
 
               <Route path="*" element={<NotFound />} />
             </Route>

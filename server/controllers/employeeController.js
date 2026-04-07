@@ -40,18 +40,17 @@ const getEmployees = async (req, res) => {
   const { search, department, status, page = 1, limit = 10, sort = 'created_at', order = 'DESC'} = req.query;
   const offset = (page - 1) * limit;
   
-   try {
+  try {
     let query = `
       SELECT u.id, u.email, u.role, u.is_active, u.last_login,
              ep.first_name, ep.last_name, ep.employee_code, ep.department, 
-             ep.position, ep.phone, ep.salary,
+             ep.position, ep.phone, ep.hire_date, ep.salary,
              ep.address, ep.city, ep.state, ep.zip_code,
              ep.emergency_contact_name, ep.emergency_contact_phone,
              ep.sss_number, ep.philhealth_number, ep.pagibig_number, ep.tin_number,
-             TO_CHAR(ep.hire_date, 'YYYY-MM-DD') as hire_date,
+             ep.employment_status,
              TO_CHAR(ep.date_of_birth, 'YYYY-MM-DD') as date_of_birth,
-             TO_CHAR(ep.regularization_date, 'YYYY-MM-DD') as regularization_date,
-             TO_CHAR(ep.probationary_end_date, 'YYYY-MM-DD') as probationary_end_date
+             TO_CHAR(ep.hire_date, 'YYYY-MM-DD') as hire_date
       FROM users u
       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
       WHERE u.role = 'employee'
@@ -148,7 +147,7 @@ const getEmployees = async (req, res) => {
   }
 };
 
-// Get single employee by ID
+/// Get single employee by ID
 const getEmployeeById = async (req, res) => {
   const { id } = req.params;
   
