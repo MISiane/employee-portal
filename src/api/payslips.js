@@ -1,7 +1,15 @@
 import api from './config';
 
-export const getPayslips = async (params = {}) => {
-  const response = await api.get('/payslips', { params });
+// Get all payslips (with filters)
+export const getPayslips = async (params) => {
+  // Remove any undefined or empty values
+  const cleanParams = {};
+  Object.keys(params).forEach(key => {
+    if (params[key] !== '' && params[key] !== undefined && params[key] !== null) {
+      cleanParams[key] = params[key];
+    }
+  });
+  const response = await api.get('/payslips', { params: cleanParams });
   return response.data;
 };
 
@@ -61,4 +69,36 @@ export const downloadPayslip = async (id) => {
     console.error('Error downloading payslip:', error);
     throw error;
   }
+};
+
+// Bulk upload payslips
+export const bulkUploadPayslips = async (formData) => {
+  const response = await api.post('/payslips/bulk-upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
+};
+
+// Get draft payslips (pending review)
+export const getDraftPayslips = async (params) => {
+  const response = await api.get('/payslips/draft', { params });
+  return response.data;
+};
+
+// Approve a single payslip
+export const approvePayslip = async (id) => {
+  const response = await api.post(`/payslips/${id}/approve`);
+  return response.data;
+};
+
+// Approve all draft payslips
+export const approveAllPayslips = async () => {
+  const response = await api.post('/payslips/approve-all');
+  return response.data;
+};
+
+// Reject a payslip
+export const rejectPayslip = async (id, rejection_reason) => {
+  const response = await api.post(`/payslips/${id}/reject`, { rejection_reason });
+  return response.data;
 };

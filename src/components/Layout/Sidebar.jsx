@@ -12,7 +12,8 @@ import {
   Bars3Icon,
   BookOpenIcon,
   ChatBubbleLeftIcon, 
-  QuestionMarkCircleIcon 
+  QuestionMarkCircleIcon,
+  ClipboardDocumentCheckIcon  
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -59,7 +60,8 @@ const Sidebar = () => {
   { name: 'Leave Requests', href: '/leave-requests', icon: CalendarIcon },
   { name: 'Announcements', href: '/announcements', icon: MegaphoneIcon },
   { name: 'Employee Handbook', href: '/policies', icon: BookOpenIcon },
-    { name: 'Feedback', href: '/feedback', icon: ChatBubbleLeftIcon }
+    { name: 'Feedback', href: '/feedback', icon: ChatBubbleLeftIcon },
+
 ];
 
 const employeeNavigation = [

@@ -276,7 +276,7 @@ const createPayslip = async (req, res) => {
 
 // Get payslips with employee details
 const getPayslips = async (req, res) => {
-  const { user_id, year, month, page = 1, limit = 12 } = req.query;
+  const { user_id, year, month, status, page = 1, limit = 12 } = req.query;
   const offset = (page - 1) * limit;
   
   try {
@@ -291,13 +291,21 @@ const getPayslips = async (req, res) => {
     const values = [];
     let paramCount = 1;
     
+    // For non-admin users, only show approved payslips
     if (req.user.role !== 'admin') {
-      query += ` AND p.user_id = $${paramCount}`;
+      query += ` AND p.user_id = $${paramCount} AND p.status = 'approved'`;
       values.push(req.user.id);
       paramCount++;
     } else if (user_id && user_id !== '') {
       query += ` AND p.user_id = $${paramCount}`;
       values.push(user_id);
+      paramCount++;
+    }
+    
+    // Status filter - ADD THIS SECTION
+    if (status && status !== '' && status !== 'undefined') {
+      query += ` AND p.status = $${paramCount}`;
+      values.push(status);
       paramCount++;
     }
     
@@ -318,6 +326,7 @@ const getPayslips = async (req, res) => {
     
     const result = await pool.query(query, values);
     
+    // Count query - also needs status filter
     let countQuery = 'SELECT COUNT(*) FROM payslips WHERE 1=1';
     const countValues = [];
     let countParamCount = 1;
@@ -329,11 +338,20 @@ const getPayslips = async (req, res) => {
     } else if (user_id && user_id !== '') {
       countQuery += ` AND user_id = $${countParamCount}`;
       countValues.push(user_id);
+      countParamCount++;
+    }
+    
+    // Status filter for count
+    if (status && status !== '' && status !== 'undefined') {
+      countQuery += ` AND status = $${countParamCount}`;
+      countValues.push(status);
+      countParamCount++;
     }
     
     if (year && year !== '' && year !== 'undefined') {
       countQuery += ` AND EXTRACT(YEAR FROM pay_period_start) = $${countParamCount}`;
       countValues.push(parseInt(year));
+      countParamCount++;
     }
     
     if (month && month !== '' && month !== 'undefined') {
@@ -710,7 +728,7 @@ const bulkCreatePayslips = async (req, res) => {
           allowance_description: row.ALLOWANCE_DESCRIPTION || '',
           days_present: parseFloat(row.DAYS_PRESENT) || 0,
           days_late: parseFloat(row.DAYS_LATE) || 0,
-          status: row.STATUS || 'generated',
+          status: row.STATUS || 'draft',
           created_by: req.user.id
         };
         
@@ -889,6 +907,170 @@ const downloadPayslip = async (req, res) => {
   }
 };
 
+// Get draft payslips (pending review)
+const getDraftPayslips = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  }
+  
+  const { page = 1, limit = 20 } = req.query;
+  const offset = (page - 1) * limit;
+  
+  try {
+    const result = await pool.query(
+      `SELECT p.*, u.email, ep.first_name, ep.last_name, ep.employee_code,
+              ep.department, ep.position
+       FROM payslips p
+       LEFT JOIN users u ON p.user_id = u.id
+       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+       WHERE p.status = 'draft'
+       ORDER BY p.created_at DESC
+       LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+    
+    const countResult = await pool.query(
+      `SELECT COUNT(*) FROM payslips WHERE status = 'draft'`
+    );
+    
+    res.json({
+      payslips: result.rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: parseInt(countResult.rows[0].count),
+        totalPages: Math.ceil(parseInt(countResult.rows[0].count) / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error getting draft payslips:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Approve a single payslip
+const approvePayslip = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  }
+  
+  const { id } = req.params;
+  
+  try {
+    const result = await pool.query(
+      `UPDATE payslips 
+       SET status = 'approved', 
+           reviewed_by = $1, 
+           reviewed_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2 AND status = 'draft'
+       RETURNING *`,
+      [req.user.id, id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Payslip not found or already reviewed' });
+    }
+    
+    // // Create notification for employee
+    // const { createNotification } = require('./notificationController');
+    // await createNotification(
+    //   result.rows[0].user_id,
+    //   'payslip_ready',
+    //   'Payslip Available',
+    //   `Your payslip for ${result.rows[0].pay_period_start} to ${result.rows[0].pay_period_end} is now available.`,
+    //   `/my-payslips`
+    // );
+    
+    res.json({
+      success: true,
+      message: 'Payslip approved successfully',
+      payslip: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error approving payslip:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Approve all draft payslips
+const approveAllPayslips = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  }
+  
+  try {
+    const result = await pool.query(
+      `UPDATE payslips 
+       SET status = 'approved', 
+           reviewed_by = $1, 
+           reviewed_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE status = 'draft'
+       RETURNING *`,
+      [req.user.id]
+    );
+    
+    // // Send notifications for each approved payslip
+    // const { createNotification } = require('./notificationController');
+    // for (const payslip of result.rows) {
+    //   await createNotification(
+    //     payslip.user_id,
+    //     'payslip_ready',
+    //     'Payslip Available',
+    //     `Your payslip for ${payslip.pay_period_start} to ${payslip.pay_period_end} is now available.`,
+    //     `/my-payslips`
+    //   );
+    // }
+    
+    res.json({
+      success: true,
+      message: `${result.rows.length} payslips approved successfully`,
+      count: result.rows.length
+    });
+  } catch (error) {
+    console.error('Error approving all payslips:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Reject a payslip (with reason)
+const rejectPayslip = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  }
+  
+  const { id } = req.params;
+  const { rejection_reason } = req.body;
+  
+  try {
+    const result = await pool.query(
+      `UPDATE payslips 
+       SET status = 'rejected', 
+           rejection_reason = $1,
+           reviewed_by = $2, 
+           reviewed_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3 AND status = 'draft'
+       RETURNING *`,
+      [rejection_reason || 'No reason provided', req.user.id, id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Payslip not found or already reviewed' });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Payslip rejected',
+      payslip: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error rejecting payslip:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 module.exports = {
   createPayslip,
   getPayslips,
@@ -897,5 +1079,9 @@ module.exports = {
   deletePayslip,
   getAvailablePayPeriods,
   bulkCreatePayslips,
-  downloadPayslip
+  downloadPayslip,
+  rejectPayslip,
+  getDraftPayslips,
+  approvePayslip,
+  approveAllPayslips
 };

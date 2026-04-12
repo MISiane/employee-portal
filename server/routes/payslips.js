@@ -7,9 +7,14 @@ const {
   getPayslipById,
   updatePayslip,
   deletePayslip,
-  getAvailablePayPeriods,
   bulkCreatePayslips,
-  downloadPayslip
+  getDraftPayslips,        
+  approvePayslip,          
+  approveAllPayslips,     
+  rejectPayslip,     
+  downloadPayslip,
+  getAvailablePayPeriods
+ 
 } = require('../controllers/payslipController');
 const authMiddleware = require('../middleware/auth');
 
@@ -19,16 +24,33 @@ const upload = multer({ dest: 'uploads/' });
 // All routes require authentication
 router.use(authMiddleware);
 
-// Payslip routes
+// Download PDF (specific path)
+router.get('/:id/download', downloadPayslip);
+
+// Draft payslips (specific path - MUST come before /:id)
+router.get('/draft', getDraftPayslips);
+
+// Approve all (specific path)
+router.post('/approve-all', approveAllPayslips);
+
+// Bulk upload
+router.post('/bulk-upload', upload.single('file'), bulkCreatePayslips);
+
+// Get pay periods
+router.get('/pay-periods', getAvailablePayPeriods);
+
+// Approve single (specific pattern)
+router.post('/:id/approve', approvePayslip);
+
+// Reject single (specific pattern)
+router.post('/:id/reject', rejectPayslip);
+
+// CRUD routes (dynamic - these catch any :id)
 router.get('/', getPayslips);
-router.get('/periods', getAvailablePayPeriods);
-router.get('/template', downloadTemplate);
 router.get('/:id', getPayslipById);
 router.post('/', createPayslip);
-router.post('/bulk-upload', upload.single('file'), bulkCreatePayslips);
 router.put('/:id', updatePayslip);
 router.delete('/:id', deletePayslip);
-router.get('/:id/download', downloadPayslip);
 
 // Download Excel template
 function downloadTemplate(req, res) {

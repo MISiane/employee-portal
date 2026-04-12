@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -14,7 +15,10 @@ import {
   CalendarIcon,
   UserGroupIcon,
   CurrencyDollarIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
 import { getPayslips, deletePayslip } from '../api/payslips';
 import { getEmployees } from '../api/employees';
@@ -24,6 +28,7 @@ import ViewPayslipModal from '../components/Payslips/ViewPayslipModal';
 import EditPayslipModal from '../components/Payslips/EditPayslipModal';
 
 const AdminPayslips = () => {
+   const navigate = useNavigate();
   const [payslips, setPayslips] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -34,6 +39,7 @@ const AdminPayslips = () => {
   const [selectedPayslip, setSelectedPayslip] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pendingCount, setPendingCount] = useState(0);
   
   // Filter states
   const [selectedYear, setSelectedYear] = useState('');
@@ -48,8 +54,76 @@ const AdminPayslips = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
 
+const statusOptions = [
+  { value: '', label: 'All Status' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'sent', label: 'Sent' },
+  { value: 'paid', label: 'Paid' }
+];
+
+  // Get status badge styling
+  const getStatusBadge = (status) => {
+    switch(status) {
+      case 'draft':
+        return {
+          bg: 'bg-gray-100',
+          text: 'text-gray-600',
+          icon: ClockIcon,
+          label: 'DRAFT'
+        };
+      case 'approved':
+        return {
+          bg: 'bg-green-100',
+          text: 'text-green-800',
+          icon: CheckCircleIcon,
+          label: 'APPROVED'
+        };
+      case 'rejected':
+        return {
+          bg: 'bg-red-100',
+          text: 'text-red-800',
+          icon: XCircleIcon,
+          label: 'REJECTED'
+        };
+      case 'sent':
+        return {
+          bg: 'bg-blue-100',
+          text: 'text-blue-800',
+          icon: DocumentTextIcon,
+          label: 'SENT'
+        };
+      case 'paid':
+        return {
+          bg: 'bg-purple-100',
+          text: 'text-purple-800',
+          icon: CurrencyDollarIcon,
+          label: 'PAID'
+        };
+      default:
+        return {
+          bg: 'bg-yellow-100',
+          text: 'text-yellow-800',
+          icon: ClockIcon,
+          label: 'GENERATED'
+        };
+    }
+  };
+
+  const fetchPendingCount = async () => {
+  try {
+    const params = { status: 'draft', limit: 1 };
+    const data = await getPayslips(params);
+    setPendingCount(data.pagination?.total || 0);
+  } catch (error) {
+    console.error('Error fetching pending count:', error);
+  }
+};
+
   useEffect(() => {
     fetchData();
+    fetchPendingCount();
   }, [selectedYear, selectedMonth, selectedEmployee, selectedStatus, currentPage, sortField, sortDirection, searchTerm]);
 
   const fetchData = async () => {
@@ -134,7 +208,7 @@ const AdminPayslips = () => {
   const handleBulkUploadSuccess = (result) => {
     setShowBulkUploadModal(false);
     if (result.results.success.length > 0) {
-      alert(`Successfully created ${result.results.success.length} payslips!`);
+      alert(`Successfully created ${result.results.success.length} payslips! They are now in DRAFT status and pending review.`);
       setSelectedYear('');
       setSelectedMonth('');
       setSelectedEmployee('');
@@ -189,6 +263,16 @@ const AdminPayslips = () => {
       : <ArrowDownIcon className="h-4 w-4 ml-1 inline text-blue-600" />;
   };
 
+  // Get stats counts
+  const getStats = () => {
+    const draft = payslips.filter(p => p.status === 'draft').length;
+    const approved = payslips.filter(p => p.status === 'approved').length;
+    const paid = payslips.filter(p => p.status === 'paid').length;
+    return { draft, approved, paid };
+  };
+
+  const stats = getStats();
+
   const years = ['', ...Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i)];
   const months = [
     { value: '', label: 'All Months' },
@@ -206,21 +290,7 @@ const AdminPayslips = () => {
     { value: '12', label: 'December' }
   ];
 
-  const statuses = [
-    { value: '', label: 'All Status' },
-    { value: 'generated', label: 'Generated' },
-    { value: 'sent', label: 'Sent' },
-    { value: 'paid', label: 'Paid' }
-  ];
-
   const hasActiveFilters = selectedYear || selectedMonth || selectedEmployee || selectedStatus || searchTerm;
-
-  // Filtered employees for search
-  const filteredEmployees = employees.filter(emp => 
-    emp.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.employee_code?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="space-y-6">
@@ -236,6 +306,19 @@ const AdminPayslips = () => {
           )}
         </div>
         <div className="flex space-x-3 mt-4 sm:mt-0">
+           {/* Pending Review Button with Count */}
+  <button
+    onClick={() => navigate('/pending-payslips')}
+    className="inline-flex items-center px-4 py-2 bg-yellow-500 text-white rounded-xl hover:bg-yellow-600 transition-colors shadow-sm relative"
+  >
+    <ClockIcon className="h-5 w-5 mr-2" />
+    Pending Review
+    {pendingCount > 0 && (
+      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+        {pendingCount > 9 ? '9+' : pendingCount}
+      </span>
+    )}
+  </button>
           <button
             onClick={() => setShowBulkUploadModal(true)}
             className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded-xl hover:bg-green-600 transition-colors shadow-sm"
@@ -250,6 +333,57 @@ const AdminPayslips = () => {
             <PlusIcon className="h-5 w-5 mr-2" />
             Generate Payslip
           </button>
+        </div>
+      </div>
+
+      {/* Stats Summary with Status Breakdown */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-blue-600 font-medium">Total Payslips</p>
+              <p className="text-2xl font-bold text-blue-700">{pagination.total}</p>
+            </div>
+            <DocumentTextIcon className="h-8 w-8 text-blue-400" />
+          </div>
+        </div>
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 font-medium">Draft</p>
+              <p className="text-2xl font-bold text-gray-700">{stats.draft}</p>
+            </div>
+            <ClockIcon className="h-8 w-8 text-gray-400" />
+          </div>
+        </div>
+        <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-green-600 font-medium">Approved</p>
+              <p className="text-2xl font-bold text-green-700">{stats.approved}</p>
+            </div>
+            <CheckCircleIcon className="h-8 w-8 text-green-400" />
+          </div>
+        </div>
+        <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-purple-600 font-medium">Paid</p>
+              <p className="text-2xl font-bold text-purple-700">{stats.paid}</p>
+            </div>
+            <CurrencyDollarIcon className="h-8 w-8 text-purple-400" />
+          </div>
+        </div>
+        <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-orange-600 font-medium">Total Net</p>
+              <p className="text-lg font-bold text-orange-700 truncate">
+                {formatCurrency(payslips.reduce((sum, p) => sum + (p.net_salary || 0), 0))}
+              </p>
+            </div>
+            <CurrencyDollarIcon className="h-8 w-8 text-orange-400" />
+          </div>
         </div>
       </div>
 
@@ -351,7 +485,7 @@ const AdminPayslips = () => {
                   onChange={(e) => setSelectedStatus(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {statuses.map(status => (
+                  {statusOptions.map(status => (
                     <option key={status.value} value={status.value}>{status.label}</option>
                   ))}
                 </select>
@@ -359,48 +493,6 @@ const AdminPayslips = () => {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Stats Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-600 font-medium">Total Payslips</p>
-              <p className="text-2xl font-bold text-blue-700">{pagination.total}</p>
-            </div>
-            <DocumentTextIcon className="h-8 w-8 text-blue-400" />
-          </div>
-        </div>
-        <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-green-600 font-medium">Current Page</p>
-              <p className="text-2xl font-bold text-green-700">{currentPage} / {pagination.totalPages}</p>
-            </div>
-            <UserGroupIcon className="h-8 w-8 text-green-400" />
-          </div>
-        </div>
-        <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-purple-600 font-medium">Showing</p>
-              <p className="text-2xl font-bold text-purple-700">{payslips.length} records</p>
-            </div>
-            <CalendarIcon className="h-8 w-8 text-purple-400" />
-          </div>
-        </div>
-        <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-orange-600 font-medium">Total Net Salary</p>
-              <p className="text-2xl font-bold text-orange-700">
-                {formatCurrency(payslips.reduce((sum, p) => sum + (p.net_salary || 0), 0))}
-              </p>
-            </div>
-            <CurrencyDollarIcon className="h-8 w-8 text-orange-400" />
-          </div>
-        </div>
       </div>
 
       {/* Payslips Table */}
@@ -425,83 +517,84 @@ const AdminPayslips = () => {
               )}
             </div>
           ) : (
-            payslips.map((payslip) => (
-              <div key={payslip.id} className="p-4 hover:bg-gray-50 transition-colors">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                      <span className="text-sm font-medium text-blue-600">
-                        {payslip.first_name?.charAt(0)}{payslip.last_name?.charAt(0)}
-                      </span>
+            payslips.map((payslip) => {
+              const statusBadge = getStatusBadge(payslip.status);
+              const StatusIcon = statusBadge.icon;
+              return (
+                <div key={payslip.id} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                        <span className="text-sm font-medium text-blue-600">
+                          {payslip.first_name?.charAt(0)}{payslip.last_name?.charAt(0)}
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {payslip.first_name} {payslip.last_name}
+                        </p>
+                        <p className="text-xs text-gray-500">{payslip.employee_code}</p>
+                      </div>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusBadge.bg} ${statusBadge.text}`}>
+                      <StatusIcon className="h-3 w-3 mr-1" />
+                      {statusBadge.label}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                    <div>
+                      <p className="text-xs text-gray-500">Period</p>
+                      <p className="font-medium text-gray-800 text-sm">
+                        {formatDate(payslip.pay_period_start)} - {formatDate(payslip.pay_period_end)}
+                      </p>
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">
-                        {payslip.first_name} {payslip.last_name}
+                      <p className="text-xs text-gray-500">Pay Date</p>
+                      <p className="font-medium text-gray-800 text-sm">
+                        {formatDate(payslip.pay_date)}
                       </p>
-                      <p className="text-xs text-gray-500">{payslip.employee_code}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Gross Salary</p>
+                      <p className="font-semibold text-gray-800 text-sm">
+                        {formatCurrency(payslip.gross_salary)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Net Salary</p>
+                      <p className="font-semibold text-green-600 text-sm">
+                        {formatCurrency(payslip.net_salary)}
+                      </p>
                     </div>
                   </div>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    payslip.status === 'paid' ? 'bg-green-100 text-green-800' :
-                    payslip.status === 'sent' ? 'bg-blue-100 text-blue-800' :
-                    'bg-yellow-100 text-yellow-800'
-                  }`}>
-                    {payslip.status?.toUpperCase() || 'GENERATED'}
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3 text-sm mb-3">
-                  <div>
-                    <p className="text-xs text-gray-500">Period</p>
-                    <p className="font-medium text-gray-800 text-sm">
-                      {formatDate(payslip.pay_period_start)} - {formatDate(payslip.pay_period_end)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Pay Date</p>
-                    <p className="font-medium text-gray-800 text-sm">
-                      {formatDate(payslip.pay_date)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Gross Salary</p>
-                    <p className="font-semibold text-gray-800 text-sm">
-                      {formatCurrency(payslip.gross_salary)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Net Salary</p>
-                    <p className="font-semibold text-green-600 text-sm">
-                      {formatCurrency(payslip.net_salary)}
-                    </p>
+                  
+                  <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100">
+                    <button
+                      onClick={() => handleView(payslip)}
+                      className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                      title="View Payslip"
+                    >
+                      <EyeIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleEdit(payslip)}
+                      className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition"
+                      title="Edit Payslip"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(payslip.id)}
+                      className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
+                      title="Delete Payslip"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
-                
-                <div className="flex justify-end space-x-2 pt-2 border-t border-gray-100">
-                  <button
-                    onClick={() => handleView(payslip)}
-                    className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
-                    title="View Payslip"
-                  >
-                    <EyeIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleEdit(payslip)}
-                    className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition"
-                    title="Edit Payslip"
-                  >
-                    <PencilIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(payslip.id)}
-                    className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
-                    title="Delete Payslip"
-                  >
-                    <TrashIcon className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -574,73 +667,74 @@ const AdminPayslips = () => {
                   </td>
                 </tr>
               ) : (
-                payslips.map((payslip) => (
-                  <tr key={payslip.id} className="hover:bg-gray-50 transition">
-                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                          <span className="text-sm font-medium text-blue-600">
-                            {payslip.first_name?.charAt(0)}{payslip.last_name?.charAt(0)}
-                          </span>
+                payslips.map((payslip) => {
+                  const statusBadge = getStatusBadge(payslip.status);
+                  const StatusIcon = statusBadge.icon;
+                  return (
+                    <tr key={payslip.id} className="hover:bg-gray-50 transition">
+                      <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <span className="text-sm font-medium text-blue-600">
+                              {payslip.first_name?.charAt(0)}{payslip.last_name?.charAt(0)}
+                            </span>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm font-medium text-gray-900">
+                              {payslip.first_name} {payslip.last_name}
+                            </p>
+                            <p className="text-xs text-gray-500 truncate max-w-[100px] lg:max-w-none">
+                              {payslip.employee_code}
+                            </p>
+                          </div>
                         </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium text-gray-900">
-                            {payslip.first_name} {payslip.last_name}
-                          </p>
-                          <p className="text-xs text-gray-500 truncate max-w-[100px] lg:max-w-none">
-                            {payslip.employee_code}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {formatShortDate(payslip.pay_period_start)} - {formatShortDate(payslip.pay_period_end)}
-                    </td>
-                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {formatShortDate(payslip.pay_date)}
-                    </td>
-                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                      {formatCurrency(payslip.gross_salary)}
-                    </td>
-                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm font-semibold text-green-600">
-                        {formatCurrency(payslip.net_salary)}
-                      </span>
-                    </td>
-                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        payslip.status === 'paid' ? 'bg-green-100 text-green-800' :
-                        payslip.status === 'sent' ? 'bg-blue-100 text-blue-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {payslip.status?.toUpperCase() || 'GENERATED'}
-                      </span>
-                    </td>
-                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        onClick={() => handleView(payslip)}
-                        className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition mx-0.5"
-                        title="View Payslip"
-                      >
-                        <EyeIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                      </button>
-                      <button
-                        onClick={() => handleEdit(payslip)}
-                        className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition mx-0.5"
-                        title="Edit Payslip"
-                      >
-                        <PencilIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(payslip.id)}
-                        className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition mx-0.5"
-                        title="Delete Payslip"
-                      >
-                        <TrashIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {formatShortDate(payslip.pay_period_start)} - {formatShortDate(payslip.pay_period_end)}
+                      </td>
+                      <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {formatShortDate(payslip.pay_date)}
+                      </td>
+                      <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {formatCurrency(payslip.gross_salary)}
+                      </td>
+                      <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm font-semibold text-green-600">
+                          {formatCurrency(payslip.net_salary)}
+                        </span>
+                      </td>
+                      <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusBadge.bg} ${statusBadge.text}`}>
+                          <StatusIcon className="h-3 w-3 mr-1" />
+                          {statusBadge.label}
+                        </span>
+                      </td>
+                      <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleView(payslip)}
+                          className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition mx-0.5"
+                          title="View Payslip"
+                        >
+                          <EyeIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleEdit(payslip)}
+                          className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition mx-0.5"
+                          title="Edit Payslip"
+                        >
+                          <PencilIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(payslip.id)}
+                          className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition mx-0.5"
+                          title="Delete Payslip"
+                        >
+                          <TrashIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                        </button>
+                       </td>
+                     </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

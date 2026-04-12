@@ -124,40 +124,47 @@ const getMyLeaveRequests = async (req, res) => {
   
   try {
     let query = `
-      SELECT * FROM leave_requests 
-      WHERE user_id = $1
+      SELECT lr.*,
+             TO_CHAR(lr.start_date, 'YYYY-MM-DD') as start_date,
+             TO_CHAR(lr.end_date, 'YYYY-MM-DD') as end_date,
+             TO_CHAR(lr.original_start_date, 'YYYY-MM-DD') as original_start_date,
+             TO_CHAR(lr.original_end_date, 'YYYY-MM-DD') as original_end_date,
+             TO_CHAR(lr.created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at,
+             TO_CHAR(lr.updated_at, 'YYYY-MM-DD HH24:MI:SS') as updated_at
+      FROM leave_requests lr
+      WHERE lr.user_id = $1
     `;
     const values = [userId];
     let paramCount = 2;
     
     if (status) {
-      query += ` AND status = $${paramCount}`;
+      query += ` AND lr.status = $${paramCount}`;
       values.push(status);
       paramCount++;
     }
     
     if (year) {
-      query += ` AND EXTRACT(YEAR FROM start_date) = $${paramCount}`;
+      query += ` AND EXTRACT(YEAR FROM lr.start_date) = $${paramCount}`;
       values.push(year);
       paramCount++;
     }
     
-    query += ` ORDER BY created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    query += ` ORDER BY lr.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     values.push(limit, offset);
     
     const result = await pool.query(query, values);
     
-    let countQuery = `SELECT COUNT(*) FROM leave_requests WHERE user_id = $1`;
+    let countQuery = `SELECT COUNT(*) FROM leave_requests lr WHERE lr.user_id = $1`;
     const countValues = [userId];
     let countParamCount = 2;
     
     if (status) {
-      countQuery += ` AND status = $${countParamCount}`;
+      countQuery += ` AND lr.status = $${countParamCount}`;
       countValues.push(status);
     }
     
     if (year) {
-      countQuery += ` AND EXTRACT(YEAR FROM start_date) = $${countParamCount}`;
+      countQuery += ` AND EXTRACT(YEAR FROM lr.start_date) = $${countParamCount}`;
       countValues.push(year);
     }
     
@@ -283,24 +290,32 @@ const createLeaveRequest = async (req, res) => {
     client.release();
   }
 };
-
 // Get all leave requests (admin)
 const getAllLeaveRequests = async (req, res) => {
   if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Access denied. Admin only.' });
+    return res.status(403).json({ error: 'Access denied' });
   }
   
-  const { status, department, page = 1, limit = 20 } = req.query;
+  const { page = 1, limit = 20, status, department, search } = req.query;
   const offset = (page - 1) * limit;
   
   try {
     let query = `
-      SELECT lr.*, u.email, ep.first_name, ep.last_name, ep.department, ep.employee_code
+      SELECT lr.*, 
+             u.email,
+             ep.first_name, ep.last_name, ep.employee_code, ep.department,
+             TO_CHAR(lr.start_date, 'YYYY-MM-DD') as start_date,
+             TO_CHAR(lr.end_date, 'YYYY-MM-DD') as end_date,
+             TO_CHAR(lr.original_start_date, 'YYYY-MM-DD') as original_start_date,
+             TO_CHAR(lr.original_end_date, 'YYYY-MM-DD') as original_end_date,
+             TO_CHAR(lr.created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at,
+             TO_CHAR(lr.updated_at, 'YYYY-MM-DD HH24:MI:SS') as updated_at
       FROM leave_requests lr
       LEFT JOIN users u ON lr.user_id = u.id
       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
       WHERE 1=1
     `;
+    
     const values = [];
     let paramCount = 1;
     
@@ -316,30 +331,26 @@ const getAllLeaveRequests = async (req, res) => {
       paramCount++;
     }
     
+    if (search) {
+      query += ` AND (ep.first_name ILIKE $${paramCount} OR ep.last_name ILIKE $${paramCount} OR ep.employee_code ILIKE $${paramCount})`;
+      values.push(`%${search}%`);
+      paramCount++;
+    }
+    
     query += ` ORDER BY lr.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
     values.push(limit, offset);
     
     const result = await pool.query(query, values);
     
-    let countQuery = 'SELECT COUNT(*) FROM leave_requests WHERE 1=1';
-    const countValues = [];
-    let countParamCount = 1;
-    
-    if (status) {
-      countQuery += ` AND status = $${countParamCount}`;
-      countValues.push(status);
-    }
-    
-    const countResult = await pool.query(countQuery, countValues);
-    const total = parseInt(countResult.rows[0].count);
+    const countResult = await pool.query(`SELECT COUNT(*) FROM leave_requests`);
     
     res.json({
       leaveRequests: result.rows,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total,
-        totalPages: Math.ceil(total / limit)
+        total: parseInt(countResult.rows[0].count),
+        totalPages: Math.ceil(parseInt(countResult.rows[0].count) / limit)
       }
     });
   } catch (error) {
@@ -355,7 +366,17 @@ const updateLeaveRequestStatus = async (req, res) => {
   }
   
   const { id } = req.params;
-  const { status, comments, leave_pay_type, medical_certificate, approval_notes } = req.body;
+  const { 
+    status, 
+    comments, 
+    leave_pay_type, 
+    medical_certificate, 
+    approval_notes,
+    start_date,
+    end_date,
+    adjustment_reason,
+    dates_adjusted_by_admin
+  } = req.body;
   
   const client = await pool.connect();
   
@@ -374,14 +395,19 @@ const updateLeaveRequestStatus = async (req, res) => {
     
     const leave = leaveRequest.rows[0];
     
-    // Determine pay type (use provided value or default to 'with_pay')
+    // Determine pay type
     const payType = leave_pay_type || leave.leave_pay_type || 'with_pay';
+    
+    // Use adjusted dates if provided, otherwise use original dates
+    const finalStartDate = start_date || leave.start_date;
+    const finalEndDate = end_date || leave.end_date;
+    
+    // Calculate days based on final dates
+    const days = Math.ceil((new Date(finalEndDate) - new Date(finalStartDate)) / (1000 * 60 * 60 * 24)) + 1;
+    const year = new Date(finalStartDate).getFullYear();
     
     // ONLY deduct balance for WITH PAY approvals
     if (status === 'approved' && leave.status !== 'approved' && payType === 'with_pay') {
-      const days = Math.ceil((new Date(leave.end_date) - new Date(leave.start_date)) / (1000 * 60 * 60 * 24)) + 1;
-      const year = new Date(leave.start_date).getFullYear();
-      
       let balanceField = '';
       
       if (leave.leave_type === 'Vacation Leave') {
@@ -417,12 +443,7 @@ const updateLeaveRequestStatus = async (req, res) => {
       }
     }
     
-    // For WITHOUT PAY approval, skip balance deduction but still approve
-    if (status === 'approved' && leave.status !== 'approved' && payType === 'without_pay') {
-      // No balance deduction - just log that it's without pay
-      console.log(`Approving leave request ${id} as WITHOUT PAY - no balance deducted`);
-    }
-    
+    // Build update query
     const updateFields = [];
     const updateValues = [];
     let paramCount = 1;
@@ -434,6 +455,44 @@ const updateLeaveRequestStatus = async (req, res) => {
     updateFields.push(`approved_by = $${paramCount}`);
     updateValues.push(req.user.id);
     paramCount++;
+    
+    // If dates are being adjusted, store original dates first
+    if (start_date || end_date) {
+      // Store original dates if not already stored
+      if (!leave.original_start_date && !leave.original_end_date) {
+        updateFields.push(`original_start_date = $${paramCount}`);
+        updateValues.push(leave.start_date);
+        paramCount++;
+        
+        updateFields.push(`original_end_date = $${paramCount}`);
+        updateValues.push(leave.end_date);
+        paramCount++;
+      }
+      
+      // Update with new dates
+      if (start_date) {
+        updateFields.push(`start_date = $${paramCount}`);
+        updateValues.push(start_date);
+        paramCount++;
+      }
+      
+      if (end_date) {
+        updateFields.push(`end_date = $${paramCount}`);
+        updateValues.push(end_date);
+        paramCount++;
+      }
+      
+      updateFields.push(`dates_adjusted_by_admin = $${paramCount}`);
+      updateValues.push(true);
+      paramCount++;
+    }
+    
+    // Add adjustment reason if provided
+    if (adjustment_reason) {
+      updateFields.push(`adjustment_reason = $${paramCount}`);
+      updateValues.push(adjustment_reason);
+      paramCount++;
+    }
     
     if (comments !== undefined) {
       updateFields.push(`comments = $${paramCount}`);
@@ -475,12 +534,16 @@ const updateLeaveRequestStatus = async (req, res) => {
     
     await client.query('COMMIT');
     
-    // Custom success message based on pay type
+    // Custom success message
     let successMessage = `Leave request ${status} successfully`;
     if (status === 'approved' && payType === 'without_pay') {
       successMessage = `Leave request approved WITHOUT PAY - no leave balance deducted`;
     } else if (status === 'approved' && payType === 'with_pay') {
       successMessage = `Leave request approved WITH PAY - leave balance deducted`;
+    }
+    
+    if (start_date || end_date) {
+      successMessage += ` Dates have been adjusted.`;
     }
     
     res.json({
@@ -497,6 +560,69 @@ const updateLeaveRequestStatus = async (req, res) => {
   }
 };
 
+// Edit leave request (employee only for pending requests)
+const editLeaveRequest = async (req, res) => {
+  const { id } = req.params;
+  const { leave_type, start_date, end_date, reason, medical_certificate } = req.body;
+  const userId = req.user.id;
+  
+  try {
+    // Check if leave request exists and belongs to user
+    const leaveRequest = await pool.query(
+      `SELECT * FROM leave_requests WHERE id = $1 AND user_id = $2`,
+      [id, userId]
+    );
+    
+    if (leaveRequest.rows.length === 0) {
+      return res.status(404).json({ error: 'Leave request not found' });
+    }
+    
+    const request = leaveRequest.rows[0];
+    
+    // Only allow editing of pending requests
+    if (request.status !== 'pending') {
+      return res.status(400).json({ error: 'Cannot edit approved or rejected requests' });
+    }
+    
+    // Check if new dates are valid
+    const start = new Date(start_date);
+    const end = new Date(end_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (start < today) {
+      return res.status(400).json({ error: 'Start date cannot be in the past' });
+    }
+    
+    if (end < start) {
+      return res.status(400).json({ error: 'End date must be after start date' });
+    }
+    
+    // Update the leave request
+    const result = await pool.query(
+      `UPDATE leave_requests 
+       SET leave_type = $1, 
+           start_date = $2, 
+           end_date = $3, 
+           reason = $4,
+           medical_certificate = $5,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $6 AND user_id = $7
+       RETURNING *`,
+      [leave_type, start_date, end_date, reason, medical_certificate || false, id, userId]
+    );
+    
+    res.json({
+      success: true,
+      message: 'Leave request updated successfully',
+      leaveRequest: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Error editing leave request:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
+  }
+};
+
 module.exports = {
   getMyLeaveBalances,
   getUserLeaveBalances,
@@ -504,5 +630,6 @@ module.exports = {
   getMyLeaveRequests,
   createLeaveRequest,
   getAllLeaveRequests,
-  updateLeaveRequestStatus
+  updateLeaveRequestStatus,
+  editLeaveRequest
 };

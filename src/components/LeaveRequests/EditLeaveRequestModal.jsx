@@ -2,13 +2,12 @@ import { useState, useEffect } from 'react';
 import { XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
 import api from '../../api/config';
 
-const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
+const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => {
   const [formData, setFormData] = useState({
     leave_type: '',
     start_date: '',
     end_date: '',
     reason: '',
-    leave_pay_type: 'pending',
     medical_certificate: false
   });
   const [loading, setLoading] = useState(false);
@@ -16,24 +15,32 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
   const [leaveBalances, setLeaveBalances] = useState(null);
   const [fetchingBalance, setFetchingBalance] = useState(false);
   const [balanceError, setBalanceError] = useState('');
-  const [isProbationary, setIsProbationary] = useState(false);
-  const [probationaryMessage, setProbationaryMessage] = useState('');
+
+  // Function to format ISO date to YYYY-MM-DD for input[type="date"]
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    // Create a date object and adjust for timezone
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    // Get local date components to avoid timezone shift
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   useEffect(() => {
-    if (isOpen) {
-      fetchLeaveBalances();
-      // Reset form when modal opens
+    if (isOpen && leaveRequest) {
       setFormData({
-        leave_type: '',
-        start_date: '',
-        end_date: '',
-        reason: '',
-        leave_pay_type: 'pending',
-        medical_certificate: false
+        leave_type: leaveRequest.leave_type || '',
+        start_date: formatDateForInput(leaveRequest.start_date),
+        end_date: formatDateForInput(leaveRequest.end_date),
+        reason: leaveRequest.reason || '',
+        medical_certificate: leaveRequest.medical_certificate || false
       });
-      setError('');
+      fetchLeaveBalances();
     }
-  }, [isOpen]);
+  }, [isOpen, leaveRequest]);
 
   const fetchLeaveBalances = async () => {
     setFetchingBalance(true);
@@ -41,18 +48,6 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
     try {
       const response = await api.get('/leave/balances');
       setLeaveBalances(response.data);
-      
-      // Check if balances are zero to determine probationary status
-      if (response.data && 
-          response.data.vacation_leave === 0 && 
-          response.data.sick_leave === 0 && 
-          response.data.emergency_leave === 0) {
-        setIsProbationary(true);
-        setProbationaryMessage('You appear to be on probationary status with zero leave balances.');
-      } else {
-        setIsProbationary(false);
-        setProbationaryMessage('');
-      }
     } catch (error) {
       console.error('Error fetching leave balances:', error);
       setBalanceError('Unable to fetch leave balance');
@@ -105,26 +100,23 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // No confirmation dialog - just submit and let admin decide
     setLoading(true);
     setError('');
-    
-    // Prepare data without pay type (admin will decide)
+
     const submitData = {
       leave_type: formData.leave_type,
       start_date: formData.start_date,
       end_date: formData.end_date,
       reason: formData.reason,
       medical_certificate: formData.medical_certificate,
-      leave_pay_type: 'pending' // Admin will decide
+      leave_pay_type: 'pending'
     };
     
     try {
-      await api.post('/leave/requests', submitData);
+      await api.put(`/leave/requests/${leaveRequest.id}/edit`, submitData);
       onSuccess();
     } catch (err) {
-      setError(err.response?.data?.error || 'Error submitting request. Please try again.');
+      setError(err.response?.data?.error || 'Error updating request. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -140,7 +132,7 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-gray-200 sticky top-0 bg-white">
-          <h2 className="text-xl font-bold text-gray-800">New Leave Request</h2>
+          <h2 className="text-xl font-bold text-gray-800">Edit Leave Request</h2>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
@@ -159,21 +151,6 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
           {balanceError && (
             <div className="mb-4 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-lg">
               {balanceError}
-            </div>
-          )}
-
-          {/* Probationary Employee Notice */}
-          {isProbationary && (
-            <div className="mb-4 bg-yellow-50 border border-yellow-400 rounded-lg p-3">
-              <div className="flex items-start space-x-2">
-                <InformationCircleIcon className="h-5 w-5 text-yellow-500 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-yellow-800">Probationary Employee</p>
-                  <p className="text-xs text-yellow-700 mt-1">
-                    {probationaryMessage || 'As a probationary employee, admin will decide your pay type upon approval.'}
-                  </p>
-                </div>
-              </div>
             </div>
           )}
 
@@ -219,7 +196,7 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
               </div>
             )}
 
-            {/* Leave Balance Display - Informational only */}
+            {/* Leave Balance Display */}
             {fetchingBalance ? (
               <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
@@ -242,36 +219,16 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
                           You are requesting: <strong>{daysRequested} days</strong>
                           {!sufficientBalance && (
                             <span className="block text-xs text-red-600 mt-1">
-                              ⚠️ This exceeds your available balance!
+                              ⚠️ This exceeds your available balance! Admin may approve as "Without Pay".
                             </span>
                           )}
                           {sufficientBalance && (
                             <span className="block text-xs text-green-600 mt-1">
-                              ✓ You have sufficient balance. 
+                              ✓ You have sufficient balance. Admin will decide pay type upon approval.
                             </span>
                           )}
                         </p>
                       </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* For probationary employees, show a different message */}
-            {isProbationary && (
-              <div className="bg-green-50 rounded-lg p-3">
-                <div className="flex items-start space-x-2">
-                  <InformationCircleIcon className="h-5 w-5 text-green-500 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-green-800">Probationary Employee</p>
-                    <p className="text-xs text-green-700 mt-1">
-                      As a probationary employee, admin will decide if your leave is with or without pay upon approval.
-                    </p>
-                    {formData.start_date && formData.end_date && (
-                      <p className="text-xs text-green-600 mt-2">
-                        You are requesting {daysRequested} day{daysRequested !== 1 ? 's' : ''} of leave.
-                      </p>
                     )}
                   </div>
                 </div>
@@ -290,7 +247,6 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
                   value={formData.start_date}
                   onChange={handleChange}
                   required
-                  min={new Date().toISOString().split('T')[0]}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -304,7 +260,6 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
                   value={formData.end_date}
                   onChange={handleChange}
                   required
-                  min={formData.start_date || new Date().toISOString().split('T')[0]}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -358,25 +313,24 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
                   : 'bg-blue-600 hover:bg-blue-700'
               }`}
             >
-              {loading ? 'Submitting...' : 'Submit Request'}
+              {loading ? 'Saving...' : 'Update Request'}
             </button>
           </div>
 
-          {/* Info Note */}
-          {/* <div className="mt-4 pt-3 border-t border-gray-100">
+          <div className="mt-4 pt-3 border-t border-gray-100">
             <p className="text-xs text-gray-500 text-center">
-              ⚠️ <strong>Important:</strong> Admin will decide whether your leave is WITH PAY or WITHOUT PAY upon approval.
+              ⚠️ <strong>Note:</strong> Your request will remain pending for approval after editing.
               {!sufficientBalance && formData.leave_type && formData.start_date && formData.end_date && (
                 <span className="block text-yellow-600 mt-1">
                   Note: You have insufficient balance. Your request may be approved as WITHOUT PAY.
                 </span>
               )}
             </p>
-          </div> */}
+          </div>
         </form>
       </div>
     </div>
   );
 };
 
-export default LeaveRequestModal;
+export default EditLeaveRequestModal;

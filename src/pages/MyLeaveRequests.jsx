@@ -9,15 +9,19 @@ import {
   ChatBubbleLeftIcon,
   UserCircleIcon,
   DocumentTextIcon,
-  XMarkIcon
+  XMarkIcon,
+  PencilIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline';
 import LeaveRequestModal from '../components/LeaveRequests/LeaveRequestModal';
+import EditLeaveRequestModal from '../components/LeaveRequests/EditLeaveRequestModal';
 import api from '../api/config';
 
 const MyLeaveRequests = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [stats, setStats] = useState({
@@ -51,6 +55,18 @@ const MyLeaveRequests = () => {
     }
   };
 
+  const handleEdit = (request) => {
+    setSelectedRequest(request);
+    setShowEditModal(true);
+  };
+
+  const handleEditSuccess = () => {
+    setShowEditModal(false);
+    setSelectedRequest(null);
+    fetchLeaveRequests();
+    alert('Leave request updated successfully!');
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'approved':
@@ -76,11 +92,8 @@ const MyLeaveRequests = () => {
     }
   };
 
-  // Only show pay type badge for approved requests
   const getPayTypeBadge = (payType, status) => {
-    // Only show pay type for approved requests
     if (status !== 'approved') return null;
-    
     if (!payType || payType === 'pending') return null;
     
     return payType === 'with_pay' ? (
@@ -224,52 +237,79 @@ const MyLeaveRequests = () => {
               {leaveRequests.map((request) => (
                 <div 
                   key={request.id} 
-                  className="p-4 hover:bg-[#fcf8fc] transition-colors cursor-pointer"
-                  onClick={() => handleViewDetails(request)}
+                  className="p-4 hover:bg-[#fcf8fc] transition-colors"
                 >
-                  {/* Header with Leave Type, Pay Type (if approved), and Status */}
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center flex-wrap gap-1">
-                      <CalendarIcon className="h-5 w-5 text-[#800080]" />
-                      <span className="font-medium text-gray-900">{request.leave_type}</span>
-                      {getPayTypeBadge(request.leave_pay_type, request.status)}
+                  <div onClick={() => handleViewDetails(request)}>
+                    {/* Header with Leave Type, Pay Type (if approved), and Status */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center flex-wrap gap-1">
+                        <CalendarIcon className="h-5 w-5 text-[#800080]" />
+                        <span className="font-medium text-gray-900">{request.leave_type}</span>
+                        {getPayTypeBadge(request.leave_pay_type, request.status)}
+                      </div>
+                      {getStatusBadge(request.status)}
                     </div>
-                    {getStatusBadge(request.status)}
+                    
+                    {/* Leave Details Grid */}
+                    <div className="space-y-2 mb-3">
+                      <div>
+                        <p className="text-xs text-gray-500">Duration</p>
+                        <p className="text-sm text-gray-800">
+                          {formatDate(request.start_date)} - {formatDate(request.end_date)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Days</p>
+                        <p className="text-sm font-medium text-gray-800">
+                          {calculateDays(request.start_date, request.end_date)} days
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Reason</p>
+                        <p className="text-sm text-gray-600 break-words">{request.reason || '-'}</p>
+                      </div>
+                      
+                      {/* Show Approval Notes for Approved requests */}
+                      {request.status === 'approved' && request.approval_notes && (
+                        <div className="mt-2 rounded-lg bg-blue-50 p-2">
+                          <div className="flex items-start space-x-2">
+                            <ChatBubbleLeftIcon className="mt-0.5 h-3 w-3 text-blue-500" />
+                            <p className="text-xs text-blue-700">{request.approval_notes}</p>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div>
+                        <p className="text-xs text-gray-500">Date Filed</p>
+                        <p className="text-xs text-gray-400">{formatDate(request.created_at)}</p>
+                      </div>
+                    </div>
                   </div>
                   
-                  {/* Leave Details Grid */}
-                  <div className="space-y-2 mb-3">
-                    <div>
-                      <p className="text-xs text-gray-500">Duration</p>
-                      <p className="text-sm text-gray-800">
-                        {formatDate(request.start_date)} - {formatDate(request.end_date)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Days</p>
-                      <p className="text-sm font-medium text-gray-800">
-                        {calculateDays(request.start_date, request.end_date)} days
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Reason</p>
-                      <p className="text-sm text-gray-600 break-words">{request.reason || '-'}</p>
-                    </div>
-                    
-                    {/* Show Approval Notes for Approved requests */}
-                    {request.status === 'approved' && request.approval_notes && (
-                      <div className="mt-2 rounded-lg bg-blue-50 p-2">
-                        <div className="flex items-start space-x-2">
-                          <ChatBubbleLeftIcon className="mt-0.5 h-3 w-3 text-blue-500" />
-                          <p className="text-xs text-blue-700">{request.approval_notes}</p>
-                        </div>
-                      </div>
+                  {/* Action Buttons - Outside the clickable area */}
+                  <div className="flex justify-end space-x-2 pt-2 border-t border-[#f1e7f2] mt-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewDetails(request);
+                      }}
+                      className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
+                      title="View Details"
+                    >
+                      <EyeIcon className="h-4 w-4" />
+                    </button>
+                    {request.status === 'pending' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(request);
+                        }}
+                        className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition"
+                        title="Edit Request"
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </button>
                     )}
-                    
-                    <div>
-                      <p className="text-xs text-gray-500">Date Filed</p>
-                      <p className="text-xs text-gray-400">{formatDate(request.created_at)}</p>
-                    </div>
                   </div>
                 </div>
               ))}
@@ -303,6 +343,9 @@ const MyLeaveRequests = () => {
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 whitespace-nowrap">
                       Date Filed
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 whitespace-nowrap">
+                      Actions
                     </th>
                   </tr>
                 </thead>
@@ -362,6 +405,30 @@ const MyLeaveRequests = () => {
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                         {formatDate(request.created_at)}
                       </td>
+                      <td className="whitespace-nowrap px-6 py-4 text-right">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewDetails(request);
+                          }}
+                          className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition mx-0.5"
+                          title="View Details"
+                        >
+                          <EyeIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                        </button>
+                        {request.status === 'pending' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(request);
+                            }}
+                            className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition mx-0.5"
+                            title="Edit Request"
+                          >
+                            <PencilIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -379,6 +446,17 @@ const MyLeaveRequests = () => {
           setShowModal(false);
           fetchLeaveRequests();
         }}
+      />
+
+      {/* Edit Leave Request Modal */}
+      <EditLeaveRequestModal
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedRequest(null);
+        }}
+        onSuccess={handleEditSuccess}
+        leaveRequest={selectedRequest}
       />
 
       {/* Details Modal for Mobile/Desktop View */}
@@ -405,7 +483,6 @@ const MyLeaveRequests = () => {
                 <div className="text-gray-500">Status:</div>
                 <div>{getStatusBadge(selectedRequest.status)}</div>
 
-                {/* Only show Pay Type for approved requests */}
                 {selectedRequest.status === 'approved' && (
                   <>
                     <div className="text-gray-500">Pay Type:</div>
@@ -429,6 +506,8 @@ const MyLeaveRequests = () => {
                   {calculateDays(selectedRequest.start_date, selectedRequest.end_date)} days
                 </div>
 
+                
+
                 <div className="text-gray-500">Reason:</div>
                 <div className="text-gray-700 break-words">
                   {selectedRequest.reason || 'No reason provided'}
@@ -438,7 +517,6 @@ const MyLeaveRequests = () => {
                 <div className="text-gray-600">{formatDateTime(selectedRequest.created_at)}</div>
               </div>
 
-              {/* Approval Details Section - Only show for approved/rejected requests */}
               {(selectedRequest.status === 'approved' || selectedRequest.status === 'rejected') && (
                 <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
                   <h4 className="mb-3 text-sm font-semibold text-gray-700">Approval Details</h4>
@@ -477,6 +555,33 @@ const MyLeaveRequests = () => {
                       </div>
                     )}
 
+                    {/* Show original vs adjusted dates if dates were modified by admin */}
+{selectedRequest.dates_adjusted_by_admin && (
+  <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+    <div className="flex items-start space-x-2">
+      <CalendarIcon className="h-4 w-4 text-yellow-600 mt-0.5" />
+      <div>
+        <p className="text-xs font-medium text-yellow-700 mb-1"> Dates Adjusted by Admin</p>
+        <div className="text-sm">
+          <p className="text-gray-600">
+            <span className="line-through text-gray-400">
+              Original Request: {formatDate(selectedRequest.original_start_date)} - {formatDate(selectedRequest.original_end_date)}
+            </span>
+          </p>
+          <p className="text-green-700 font-medium mt-1">
+            Adjusted to: {formatDate(selectedRequest.start_date)} - {formatDate(selectedRequest.end_date)}
+          </p>
+          {selectedRequest.adjustment_reason && (
+            <p className="text-xs text-gray-600 mt-2">
+              <strong>Reason for adjustment:</strong> {selectedRequest.adjustment_reason}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
                     {selectedRequest.medical_certificate && (
                       <div className="mt-2 rounded-lg bg-yellow-50 p-2">
                         <p className="text-xs text-yellow-700">
@@ -488,7 +593,6 @@ const MyLeaveRequests = () => {
                 </div>
               )}
 
-              {/* Pending request message */}
               {selectedRequest.status === 'pending' && (
                 <div className="mt-4 rounded-lg bg-yellow-50 p-3 text-center">
                   <ClockIcon className="mx-auto mb-1 h-5 w-5 text-yellow-500" />
@@ -499,7 +603,19 @@ const MyLeaveRequests = () => {
               )}
             </div>
 
-            <div className="mt-6 flex justify-end">
+            <div className="mt-6 flex justify-end space-x-3">
+              {selectedRequest.status === 'pending' && (
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    handleEdit(selectedRequest);
+                  }}
+                  className="rounded-lg bg-green-600 px-4 py-2 text-white transition hover:bg-green-700"
+                >
+                  <PencilIcon className="h-4 w-4 inline mr-1" />
+                  Edit Request
+                </button>
+              )}
               <button
                 onClick={() => setShowDetailsModal(false)}
                 className="rounded-lg bg-[#800080] px-4 py-2 text-white transition hover:bg-[#660066]"

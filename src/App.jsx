@@ -20,6 +20,7 @@ import NotFound from './pages/NotFound';
 import CompanyPolicies from './pages/CompanyPolicies';
 import Support from './pages/Support';
 import AdminFeedback from './pages/AdminFeedback';
+import PendingPayslips from './pages/PendingPayslips';
 
 // Private Route Component
 const PrivateRoute = ({ children }) => {
@@ -72,8 +73,10 @@ function App() {
               <Route path="leave-requests" element={<LeaveRequestsAdmin />} />
               <Route path="attendance" element={<AttendanceAdmin />} />
               <Route path="payslips" element={<AdminPayslips />} />
+              <Route path="pending-payslips" element={<PendingPayslips />} />
               <Route path="reports" element={<Reports />} />
               <Route path="feedback" element={<AdminFeedback />} />
+              
               
               {/* Employee Only Routes */}
               <Route path="my-profile" element={<MyProfile />} />
