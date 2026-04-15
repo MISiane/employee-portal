@@ -41,11 +41,13 @@ const AdminPayslips = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
   
+  
   // Filter states
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('');
   
   // Sorting states
   const [sortField, setSortField] = useState('pay_period_start');
@@ -59,8 +61,6 @@ const statusOptions = [
   { value: 'draft', label: 'Draft' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
-  { value: 'sent', label: 'Sent' },
-  { value: 'paid', label: 'Paid' }
 ];
 
   // Get status badge styling
@@ -121,10 +121,10 @@ const statusOptions = [
   }
 };
 
-  useEffect(() => {
-    fetchData();
-    fetchPendingCount();
-  }, [selectedYear, selectedMonth, selectedEmployee, selectedStatus, currentPage, sortField, sortDirection, searchTerm]);
+useEffect(() => {
+  fetchData();
+  fetchPendingCount();
+}, [selectedYear, selectedMonth, selectedEmployee, selectedStatus, selectedDepartment, currentPage, sortField, sortDirection, searchTerm]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -140,6 +140,7 @@ const statusOptions = [
       if (selectedMonth && selectedMonth !== '') params.month = selectedMonth;
       if (selectedEmployee && selectedEmployee !== '') params.user_id = selectedEmployee;
       if (selectedStatus && selectedStatus !== '') params.status = selectedStatus;
+      if (selectedDepartment && selectedDepartment !== '') params.department = selectedDepartment;
       if (searchTerm && searchTerm !== '') params.search = searchTerm;
       
       const [payslipsData, employeesData] = await Promise.all([
@@ -156,6 +157,11 @@ const statusOptions = [
       setLoading(false);
     }
   };
+
+  const getUniqueDepartments = () => {
+  const departments = employees.map(emp => emp.department).filter(Boolean);
+  return ['', ...new Set(departments)].sort();
+};
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this payslip?')) {
@@ -227,6 +233,7 @@ const statusOptions = [
     setSelectedMonth('');
     setSelectedEmployee('');
     setSelectedStatus('');
+     setSelectedDepartment('');
     setSearchTerm('');
     setCurrentPage(1);
   };
@@ -337,7 +344,7 @@ const statusOptions = [
       </div>
 
       {/* Stats Summary with Status Breakdown */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -365,7 +372,7 @@ const statusOptions = [
             <CheckCircleIcon className="h-8 w-8 text-green-400" />
           </div>
         </div>
-        <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-4">
+        {/* <div className="bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-purple-600 font-medium">Paid</p>
@@ -373,8 +380,8 @@ const statusOptions = [
             </div>
             <CurrencyDollarIcon className="h-8 w-8 text-purple-400" />
           </div>
-        </div>
-        <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-4">
+        </div> */}
+        {/* <div className="bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-orange-600 font-medium">Total Net</p>
@@ -384,7 +391,7 @@ const statusOptions = [
             </div>
             <CurrencyDollarIcon className="h-8 w-8 text-orange-400" />
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Search and Filters */}
@@ -430,7 +437,7 @@ const statusOptions = [
         {/* Expanded Filter Panel */}
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Employee
@@ -448,6 +455,21 @@ const statusOptions = [
                   ))}
                 </select>
               </div>
+               <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Department
+        </label>
+        <select
+          value={selectedDepartment}
+          onChange={(e) => setSelectedDepartment(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">All Departments</option>
+          {getUniqueDepartments().map(dept => dept && (
+            <option key={dept} value={dept}>{dept}</option>
+          ))}
+        </select>
+      </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Year

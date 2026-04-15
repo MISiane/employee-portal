@@ -276,7 +276,8 @@ const createPayslip = async (req, res) => {
 
 // Get payslips with employee details
 const getPayslips = async (req, res) => {
-  const { user_id, year, month, status, page = 1, limit = 12 } = req.query;
+  // ADD 'department' to the destructuring
+  const { user_id, year, month, status, search, department, page = 1, limit = 12 } = req.query;
   const offset = (page - 1) * limit;
   
   try {
@@ -302,22 +303,43 @@ const getPayslips = async (req, res) => {
       paramCount++;
     }
     
-    // Status filter - ADD THIS SECTION
+    // Status filter
     if (status && status !== '' && status !== 'undefined') {
       query += ` AND p.status = $${paramCount}`;
       values.push(status);
       paramCount++;
     }
     
+    // Year filter
     if (year && year !== '' && year !== 'undefined') {
       query += ` AND EXTRACT(YEAR FROM p.pay_period_start) = $${paramCount}`;
       values.push(parseInt(year));
       paramCount++;
     }
     
+    // Month filter
     if (month && month !== '' && month !== 'undefined') {
       query += ` AND EXTRACT(MONTH FROM p.pay_period_start) = $${paramCount}`;
       values.push(parseInt(month));
+      paramCount++;
+    }
+    
+    // ADD DEPARTMENT FILTER
+    if (department && department !== '' && department !== 'undefined') {
+      query += ` AND ep.department = $${paramCount}`;
+      values.push(department);
+      paramCount++;
+    }
+    
+    // Search filter
+    if (search && search !== '' && search !== 'undefined') {
+      query += ` AND (
+        ep.first_name ILIKE $${paramCount} OR 
+        ep.last_name ILIKE $${paramCount} OR 
+        ep.employee_code ILIKE $${paramCount} OR
+        u.email ILIKE $${paramCount}
+      )`;
+      values.push(`%${search}%`);
       paramCount++;
     }
     
@@ -326,37 +348,61 @@ const getPayslips = async (req, res) => {
     
     const result = await pool.query(query, values);
     
-    // Count query - also needs status filter
-    let countQuery = 'SELECT COUNT(*) FROM payslips WHERE 1=1';
+    // Count query - also needs department filter
+    let countQuery = `
+      SELECT COUNT(*) 
+      FROM payslips p
+      LEFT JOIN users u ON p.user_id = u.id
+      LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+      WHERE 1=1
+    `;
     const countValues = [];
     let countParamCount = 1;
     
     if (req.user.role !== 'admin') {
-      countQuery += ` AND user_id = $${countParamCount}`;
+      countQuery += ` AND p.user_id = $${countParamCount}`;
       countValues.push(req.user.id);
       countParamCount++;
     } else if (user_id && user_id !== '') {
-      countQuery += ` AND user_id = $${countParamCount}`;
+      countQuery += ` AND p.user_id = $${countParamCount}`;
       countValues.push(user_id);
       countParamCount++;
     }
     
-    // Status filter for count
     if (status && status !== '' && status !== 'undefined') {
-      countQuery += ` AND status = $${countParamCount}`;
+      countQuery += ` AND p.status = $${countParamCount}`;
       countValues.push(status);
       countParamCount++;
     }
     
     if (year && year !== '' && year !== 'undefined') {
-      countQuery += ` AND EXTRACT(YEAR FROM pay_period_start) = $${countParamCount}`;
+      countQuery += ` AND EXTRACT(YEAR FROM p.pay_period_start) = $${countParamCount}`;
       countValues.push(parseInt(year));
       countParamCount++;
     }
     
     if (month && month !== '' && month !== 'undefined') {
-      countQuery += ` AND EXTRACT(MONTH FROM pay_period_start) = $${countParamCount}`;
+      countQuery += ` AND EXTRACT(MONTH FROM p.pay_period_start) = $${countParamCount}`;
       countValues.push(parseInt(month));
+      countParamCount++;
+    }
+    
+    // Add department filter to count query
+    if (department && department !== '' && department !== 'undefined') {
+      countQuery += ` AND ep.department = $${countParamCount}`;
+      countValues.push(department);
+      countParamCount++;
+    }
+    
+    if (search && search !== '' && search !== 'undefined') {
+      countQuery += ` AND (
+        ep.first_name ILIKE $${countParamCount} OR 
+        ep.last_name ILIKE $${countParamCount} OR 
+        ep.employee_code ILIKE $${countParamCount} OR
+        u.email ILIKE $${countParamCount}
+      )`;
+      countValues.push(`%${search}%`);
+      countParamCount++;
     }
     
     const countResult = await pool.query(countQuery, countValues);
