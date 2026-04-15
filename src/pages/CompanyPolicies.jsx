@@ -181,7 +181,7 @@ const CompanyPolicies = () => {
               Our commitment to excellence, integrity, and professionalism
             </p>
             <p className="text-blue-200 text-xs mt-1 sm:mt-2">
-              📄 3 sections | Updated: Jan 2024
+              📄 3 sections
             </p>
           </div>
         </div>
@@ -275,7 +275,7 @@ const CompanyPolicies = () => {
             </div>
 
             {/* Document Preview Card - Mobile Optimized */}
-            <div 
+            {/* <div 
               className={`border ${colors.border} rounded-xl overflow-hidden bg-gray-50 cursor-pointer hover:shadow-md transition-shadow`}
               onClick={() => handleViewPDF(currentTab?.pdfFile, currentTab?.label)}
             >
@@ -293,7 +293,7 @@ const CompanyPolicies = () => {
                 <p className="text-gray-600 mb-1 sm:mb-2 font-medium text-sm sm:text-base">{currentTab?.label}</p>
                 <p className="text-xs text-gray-400">Tap to read the full document</p>
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Summary Section - Mobile Optimized */}
@@ -383,7 +383,7 @@ const CompanyPolicies = () => {
       )}
 
       {/* Acknowledgment Section - Mobile Optimized */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 sm:p-4 sticky bottom-2 sm:bottom-4">
+      {/* <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 sm:p-4 sticky bottom-2 sm:bottom-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-start space-x-2 sm:space-x-3">
             <ShieldCheckIcon className="h-5 w-5 sm:h-6 sm:w-6 text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -406,7 +406,7 @@ const CompanyPolicies = () => {
             I Acknowledge
           </button>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 };

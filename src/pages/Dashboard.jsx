@@ -265,7 +265,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         <StatCard
           title="Total Employees"
           value={stats.totalEmployees}
@@ -292,13 +292,13 @@ const Dashboard = () => {
           color="bg-gradient-to-r from-orange-500 to-orange-600"
           onClick={() => navigate('/leave-requests?status=pending')}
         />
-        <StatCard
+        {/* <StatCard
           title="Departments"
           value={stats.departmentsCount}
           icon={BriefcaseIcon}
           color="bg-gradient-to-r from-purple-500 to-purple-600"
           onClick={() => navigate('/employees')}
-        />
+        /> */}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

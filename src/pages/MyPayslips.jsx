@@ -212,7 +212,7 @@ const MyPayslips = () => {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 sm:gap-6">
         <div className="rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-50 to-blue-100 p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -233,7 +233,7 @@ const MyPayslips = () => {
           </div>
         </div>
         
-        <div className="col-span-1 sm:col-span-2 lg:col-span-1 rounded-xl sm:rounded-2xl bg-gradient-to-r from-purple-50 to-purple-100 p-4 sm:p-6">
+        {/* <div className="col-span-1 sm:col-span-2 lg:col-span-1 rounded-xl sm:rounded-2xl bg-gradient-to-r from-purple-50 to-purple-100 p-4 sm:p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs sm:text-sm text-purple-600 font-medium">Year-to-Date</p>
@@ -241,7 +241,7 @@ const MyPayslips = () => {
             </div>
             <CurrencyDollarIcon className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500" />
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Filters - Desktop (visible), Mobile (collapsible) */}

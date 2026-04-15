@@ -109,7 +109,7 @@ const Login = () => {
             </div>
           </div>
 
-          <div className="text-xs xl:text-sm text-white/75">© 2026 Employee Portal System</div>
+          <div className="text-xs xl:text-sm text-white/75">© 2026 Le Monet Hotel Employee Portal System</div>
         </div>
       </div>
 
@@ -118,8 +118,12 @@ const Login = () => {
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="mb-6 sm:mb-8 text-center lg:hidden">
-            <div className="mb-3 sm:mb-4 inline-flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-[#800080] shadow-lg">
-              <BuildingOfficeIcon className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
+            <div className="mb-3 sm:mb-4 inline-flex h-28 w-28 sm:h-40 sm:w-40 items-center justify-center rounded-2xl bg-[#ffffff] shadow-lg">
+             <img
+                  src="https://lemonethotel.ph/wp-content/uploads/2025/12/le-monet-logo-1024x909.png"
+                  alt="Le Monet Logo"
+                  className="h-28 w-28 xl:h-28 xl:w-28 object-contain"
+                />
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-gray-800">Employee Portal</h1>
             <p className="mt-1 text-xs sm:text-sm text-gray-500">Sign in to your account</p>
@@ -210,7 +214,7 @@ const Login = () => {
                 <button
                   type="button"
                   className="text-xs sm:text-sm text-[#800080] transition-colors hover:text-[#660066]"
-                  onClick={() => alert('Please contact HR to reset your password.')}
+                  onClick={() => alert('Please contact MIS to reset your password.')}
                 >
                   Forgot password?
                 </button>

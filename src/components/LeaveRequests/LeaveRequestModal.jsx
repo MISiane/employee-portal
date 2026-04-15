@@ -311,7 +311,7 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
             </div>
 
             {/* Days Calculation */}
-            {formData.start_date && formData.end_date && (
+            {/* {formData.start_date && formData.end_date && (
               <div className={`rounded-lg p-3 ${sufficientBalance ? 'bg-blue-50' : 'bg-yellow-50'}`}>
                 <div className="flex items-center justify-between">
                   <span className={`text-sm ${sufficientBalance ? 'text-blue-700' : 'text-yellow-700'}`}>
@@ -322,7 +322,7 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
                   </span>
                 </div>
               </div>
-            )}
+            )} */}
 
             {/* Reason */}
             <div>

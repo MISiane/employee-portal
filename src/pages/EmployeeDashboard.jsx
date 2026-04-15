@@ -332,12 +332,12 @@ const EmployeeDashboard = () => {
                 <div className="h-1.5 sm:h-2 w-full rounded-full bg-gray-200">
                   <div
                     className="h-1.5 sm:h-2 rounded-full bg-green-500"
-                    style={{ width: `${(stats.leaveBalances.sick_leave / 10) * 100}%` }}
+                    style={{ width: `${(stats.leaveBalances.sick_leave / 12) * 100}%` }}
                   ></div>
                 </div>
               </div>
 
-              <div>
+              {/* <div>
                 <div className="mb-1 flex justify-between text-xs sm:text-sm">
                   <span className="text-gray-600">Emergency Leave</span>
                   <span className="font-medium">{stats.leaveBalances.emergency_leave} days</span>
@@ -348,7 +348,7 @@ const EmployeeDashboard = () => {
                     style={{ width: `${(stats.leaveBalances.emergency_leave / 5) * 100}%` }}
                   ></div>
                 </div>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

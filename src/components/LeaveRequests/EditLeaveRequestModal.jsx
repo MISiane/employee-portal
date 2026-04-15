@@ -266,7 +266,7 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
             </div>
 
             {/* Days Calculation */}
-            {formData.start_date && formData.end_date && (
+            {/* {formData.start_date && formData.end_date && (
               <div className={`rounded-lg p-3 ${sufficientBalance ? 'bg-blue-50' : 'bg-yellow-50'}`}>
                 <div className="flex items-center justify-between">
                   <span className={`text-sm ${sufficientBalance ? 'text-blue-700' : 'text-yellow-700'}`}>
@@ -277,7 +277,7 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
                   </span>
                 </div>
               </div>
-            )}
+            )} */}
 
             {/* Reason */}
             <div>
@@ -317,7 +317,7 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
             </button>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-gray-100">
+          {/* <div className="mt-4 pt-3 border-t border-gray-100">
             <p className="text-xs text-gray-500 text-center">
               ⚠️ <strong>Note:</strong> Your request will remain pending for approval after editing.
               {!sufficientBalance && formData.leave_type && formData.start_date && formData.end_date && (
@@ -326,7 +326,7 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
                 </span>
               )}
             </p>
-          </div>
+          </div> */}
         </form>
       </div>
     </div>
