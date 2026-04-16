@@ -815,7 +815,7 @@ const bulkCreatePayslips = async (req, res) => {
           payslipData.hmo_deduction,
           payslipData.other_deductions
         ];
-        payslipData.total_deductions = roundTo2(allDeductions.reduce((sum, val) => sum + val, 0));
+        payslipData.total_deductions = allDeductions.reduce((sum, val) => sum + val, 0);
         
         payslipData.net_salary = roundTo2(payslipData.gross_salary - payslipData.total_deductions + payslipData.allowance_amount);
         
