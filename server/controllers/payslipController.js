@@ -801,7 +801,7 @@ const bulkCreatePayslips = async (req, res) => {
         
         const totalEarnings = earnings.reduce((sum, val) => sum + val, 0);
         const totalDeductionsFromEarnings = deductionsFromEarnings.reduce((sum, val) => sum + val, 0);
-        payslipData.gross_salary = roundTo2(totalEarnings - totalDeductionsFromEarnings);
+        payslipData.gross_salary = totalEarnings - totalDeductionsFromEarnings;
         
         const allDeductions = [
           payslipData.sss_deduction,
