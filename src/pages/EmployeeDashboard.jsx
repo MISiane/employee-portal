@@ -315,8 +315,11 @@ const fetchTodayBirthdays = async () => {
                     className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-all duration-300 group"
                   >
                     <ChatBubbleLeftIcon className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                    Send Wishes 🎁
+                    Leave Birthday Wishes 🎁
                   </button>
+                  <p className="text-xs text-white/70 mt-2">
+                Click to view and send birthday wishes
+              </p>
                 </div>
               ))}
             </div>
