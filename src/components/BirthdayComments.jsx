@@ -8,6 +8,12 @@ import {
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import { getBirthdayComments, addBirthdayComment, deleteBirthdayComment } from '../api/employees';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import utc from 'dayjs/plugin/utc';
+
+dayjs.extend(relativeTime);
+dayjs.extend(utc);
 
 const BirthdayComments = ({ birthdayPersonId, birthdayPersonName, onClose }) => {
   const { user } = useAuth();
@@ -62,31 +68,11 @@ const BirthdayComments = ({ birthdayPersonId, birthdayPersonName, onClose }) => 
     }
   };
 
-  const formatTimeAgo = (dateString) => {
+const formatTimeAgo = (dateString) => {
   if (!dateString) return 'Just now';
-  
-  // Convert PostgreSQL timestamp to UTC date object
-  const utcDate = new Date(dateString.includes(' ') 
-    ? dateString.replace(' ', 'T') + 'Z'
-    : dateString);
-  
-  const now = new Date();
-  const diffMs = now - utcDate;
-  const diffMinutes = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  
-  if (diffMinutes < 1) return 'Just now';
-  if (diffMinutes === 1) return '1 minute ago';
-  if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
-  if (diffHours === 1) return '1 hour ago';
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
-  return `${Math.floor(diffDays / 365)} years ago`;
+  return dayjs.utc(dateString).local().fromNow();
 };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="relative max-w-lg w-full max-h-[80vh] bg-white rounded-2xl shadow-xl flex flex-col">
