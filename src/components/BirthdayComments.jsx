@@ -66,12 +66,18 @@ const BirthdayComments = ({ birthdayPersonId, birthdayPersonName, onClose }) => 
 
 const formatDateTime = (dateString) => {
   if (!dateString) return 'N/A';
-  const date = new Date(dateString);
-  return date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  });
+  
+  // Extract just the time part from the database string
+  const timeMatch = dateString.match(/(\d{2}):(\d{2}):(\d{2})/);
+  if (timeMatch) {
+    let hour = parseInt(timeMatch[1]);
+    const minute = timeMatch[2];
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    hour = hour % 12 || 12;
+    return `${hour}:${minute} ${ampm}`;
+  }
+  
+  return dateString;
 };
 
   return (
