@@ -65,34 +65,27 @@ const BirthdayComments = ({ birthdayPersonId, birthdayPersonName, onClose }) => 
   const formatTimeAgo = (dateString) => {
   if (!dateString) return 'Just now';
   
-  const date = new Date(dateString);
+  // Convert PostgreSQL timestamp to UTC date object
+  const utcDate = new Date(dateString.includes(' ') 
+    ? dateString.replace(' ', 'T') + 'Z'
+    : dateString);
+  
   const now = new Date();
-  const diffMs = now - date;
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffMs = now - utcDate;
+  const diffMinutes = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMinutes / 60);
   const diffDays = Math.floor(diffHours / 24);
   
-  const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
-  
-  if (diffSeconds < 60) {
-    return 'Just now';
-  } else if (diffMinutes < 60) {
-    return rtf.format(-diffMinutes, 'minute');
-  } else if (diffHours < 24) {
-    return rtf.format(-diffHours, 'hour');
-  } else if (diffDays < 7) {
-    return rtf.format(-diffDays, 'day');
-  } else if (diffDays < 30) {
-    const weeks = Math.floor(diffDays / 7);
-    return rtf.format(-weeks, 'week');
-  } else if (diffDays < 365) {
-    const months = Math.floor(diffDays / 30);
-    return rtf.format(-months, 'month');
-  } else {
-    const years = Math.floor(diffDays / 365);
-    return rtf.format(-years, 'year');
-  }
+  if (diffMinutes < 1) return 'Just now';
+  if (diffMinutes === 1) return '1 minute ago';
+  if (diffMinutes < 60) return `${diffMinutes} minutes ago`;
+  if (diffHours === 1) return '1 hour ago';
+  if (diffHours < 24) return `${diffHours} hours ago`;
+  if (diffDays === 1) return 'Yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+  return `${Math.floor(diffDays / 365)} years ago`;
 };
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

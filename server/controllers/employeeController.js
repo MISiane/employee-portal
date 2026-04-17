@@ -876,13 +876,11 @@ const getEmployeeByCode = async (req, res) => {
   }
 };
 
-// Get birthday comments for a specific person
+
 // Get birthday comments for a specific person
 const getBirthdayComments = async (req, res) => {
   const { userId } = req.params;
-  
-  console.log('Fetching comments for userId:', userId);
-  
+
   try {
     // Check if the user exists
     const userCheck = await pool.query(
@@ -915,7 +913,6 @@ const getBirthdayComments = async (req, res) => {
       [userId]
     );
     
-    console.log('Found comments:', result.rows.length);
     
     res.json({ 
       success: true, 
@@ -937,7 +934,6 @@ const addBirthdayComment = async (req, res) => {
   const { comment } = req.body;
   const commenterId = req.user.id;
   
-  console.log('Adding comment:', { userId, comment, commenterId });
   
   if (!comment || comment.trim() === '') {
     return res.status(400).json({ error: 'Comment cannot be empty' });
@@ -965,8 +961,6 @@ const addBirthdayComment = async (req, res) => {
        RETURNING id, birthday_person_id, commenter_id, comment, created_at`,
       [userId, commenterId, comment.trim()]
     );
-    
-    console.log('Comment inserted, ID:', result.rows[0].id);
     
     // Get commenter info from employee_profiles
     const commenterInfo = await pool.query(
