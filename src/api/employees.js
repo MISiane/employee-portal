@@ -66,6 +66,11 @@ export const getDepartments = async () => {
   }
 };
 
+export const getTodayBirthdays = async () => {
+  const response = await api.get('/employees/today-birthdays');
+  return response.data;
+};
+
 // Get upcoming birthdays
 export const getUpcomingBirthdays = async () => {
   try {
@@ -87,3 +92,4 @@ export const resetEmployeePassword = async (employeeId) => {
     throw error;
   }
 };
+

@@ -11,7 +11,8 @@ const {
   getDepartments,
   getEmployeeStats,
   getDepartmentDistribution,
-  getUpcomingBirthdays
+  getUpcomingBirthdays,
+  getTodayBirthdays  // Add this new function
 } = require('../controllers/employeeController');
 const authMiddleware = require('../middleware/auth');
 
@@ -24,6 +25,7 @@ router.get('/stats', getEmployeeStats);
 router.get('/departments', getDepartments);
 router.get('/department-distribution', getDepartmentDistribution);
 router.get('/upcoming-birthdays', getUpcomingBirthdays);
+router.get('/today-birthdays', getTodayBirthdays);  // Add this new route
 router.get('/profile', getEmployeeById);
 router.get('/me', getEmployeeById);
 

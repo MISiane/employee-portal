@@ -37,9 +37,6 @@ const ChangePasswordModal = ({ isOpen, onClose, onSuccess }) => {
     if (!hasNumbers) {
       return 'Password must contain at least one number';
     }
-    if (!hasSpecialChar) {
-      return 'Password must contain at least one special character';
-    }
     return null;
   };
 

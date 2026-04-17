@@ -760,6 +760,38 @@ const getUpcomingBirthdays = async (req, res) => {
   }
 };
 
+const getTodayBirthdays = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        u.id, 
+        ep.first_name, 
+        ep.last_name, 
+        ep.position,
+        ep.department,
+        ep.employee_code
+      FROM users u
+      LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+      WHERE u.is_active = true 
+        AND ep.date_of_birth IS NOT NULL
+        AND u.role = 'employee'
+        AND EXTRACT(MONTH FROM ep.date_of_birth) = EXTRACT(MONTH FROM CURRENT_DATE)
+        AND EXTRACT(DAY FROM ep.date_of_birth) = EXTRACT(DAY FROM CURRENT_DATE)
+      ORDER BY ep.first_name
+    `);
+    
+    res.json({ 
+      success: true,
+      birthdays: result.rows,
+      count: result.rows.length
+    });
+  } catch (error) {
+    console.error('Error fetching today\'s birthdays:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+
 // Reset employee password (admin only)
 const resetEmployeePassword = async (req, res) => {
   if (req.user.role !== 'admin') {
@@ -856,5 +888,6 @@ module.exports = {
   getDepartments,
   getEmployeeStats,
   getDepartmentDistribution,
-  getUpcomingBirthdays
+  getUpcomingBirthdays,
+  getTodayBirthdays
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { 
   PencilIcon, 
@@ -16,10 +16,14 @@ import {
   KeyIcon,
   IdentificationIcon,
   DocumentTextIcon,
-  CakeIcon
+  CakeIcon,
+  PhotoIcon,
+  CameraIcon,
+   CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import { getEmployeeById, updateEmployee } from '../api/employees';
 import ChangePasswordModal from '../components/Profile/ChangePasswordModal';
+
 
 // Move InfoField outside the component to prevent re-creation
 const InfoField = ({ label, value, icon: Icon, editField, type = 'text', isEditable = true, editing, formData, onInputChange }) => (
@@ -60,7 +64,7 @@ const InfoField = ({ label, value, icon: Icon, editField, type = 'text', isEdita
   </div>
 );
 
-// Move StatCard outside the component
+
 const StatCard = ({ title, value, icon: Icon, color }) => (
   <div className={`bg-gradient-to-r ${color} rounded-xl sm:rounded-2xl p-4 sm:p-6`}>
     <div className="flex items-center justify-between">
@@ -83,6 +87,8 @@ const MyProfile = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [editSection, setEditSection] = useState(null);
+  const [avatar, setAvatar] = useState(null);
+  const [completion, setCompletion] = useState({ percentage: 0, missingFields: [] });
 
   // Check if user is admin
   const isAdmin = user?.role === 'admin';
@@ -90,6 +96,12 @@ const MyProfile = () => {
   useEffect(() => {
     fetchProfile();
   }, [user]);
+
+    useEffect(() => {
+    if (profile) {
+      calculateCompletion();
+    }
+  }, [profile]);
 
   const fetchProfile = async () => {
     try {
@@ -116,10 +128,39 @@ const MyProfile = () => {
     }
   };
 
+   const calculateCompletion = () => {
+    const requiredFields = [
+      { name: 'Phone Number', value: profile?.phone, weight: 10 },
+      { name: 'Address', value: profile?.address, weight: 10 },
+      { name: 'City', value: profile?.city, weight: 5 },
+      { name: 'Birth Date', value: profile?.date_of_birth, weight: 10 },
+      { name: 'Emergency Contact Name', value: profile?.emergency_contact_name, weight: 10 },
+      { name: 'Emergency Contact Phone', value: profile?.emergency_contact_phone, weight: 10 },
+    ];
+
+    let totalWeight = 0;
+    let achievedWeight = 0;
+    const missing = [];
+
+    requiredFields.forEach(field => {
+      totalWeight += field.weight;
+      if (field.value && field.value !== '') {
+        achievedWeight += field.weight;
+      } else {
+        missing.push(field.name);
+      }
+    });
+
+    const percentage = Math.round((achievedWeight / totalWeight) * 100);
+    setCompletion({ percentage, missingFields: missing });
+  };
+
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
+
 
   const handleSave = async () => {
     setLoading(true);
@@ -261,6 +302,68 @@ const MyProfile = () => {
             </div>
           </div>
         </div>
+      </div>
+
+       {/* Profile Completion Progress Bar - NEW */}
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <CheckCircleIcon className={`h-5 w-5 ${completion.percentage === 100 ? 'text-green-500' : 'text-blue-500'}`} />
+            <h3 className="text-sm sm:text-base font-semibold text-gray-800">Profile Completion</h3>
+          </div>
+          <span className={`text-lg sm:text-xl font-bold ${completion.percentage === 100 ? 'text-green-600' : 'text-blue-600'}`}>
+            {completion.percentage}%
+          </span>
+        </div>
+        
+        {/* Progress Bar */}
+        <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden mb-3">
+          <div 
+            className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${
+              completion.percentage === 100 ? 'bg-green-500' : 'bg-blue-500'
+            }`}
+            style={{ width: `${completion.percentage}%` }}
+          >
+            {/* Animated shimmer effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+          </div>
+        </div>
+        
+        {/* Completion Message */}
+        {completion.percentage === 100 ? (
+          <div className="flex items-center gap-2 text-green-600 text-xs sm:text-sm">
+            <CheckBadgeIcon className="h-4 w-4" />
+            <span>Perfect! Your profile is complete!</span>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-xs sm:text-sm text-gray-600">
+              Complete your profile to help HR serve you better
+            </p>
+            {completion.missingFields.length > 0 && (
+              <details className="text-xs text-gray-500">
+                <summary className="cursor-pointer hover:text-gray-700">
+                  Missing {completion.missingFields.length} {completion.missingFields.length === 1 ? 'field' : 'fields'}
+                </summary>
+                <ul className="mt-2 space-y-1 pl-4">
+                  {completion.missingFields.map((field, index) => (
+                    <li key={index} className="list-disc">• {field}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
+        
+        {/* Quick Action Buttons for missing fields */}
+        {completion.percentage < 100 && !editing && (
+          <button
+            onClick={() => setEditing(true)}
+            className="mt-3 w-full text-center text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium"
+          >
+            Complete Your Profile Now →
+          </button>
+        )}
       </div>
 
       {/* Quick Stats */}
@@ -437,7 +540,7 @@ const MyProfile = () => {
                 onInputChange={handleInputChange}
               />
               <InfoField 
-                label="State" 
+                label="Province/State" 
                 value={profile?.state} 
                 icon={MapPinIcon}
                 editField="state"
@@ -482,7 +585,7 @@ const MyProfile = () => {
               type="tel"
               editing={editing}
               formData={formData}
-              onInputChange={handleInputChange}
+              onInputChange={handleInputChange}             
             />
           </div>
         </div>
@@ -493,9 +596,7 @@ const MyProfile = () => {
         <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
           <IdentificationIcon className="h-5 w-5 mr-2 text-blue-600" />
           Government IDs
-          {!isAdmin && editing && (
-            <span className="ml-2 text-xs text-gray-400 font-normal">(Read-only - Contact HR for changes)</span>
-          )}
+          
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div className="border-b border-gray-200 pb-3">

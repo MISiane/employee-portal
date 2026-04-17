@@ -9,11 +9,14 @@ import {
   BriefcaseIcon,
   ArrowRightIcon,
   MegaphoneIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  CakeIcon 
 } from '@heroicons/react/24/outline';
 import { getPayslips } from '../api/payslips';
 import { getMyLeaveRequests, getLeaveBalances } from '../api/leave';
 import { getLatestAnnouncements } from '../api/announcements';
+import { getTodayBirthdays } from '../api/employees';
+
 
 const EmployeeDashboard = () => {
   const { user } = useAuth();
@@ -37,10 +40,22 @@ const EmployeeDashboard = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [urgentAnnouncements, setUrgentAnnouncements] = useState([]);
   const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [isBirthday, setIsBirthday] = useState(false);
+const [birthdayCelebrants, setBirthdayCelebrants] = useState([]);
+
+const fetchTodayBirthdays = async () => {
+  try {
+    const response = await getTodayBirthdays();
+    setBirthdayCelebrants(response.birthdays || []);
+  } catch (error) {
+    console.error('Error fetching birthdays:', error);
+  }
+};
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     fetchDashboardData();
+       fetchTodayBirthdays();
     return () => clearInterval(timer);
   }, []);
 
@@ -207,7 +222,98 @@ const EmployeeDashboard = () => {
           </div>
         </div>
       </div>
-
+{/* Birthday Banner - Shows when there are birthday celebrants */}
+{birthdayCelebrants.length > 0 && (
+  <div className="overflow-hidden rounded-xl sm:rounded-[30px] bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 p-4 sm:p-6 text-white shadow-lg animate-gradient">
+    <div className="flex flex-col lg:flex-row items-center lg:items-start gap-5">
+      {/* Cake Icon - Large and prominent */}
+      <div className="flex-shrink-0">
+        <div className="rounded-full bg-white/20 p-4 animate-bounce">
+          <CakeIcon className="h-10 w-10 sm:h-14 sm:w-14" />
+        </div>
+      </div>
+      
+      {/* Message Content */}
+      <div className="flex-1 text-center lg:text-left">
+        {/* Header */}
+        <h3 className="text-xl sm:text-2xl font-bold mb-2">
+          🎉 Happy Birthday! 🎉
+        </h3>
+        
+        {/* Single Birthday */}
+        {birthdayCelebrants.length === 1 && (
+          <div className="space-y-2">
+            <p className="text-base sm:text-lg text-white/95">
+              Please join us in wishing
+            </p>
+            <div className="inline-block bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
+              <p className="text-xl sm:text-2xl font-extrabold">
+                {birthdayCelebrants[0].first_name} {birthdayCelebrants[0].last_name}
+              </p>
+              {birthdayCelebrants[0].department && (
+                <p className="text-sm text-white/80 mt-1">
+                  📍 {birthdayCelebrants[0].department}
+                  {birthdayCelebrants[0].position && ` • ${birthdayCelebrants[0].position}`}
+                </p>
+              )}
+            </div>
+            <p className="text-base sm:text-lg text-white/95 mt-2">
+              a very happy birthday! 🎂
+            </p>
+          </div>
+        )}
+        
+        {/* Multiple Birthdays */}
+        {birthdayCelebrants.length > 1 && (
+          <div className="space-y-3">
+            <p className="text-base sm:text-lg text-white/95">
+              Please join us in wishing our {birthdayCelebrants.length} team members a happy birthday today! 🎉
+            </p>
+            
+            {/* Celebrants List - Highlighted */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+              {birthdayCelebrants.map(celebrant => (
+                <div 
+                  key={celebrant.id} 
+                  className="bg-white/20 backdrop-blur-sm rounded-xl p-3 hover:bg-white/30 transition-all duration-300"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0">
+                      <div className="h-10 w-10 rounded-full bg-yellow-400 flex items-center justify-center text-xl">
+                        🎂
+                      </div>
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-bold text-base sm:text-lg">
+                        {celebrant.first_name} {celebrant.last_name}
+                      </p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-white/80 mt-0.5">
+                        {celebrant.department && (
+                          <span className="inline-flex items-center gap-1">
+                            📍 {celebrant.department}
+                          </span>
+                        )}
+                        {celebrant.position && (
+                          <span className="inline-flex items-center gap-1">
+                            💼 {celebrant.position}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      
+  
+    </div>
+    
+  
+  </div>
+)}
       {/* Urgent Announcements Banner */}
       {urgentAnnouncements.length > 0 && (
         <div className="rounded-xl sm:rounded-[20px] border-l-4 border-orange-500 bg-orange-50 p-3 sm:p-4 shadow-sm">
@@ -336,19 +442,6 @@ const EmployeeDashboard = () => {
                   ></div>
                 </div>
               </div>
-
-              {/* <div>
-                <div className="mb-1 flex justify-between text-xs sm:text-sm">
-                  <span className="text-gray-600">Emergency Leave</span>
-                  <span className="font-medium">{stats.leaveBalances.emergency_leave} days</span>
-                </div>
-                <div className="h-1.5 sm:h-2 w-full rounded-full bg-gray-200">
-                  <div
-                    className="h-1.5 sm:h-2 rounded-full bg-yellow-500"
-                    style={{ width: `${(stats.leaveBalances.emergency_leave / 5) * 100}%` }}
-                  ></div>
-                </div>
-              </div> */}
             </div>
           </div>
         </div>
