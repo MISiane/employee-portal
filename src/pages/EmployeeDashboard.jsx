@@ -10,12 +10,14 @@ import {
   ArrowRightIcon,
   MegaphoneIcon,
   ExclamationTriangleIcon,
-  CakeIcon 
+  CakeIcon,
+  ChatBubbleLeftIcon 
 } from '@heroicons/react/24/outline';
 import { getPayslips } from '../api/payslips';
 import { getMyLeaveRequests, getLeaveBalances } from '../api/leave';
 import { getLatestAnnouncements } from '../api/announcements';
 import { getTodayBirthdays } from '../api/employees';
+import BirthdayComments from '../components/BirthdayComments';
 
 
 const EmployeeDashboard = () => {
@@ -42,6 +44,7 @@ const EmployeeDashboard = () => {
   const [upcomingEvents, setUpcomingEvents] = useState([]);
   const [isBirthday, setIsBirthday] = useState(false);
 const [birthdayCelebrants, setBirthdayCelebrants] = useState([]);
+const [showCommentsFor, setShowCommentsFor] = useState(null);
 
 const fetchTodayBirthdays = async () => {
   try {
@@ -222,11 +225,11 @@ const fetchTodayBirthdays = async () => {
           </div>
         </div>
       </div>
-{/* Birthday Banner - Shows when there are birthday celebrants */}
+{/* Birthday Banner - Enhanced Version */}
 {birthdayCelebrants.length > 0 && (
-  <div className="overflow-hidden rounded-xl sm:rounded-[30px] bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 p-4 sm:p-6 text-white shadow-lg animate-gradient">
+  <div className="overflow-hidden rounded-xl sm:rounded-[30px] bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 p-5 sm:p-6 text-white shadow-lg animate-gradient">
     <div className="flex flex-col lg:flex-row items-center lg:items-start gap-5">
-      {/* Cake Icon - Large and prominent */}
+      {/* Cake Icon */}
       <div className="flex-shrink-0">
         <div className="rounded-full bg-white/20 p-4 animate-bounce">
           <CakeIcon className="h-10 w-10 sm:h-14 sm:w-14" />
@@ -235,18 +238,17 @@ const fetchTodayBirthdays = async () => {
       
       {/* Message Content */}
       <div className="flex-1 text-center lg:text-left">
-        {/* Header */}
         <h3 className="text-xl sm:text-2xl font-bold mb-2">
           🎉 Happy Birthday! 🎉
         </h3>
         
         {/* Single Birthday */}
         {birthdayCelebrants.length === 1 && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             <p className="text-base sm:text-lg text-white/95">
               Please join us in wishing
             </p>
-            <div className="inline-block bg-white/20 backdrop-blur-sm rounded-xl px-4 py-2">
+            <div className="inline-block bg-white/20 backdrop-blur-sm rounded-xl px-5 py-3">
               <p className="text-xl sm:text-2xl font-extrabold">
                 {birthdayCelebrants[0].first_name} {birthdayCelebrants[0].last_name}
               </p>
@@ -257,26 +259,42 @@ const fetchTodayBirthdays = async () => {
                 </p>
               )}
             </div>
-            <p className="text-base sm:text-lg text-white/95 mt-2">
-              a very happy birthday! 🎂
-            </p>
+            
+            {/* Enhanced CTA Button */}
+            <div className="mt-4">
+              <button
+                onClick={() => setShowCommentsFor(birthdayCelebrants[0])}
+                className="group relative inline-flex items-center gap-3 px-8 py-3 bg-white rounded-xl font-bold text-purple-600 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+              >
+                {/* Animated badge */}
+                <span className="absolute -top-2 -right-2 flex h-5 w-5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-5 w-5 bg-yellow-500 text-white text-xs items-center justify-center">
+                    🎁
+                  </span>
+                </span>
+                
+                <ChatBubbleLeftIcon className="h-5 w-5 group-hover:animate-bounce" />
+                <span>Leave Birthday Wishes</span>
+                <span className="text-lg group-hover:translate-x-1 transition-transform">→</span>
+              </button>
+              <p className="text-xs text-white/70 mt-2">
+                Click to view and send birthday wishes
+              </p>
+            </div>
           </div>
         )}
         
         {/* Multiple Birthdays */}
         {birthdayCelebrants.length > 1 && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             <p className="text-base sm:text-lg text-white/95">
               Please join us in wishing our {birthdayCelebrants.length} team members a happy birthday today! 🎉
             </p>
             
-            {/* Celebrants List - Highlighted */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {birthdayCelebrants.map(celebrant => (
-                <div 
-                  key={celebrant.id} 
-                  className="bg-white/20 backdrop-blur-sm rounded-xl p-3 hover:bg-white/30 transition-all duration-300"
-                >
+                <div key={celebrant.id} className="bg-white/20 backdrop-blur-sm rounded-xl p-3 hover:bg-white/30 transition-all duration-300">
                   <div className="flex items-center gap-3">
                     <div className="flex-shrink-0">
                       <div className="h-10 w-10 rounded-full bg-yellow-400 flex items-center justify-center text-xl">
@@ -284,23 +302,21 @@ const fetchTodayBirthdays = async () => {
                       </div>
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="font-bold text-base sm:text-lg">
+                      <p className="font-bold text-base">
                         {celebrant.first_name} {celebrant.last_name}
                       </p>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-white/80 mt-0.5">
-                        {celebrant.department && (
-                          <span className="inline-flex items-center gap-1">
-                            📍 {celebrant.department}
-                          </span>
-                        )}
-                        {celebrant.position && (
-                          <span className="inline-flex items-center gap-1">
-                            💼 {celebrant.position}
-                          </span>
-                        )}
-                      </div>
+                      {celebrant.department && (
+                        <p className="text-xs text-white/80">📍 {celebrant.department}</p>
+                      )}
                     </div>
                   </div>
+                  <button
+                    onClick={() => setShowCommentsFor(celebrant)}
+                    className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-all duration-300 group"
+                  >
+                    <ChatBubbleLeftIcon className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                    Send Wishes 🎁
+                  </button>
                 </div>
               ))}
             </div>
@@ -308,11 +324,20 @@ const fetchTodayBirthdays = async () => {
         )}
       </div>
       
-  
+      {/* Decorative */}
+      <div className="flex-shrink-0 text-3xl sm:text-4xl hidden lg:block">
+        🎊 🎈 🎁
+      </div>
     </div>
-    
-  
   </div>
+)}
+{/* Comments Modal */}
+{showCommentsFor && (
+  <BirthdayComments
+    birthdayPersonId={showCommentsFor.id}
+    birthdayPersonName={`${showCommentsFor.first_name} ${showCommentsFor.last_name}`}
+    onClose={() => setShowCommentsFor(null)}
+  />
 )}
       {/* Urgent Announcements Banner */}
       {urgentAnnouncements.length > 0 && (

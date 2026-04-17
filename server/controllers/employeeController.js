@@ -876,6 +876,155 @@ const getEmployeeByCode = async (req, res) => {
   }
 };
 
+// Get birthday comments for a specific person
+// Get birthday comments for a specific person
+const getBirthdayComments = async (req, res) => {
+  const { userId } = req.params;
+  
+  console.log('Fetching comments for userId:', userId);
+  
+  try {
+    // Check if the user exists
+    const userCheck = await pool.query(
+      'SELECT id FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Corrected query - get first_name and last_name from employee_profiles
+    const result = await pool.query(
+      `SELECT 
+        bc.id,
+        bc.birthday_person_id,
+        bc.commenter_id,
+        bc.comment,
+        bc.created_at,
+        ep.first_name as commenter_first_name,
+        ep.last_name as commenter_last_name,
+        ep.employee_code as commenter_code,
+        ep.department as commenter_department
+      FROM birthday_comments bc
+      LEFT JOIN users u ON bc.commenter_id = u.id
+      LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+      WHERE bc.birthday_person_id = $1
+      ORDER BY bc.created_at DESC
+      LIMIT 50`,
+      [userId]
+    );
+    
+    console.log('Found comments:', result.rows.length);
+    
+    res.json({ 
+      success: true, 
+      comments: result.rows,
+      count: result.rows.length
+    });
+  } catch (error) {
+    console.error('Error fetching birthday comments:', error);
+    res.status(500).json({ 
+      error: 'Server error', 
+      details: error.message 
+    });
+  }
+};
+
+// Add a birthday comment
+const addBirthdayComment = async (req, res) => {
+  const { userId } = req.params;
+  const { comment } = req.body;
+  const commenterId = req.user.id;
+  
+  console.log('Adding comment:', { userId, comment, commenterId });
+  
+  if (!comment || comment.trim() === '') {
+    return res.status(400).json({ error: 'Comment cannot be empty' });
+  }
+  
+  if (comment.length > 500) {
+    return res.status(400).json({ error: 'Comment too long (max 500 characters)' });
+  }
+  
+  try {
+    // Check if birthday person exists
+    const userCheck = await pool.query(
+      'SELECT id FROM users WHERE id = $1 AND is_active = true',
+      [userId]
+    );
+    
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Insert comment
+    const result = await pool.query(
+      `INSERT INTO birthday_comments (birthday_person_id, commenter_id, comment)
+       VALUES ($1, $2, $3)
+       RETURNING id, birthday_person_id, commenter_id, comment, created_at`,
+      [userId, commenterId, comment.trim()]
+    );
+    
+    console.log('Comment inserted, ID:', result.rows[0].id);
+    
+    // Get commenter info from employee_profiles
+    const commenterInfo = await pool.query(
+      `SELECT first_name, last_name, employee_code, department
+       FROM employee_profiles 
+       WHERE user_id = $1`,
+      [commenterId]
+    );
+    
+    res.json({ 
+      success: true, 
+      comment: {
+        ...result.rows[0],
+        commenter_first_name: commenterInfo.rows[0]?.first_name || 'Unknown',
+        commenter_last_name: commenterInfo.rows[0]?.last_name || 'User',
+        commenter_code: commenterInfo.rows[0]?.employee_code,
+        commenter_department: commenterInfo.rows[0]?.department
+      },
+      message: 'Birthday wish posted! 🎉'
+    });
+  } catch (error) {
+    console.error('Error adding birthday comment:', error);
+    res.status(500).json({ 
+      error: 'Server error', 
+      details: error.message 
+    });
+  }
+};
+
+// Delete a birthday comment (optional - for moderation)
+const deleteBirthdayComment = async (req, res) => {
+  const { commentId } = req.params;
+  
+  try {
+    // Check if user is admin or the commenter
+    const comment = await pool.query(
+      'SELECT commenter_id FROM birthday_comments WHERE id = $1',
+      [commentId]
+    );
+    
+    if (comment.rows.length === 0) {
+      return res.status(404).json({ error: 'Comment not found' });
+    }
+    
+    if (req.user.role !== 'admin' && comment.rows[0].commenter_id !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    await pool.query('DELETE FROM birthday_comments WHERE id = $1', [commentId]);
+    
+    res.json({ success: true, message: 'Comment deleted' });
+  } catch (error) {
+    console.error('Error deleting birthday comment:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+
 module.exports = {
   getEmployees,
   getEmployeeById,
@@ -889,5 +1038,8 @@ module.exports = {
   getEmployeeStats,
   getDepartmentDistribution,
   getUpcomingBirthdays,
-  getTodayBirthdays
+  getTodayBirthdays,
+   getBirthdayComments,
+  addBirthdayComment,
+  deleteBirthdayComment
 };

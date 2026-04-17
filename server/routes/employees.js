@@ -12,7 +12,10 @@ const {
   getEmployeeStats,
   getDepartmentDistribution,
   getUpcomingBirthdays,
-  getTodayBirthdays  // Add this new function
+  getTodayBirthdays,
+  getBirthdayComments,   
+  addBirthdayComment,   
+  deleteBirthdayComment
 } = require('../controllers/employeeController');
 const authMiddleware = require('../middleware/auth');
 
@@ -26,6 +29,13 @@ router.get('/departments', getDepartments);
 router.get('/department-distribution', getDepartmentDistribution);
 router.get('/upcoming-birthdays', getUpcomingBirthdays);
 router.get('/today-birthdays', getTodayBirthdays);  // Add this new route
+
+
+// Birthday comments routes
+router.get('/birthdays/:userId/comments', getBirthdayComments);
+router.post('/birthdays/:userId/comments', addBirthdayComment);
+router.delete('/birthdays/comments/:commentId', deleteBirthdayComment);
+
 router.get('/profile', getEmployeeById);
 router.get('/me', getEmployeeById);
 

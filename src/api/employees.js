@@ -93,3 +93,21 @@ export const resetEmployeePassword = async (employeeId) => {
   }
 };
 
+// Get birthday comments
+export const getBirthdayComments = async (userId) => {
+  const response = await api.get(`/employees/birthdays/${userId}/comments`);
+  return response.data;
+};
+
+// Add birthday comment
+export const addBirthdayComment = async (userId, comment) => {
+  const response = await api.post(`/employees/birthdays/${userId}/comments`, { comment });
+  return response.data;
+};
+
+// Delete birthday comment (optional)
+export const deleteBirthdayComment = async (commentId) => {
+  const response = await api.delete(`/employees/birthdays/comments/${commentId}`);
+  return response.data;
+};
+
