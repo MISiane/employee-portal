@@ -8,12 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid';
 import { getBirthdayComments, addBirthdayComment, deleteBirthdayComment } from '../api/employees';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import utc from 'dayjs/plugin/utc';
 
-dayjs.extend(relativeTime);
-dayjs.extend(utc);
 
 const BirthdayComments = ({ birthdayPersonId, birthdayPersonName, onClose }) => {
   const { user } = useAuth();
@@ -70,7 +65,24 @@ const BirthdayComments = ({ birthdayPersonId, birthdayPersonName, onClose }) => 
 
 const formatTimeAgo = (dateString) => {
   if (!dateString) return 'Just now';
-  return dayjs.utc(dateString).local().fromNow();
+  
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffHours = (now - date) / (1000 * 60 * 60);
+  
+  if (diffHours < 1 && diffHours > 0) {
+    const minutes = Math.floor(diffHours * 60);
+    return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+  }
+  if (diffHours < 24 && diffHours > 0) {
+    return `${Math.floor(diffHours)} hour${Math.floor(diffHours) > 1 ? 's' : ''} ago`;
+  }
+  
+  // For older comments, show the date
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric'
+  });
 };
 
   return (

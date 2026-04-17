@@ -955,12 +955,12 @@ const addBirthdayComment = async (req, res) => {
     }
     
     // Insert comment
-    const result = await pool.query(
-      `INSERT INTO birthday_comments (birthday_person_id, commenter_id, comment)
-       VALUES ($1, $2, $3)
-       RETURNING id, birthday_person_id, commenter_id, comment, created_at`,
-      [userId, commenterId, comment.trim()]
-    );
+const result = await pool.query(
+  `INSERT INTO birthday_comments (birthday_person_id, commenter_id, comment, created_at)
+   VALUES ($1, $2, $3, (NOW() AT TIME ZONE 'Asia/Manila'))
+   RETURNING *`,
+  [userId, commenterId, comment.trim()]
+);
     
     // Get commenter info from employee_profiles
     const commenterInfo = await pool.query(
