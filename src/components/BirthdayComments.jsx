@@ -63,25 +63,14 @@ const BirthdayComments = ({ birthdayPersonId, birthdayPersonName, onClose }) => 
     }
   };
 
-const formatTimeAgo = (dateString) => {
-  if (!dateString) return 'Just now';
-  
+
+const formatDateTime = (dateString) => {
+  if (!dateString) return 'N/A';
   const date = new Date(dateString);
-  const now = new Date();
-  const diffHours = (now - date) / (1000 * 60 * 60);
-  
-  if (diffHours < 1 && diffHours > 0) {
-    const minutes = Math.floor(diffHours * 60);
-    return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
-  }
-  if (diffHours < 24 && diffHours > 0) {
-    return `${Math.floor(diffHours)} hour${Math.floor(diffHours) > 1 ? 's' : ''} ago`;
-  }
-  
-  // For older comments, show the date
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric'
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
   });
 };
 
@@ -137,8 +126,8 @@ const formatTimeAgo = (dateString) => {
                           {comment.commenter_first_name} {comment.commenter_last_name}
                         </span>
                         <span className="text-xs text-gray-400">
-                          {formatTimeAgo(comment.created_at)}
-                        </span>
+  {formatDateTime(comment.created_at)}
+</span>
                       </div>
                       <p className="text-gray-700 text-sm mt-1">{comment.comment}</p>
                     </div>
