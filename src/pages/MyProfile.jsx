@@ -19,13 +19,148 @@ import {
   CakeIcon,
   PhotoIcon,
   CameraIcon,
-   CheckCircleIcon
+  CheckCircleIcon,
+  PaintBrushIcon,
+  SwatchIcon  
 } from '@heroicons/react/24/outline';
 import { getEmployeeById, updateEmployee } from '../api/employees';
 import ChangePasswordModal from '../components/Profile/ChangePasswordModal';
 
+const themes = [
+  { 
+    name: 'Ocean Blue', 
+    value: 'ocean',
+    primary: 'from-blue-600 to-blue-700',
+    primarySolid: 'bg-blue-600',
+    primaryHover: 'hover:bg-blue-700',
+    accent: 'from-blue-500 to-blue-600',
+    accentSolid: 'bg-blue-500',
+    button: 'bg-blue-600',
+    buttonHover: 'hover:bg-blue-700',
+    cardBorder: 'border-blue-100',
+    statGradient: 'from-blue-500 to-blue-600',
+    iconBg: 'bg-blue-100',
+    iconColor: 'text-blue-600'
+  },
+  { 
+    name: 'Sunset Orange', 
+    value: 'sunset',
+    primary: 'from-orange-600 to-red-700',
+    primarySolid: 'bg-orange-600',
+    primaryHover: 'hover:bg-orange-700',
+    accent: 'from-orange-500 to-red-600',
+    accentSolid: 'bg-orange-500',
+    button: 'bg-orange-600',
+    buttonHover: 'hover:bg-orange-700',
+    cardBorder: 'border-orange-100',
+    statGradient: 'from-orange-500 to-red-600',
+    iconBg: 'bg-orange-100',
+    iconColor: 'text-orange-600'
+  },
+  { 
+    name: 'Forest Green', 
+    value: 'forest',
+    primary: 'from-green-700 to-emerald-700',
+    primarySolid: 'bg-green-700',
+    primaryHover: 'hover:bg-green-800',
+    accent: 'from-green-600 to-emerald-600',
+    accentSolid: 'bg-green-600',
+    button: 'bg-green-600',
+    buttonHover: 'hover:bg-green-700',
+    cardBorder: 'border-green-100',
+    statGradient: 'from-green-600 to-emerald-600',
+    iconBg: 'bg-green-100',
+    iconColor: 'text-green-600'
+  },
+  { 
+    name: 'Royal Purple', 
+    value: 'purple',
+    primary: 'from-purple-600 to-indigo-700',
+    primarySolid: 'bg-purple-600',
+    primaryHover: 'hover:bg-purple-700',
+    accent: 'from-purple-500 to-indigo-600',
+    accentSolid: 'bg-purple-500',
+    button: 'bg-purple-600',
+    buttonHover: 'hover:bg-purple-700',
+    cardBorder: 'border-purple-100',
+    statGradient: 'from-purple-500 to-indigo-600',
+    iconBg: 'bg-purple-100',
+    iconColor: 'text-purple-600'
+  },
+  { 
+    name: 'Rose Pink', 
+    value: 'rose',
+    primary: 'from-rose-600 to-pink-700',
+    primarySolid: 'bg-rose-600',
+    primaryHover: 'hover:bg-rose-700',
+    accent: 'from-rose-500 to-pink-600',
+    accentSolid: 'bg-rose-500',
+    button: 'bg-rose-600',
+    buttonHover: 'hover:bg-rose-700',
+    cardBorder: 'border-rose-100',
+    statGradient: 'from-rose-500 to-pink-600',
+    iconBg: 'bg-rose-100',
+    iconColor: 'text-rose-600'
+  },
+  { 
+    name: 'Teal Dreams', 
+    value: 'teal',
+    primary: 'from-teal-600 to-cyan-700',
+    primarySolid: 'bg-teal-600',
+    primaryHover: 'hover:bg-teal-700',
+    accent: 'from-teal-500 to-cyan-600',
+    accentSolid: 'bg-teal-500',
+    button: 'bg-teal-600',
+    buttonHover: 'hover:bg-teal-700',
+    cardBorder: 'border-teal-100',
+    statGradient: 'from-teal-500 to-cyan-600',
+    iconBg: 'bg-teal-100',
+    iconColor: 'text-teal-600'
+  },
+  { 
+    name: 'Midnight', 
+    value: 'midnight',
+    primary: 'from-slate-700 to-gray-800',
+    primarySolid: 'bg-slate-700',
+    primaryHover: 'hover:bg-slate-800',
+    accent: 'from-slate-600 to-gray-700',
+    accentSolid: 'bg-slate-600',
+    button: 'bg-slate-600',
+    buttonHover: 'hover:bg-slate-700',
+    cardBorder: 'border-slate-100',
+    statGradient: 'from-slate-600 to-gray-700',
+    iconBg: 'bg-slate-100',
+    iconColor: 'text-slate-600'
+  },
+  { 
+    name: 'Amber Glow', 
+    value: 'amber',
+    primary: 'from-amber-600 to-yellow-700',
+    primarySolid: 'bg-amber-600',
+    primaryHover: 'hover:bg-amber-700',
+    accent: 'from-amber-500 to-yellow-600',
+    accentSolid: 'bg-amber-500',
+    button: 'bg-amber-600',
+    buttonHover: 'hover:bg-amber-700',
+    cardBorder: 'border-amber-100',
+    statGradient: 'from-amber-500 to-yellow-600',
+    iconBg: 'bg-amber-100',
+    iconColor: 'text-amber-600'
+  }
+];
 
-// Move InfoField outside the component to prevent re-creation
+// Avatar colors (separate from themes, for the avatar only)
+const avatarColors = [
+  { name: 'Blue', value: 'blue', gradient: 'from-blue-500 to-blue-600', bg: 'bg-blue-500' },
+  { name: 'Purple', value: 'purple', gradient: 'from-purple-500 to-purple-600', bg: 'bg-purple-500' },
+  { name: 'Green', value: 'green', gradient: 'from-green-500 to-green-600', bg: 'bg-green-500' },
+  { name: 'Orange', value: 'orange', gradient: 'from-orange-500 to-orange-600', bg: 'bg-orange-500' },
+  { name: 'Pink', value: 'pink', gradient: 'from-pink-500 to-pink-600', bg: 'bg-pink-500' },
+  { name: 'Teal', value: 'teal', gradient: 'from-teal-500 to-teal-600', bg: 'bg-teal-500' },
+  { name: 'Red', value: 'red', gradient: 'from-red-500 to-red-600', bg: 'bg-red-500' },
+  { name: 'Yellow', value: 'yellow', gradient: 'from-yellow-500 to-yellow-600', bg: 'bg-yellow-500' },
+];
+
 const InfoField = ({ label, value, icon: Icon, editField, type = 'text', isEditable = true, editing, formData, onInputChange }) => (
   <div className="border-b border-gray-200 pb-3">
     <div className="flex items-center mb-1">
@@ -64,7 +199,6 @@ const InfoField = ({ label, value, icon: Icon, editField, type = 'text', isEdita
   </div>
 );
 
-
 const StatCard = ({ title, value, icon: Icon, color }) => (
   <div className={`bg-gradient-to-r ${color} rounded-xl sm:rounded-2xl p-4 sm:p-6`}>
     <div className="flex items-center justify-between">
@@ -89,19 +223,44 @@ const MyProfile = () => {
   const [editSection, setEditSection] = useState(null);
   const [avatar, setAvatar] = useState(null);
   const [completion, setCompletion] = useState({ percentage: 0, missingFields: [] });
+  const [showCustomizationModal, setShowCustomizationModal] = useState(false);
+const [activeTab, setActiveTab] = useState('avatar'); // 'avatar' or 'theme'
+  const [avatarColor, setAvatarColor] = useState(() => {
+    const savedColor = localStorage.getItem('avatarColor');
+    return savedColor || 'blue';
+  });
+  const [currentTheme, setCurrentTheme] = useState(() => {
+    const savedTheme = localStorage.getItem('profileTheme');
+    return savedTheme || 'ocean';
+  });
 
   // Check if user is admin
   const isAdmin = user?.role === 'admin';
+
+  // Get current color object
+  const currentColor = avatarColors.find(c => c.value === avatarColor) || avatarColors[0];
+
+  const theme = themes.find(t => t.value === currentTheme) || themes[0];
 
   useEffect(() => {
     fetchProfile();
   }, [user]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (profile) {
       calculateCompletion();
     }
   }, [profile]);
+
+  // Save color preference to localStorage when changed
+  useEffect(() => {
+    localStorage.setItem('avatarColor', avatarColor);
+  }, [avatarColor]);
+
+  // Save theme to localStorage when changed
+  useEffect(() => {
+    localStorage.setItem('profileTheme', currentTheme);
+  }, [currentTheme]);
 
   const fetchProfile = async () => {
     try {
@@ -128,7 +287,7 @@ const MyProfile = () => {
     }
   };
 
-   const calculateCompletion = () => {
+  const calculateCompletion = () => {
     const requiredFields = [
       { name: 'Phone Number', value: profile?.phone, weight: 10 },
       { name: 'Address', value: profile?.address, weight: 10 },
@@ -155,12 +314,10 @@ const MyProfile = () => {
     setCompletion({ percentage, missingFields: missing });
   };
 
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
-
 
   const handleSave = async () => {
     setLoading(true);
@@ -239,19 +396,203 @@ const MyProfile = () => {
       )}
 
       {/* Profile Header */}
-      <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 h-20 sm:h-32"></div>
+<div className="bg-white rounded-xl sm:rounded-2xl shadow-sm overflow-hidden">
+  <div className={`bg-gradient-to-r ${theme.primary} h-20 sm:h-32`}></div>
         <div className="px-4 sm:px-6 pb-4 sm:pb-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-end -mt-10 sm:-mt-12 mb-4">
-            <div className="relative">
-              <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 shadow-lg">
-                <div className="h-full w-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
-                  <span className="text-2xl sm:text-3xl font-bold text-white">
-                    {profile?.first_name?.charAt(0)}{profile?.last_name?.charAt(0)}
+          {/* Avatar with Color Picker - Modal Version */}
+<div className="relative">
+  <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 shadow-lg">
+    <div className={`h-full w-full rounded-full bg-gradient-to-r ${currentColor.gradient} flex items-center justify-center`}>
+      <span className="text-2xl sm:text-3xl font-bold text-white">
+        {profile?.first_name?.charAt(0)}{profile?.last_name?.charAt(0)}
+      </span>
+    </div>
+  </div>
+  
+ {/* Single Customization Button */}
+  <button
+    onClick={() => {
+      setActiveTab('avatar'); // Start with avatar tab
+      setShowCustomizationModal(true);
+    }}
+    className="absolute -bottom-1 -right-1 bg-white rounded-full p-1.5 shadow-md hover:bg-gray-50 transition-all hover:scale-110 z-10"
+    title="Customize profile"
+  >
+    <PaintBrushIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
+  </button>
+</div>
+
+{/* Customization Modal - Avatar Colors + Themes */}
+{showCustomizationModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+      {/* Modal Header with Gradient */}
+      <div className={`bg-gradient-to-r ${theme.primary} p-4`}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-white font-semibold">Customize Your Profile</h3>
+          <button
+            onClick={() => setShowCustomizationModal(false)}
+            className="text-white/80 hover:text-white"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="text-white/80 text-xs mt-1">Make your profile look the way you want</p>
+      </div>
+      
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200">
+        <button
+          onClick={() => setActiveTab('avatar')}
+          className={`flex-1 py-3 text-sm font-medium transition-all relative ${
+            activeTab === 'avatar' 
+              ? `text-${theme.accentSolid.split('-')[1]}-600` 
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <PaintBrushIcon className="h-4 w-4" />
+            Avatar Color
+          </div>
+          {activeTab === 'avatar' && (
+            <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${theme.accentSolid.split('-')[1]}-500`}></div>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('theme')}
+          className={`flex-1 py-3 text-sm font-medium transition-all relative ${
+            activeTab === 'theme' 
+              ? `text-${theme.accentSolid.split('-')[1]}-600` 
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <SwatchIcon className="h-4 w-4" />
+            Theme Colors
+          </div>
+          {activeTab === 'theme' && (
+            <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${theme.accentSolid.split('-')[1]}-500`}></div>
+          )}
+        </button>
+      </div>
+      
+      {/* Tab Content */}
+      <div className="p-4 max-h-[50vh] overflow-y-auto">
+        {/* Avatar Colors Tab */}
+        {activeTab === 'avatar' && (
+          <div>
+            <div className="text-center mb-4">
+              <div className={`h-16 w-16 mx-auto rounded-full bg-gradient-to-r ${avatarColors.find(c => c.value === avatarColor)?.gradient} flex items-center justify-center shadow-lg mb-2`}>
+                <span className="text-2xl font-bold text-white">
+                  {profile?.first_name?.charAt(0)}{profile?.last_name?.charAt(0)}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600">Pick a color for your avatar</p>
+              <p className="text-xs text-gray-400">This is the circle with your initials</p>
+            </div>
+            
+            <div className="grid grid-cols-4 gap-3">
+              {avatarColors.map(color => (
+                <button
+                  key={color.value}
+                  onClick={() => {
+                    setAvatarColor(color.value);
+                    setSuccessMessage(`Avatar color changed to ${color.name}! 🎨`);
+                    setTimeout(() => setSuccessMessage(''), 2000);
+                  }}
+                  className={`h-12 w-12 rounded-full ${color.bg} hover:scale-110 transition-transform mx-auto ${
+                    avatarColor === color.value ? 'ring-2 ring-offset-2 ring-blue-500' : ''
+                  }`}
+                  title={color.name}
+                />
+              ))}
+            </div>
+            
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-500">Current color:</span>
+                <div className="flex items-center gap-2">
+                  <div className={`h-6 w-6 rounded-full ${avatarColors.find(c => c.value === avatarColor)?.bg}`}></div>
+                  <span className="text-sm font-medium text-gray-700">
+                    {avatarColors.find(c => c.value === avatarColor)?.name}
                   </span>
                 </div>
               </div>
             </div>
+          </div>
+        )}
+        
+        {/* Themes Tab */}
+        {activeTab === 'theme' && (
+          <div>
+            <div className="text-center mb-4">
+              <div className="flex justify-center gap-2 mb-2">
+                <div className={`h-8 w-16 rounded-lg bg-gradient-to-r ${theme.primary}`}></div>
+                <div className={`h-8 w-8 rounded ${theme.accentSolid}`}></div>
+                <div className={`h-8 w-8 rounded ${theme.button}`}></div>
+              </div>
+              <p className="text-sm text-gray-600">Choose a color scheme for your profile</p>
+              <p className="text-xs text-gray-400">Changes header, buttons, and card colors</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              {themes.map(themeOption => (
+                <button
+                  key={themeOption.value}
+                  onClick={() => {
+                    setCurrentTheme(themeOption.value);
+                    setSuccessMessage(`Theme changed to ${themeOption.name}! 🎨`);
+                    setTimeout(() => setSuccessMessage(''), 2000);
+                  }}
+                  className={`p-3 rounded-xl border-2 transition-all hover:scale-105 text-left ${
+                    currentTheme === themeOption.value 
+                      ? 'border-blue-500 ring-2 ring-offset-2 ring-blue-500' 
+                      : 'border-gray-200'
+                  }`}
+                >
+                  <div className="space-y-2">
+                    <div className={`h-10 rounded-lg bg-gradient-to-r ${themeOption.primary}`}></div>
+                    <div className="flex gap-1">
+                      <div className={`h-3 w-3 rounded ${themeOption.accentSolid}`}></div>
+                      <div className={`h-3 w-3 rounded ${themeOption.primarySolid}`}></div>
+                      <div className="h-3 w-3 rounded bg-gray-200"></div>
+                      <div className="h-3 w-3 rounded bg-gray-200"></div>
+                    </div>
+                    <p className="text-sm font-medium text-gray-700">{themeOption.name}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {/* Modal Footer */}
+      <div className="p-4 border-t border-gray-100 bg-gray-50">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowCustomizationModal(false)}
+            className="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm"
+          >
+            Close
+          </button>
+          <button
+            onClick={() => {
+              setShowCustomizationModal(false);
+              setSuccessMessage('Your customization has been saved! 🎉');
+              setTimeout(() => setSuccessMessage(''), 2000);
+            }}
+            className={`flex-1 py-2 ${theme.button} text-white rounded-lg ${theme.buttonHover} transition text-sm`}
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+            
             <div className="sm:ml-4 mt-3 sm:mt-0 text-center sm:text-left flex-1">
               <div className="flex items-center justify-center sm:justify-start space-x-2">
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-800">
@@ -275,13 +616,13 @@ const MyProfile = () => {
                 Change Password
               </button>
               {!editing ? (
-                <button
-                  onClick={() => setEditing(true)}
-                  className="inline-flex items-center justify-center px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm"
-                >
-                  <PencilIcon className="h-4 w-4 mr-2" />
-                  Edit Profile
-                </button>
+  <button
+    onClick={() => setEditing(true)}
+    className={`inline-flex items-center justify-center px-3 sm:px-4 py-2 ${theme.button} text-white rounded-xl ${theme.buttonHover} transition-colors text-sm`}
+  >
+    <PencilIcon className="h-4 w-4 mr-2" />
+    Edit Profile
+  </button>
               ) : (
                 <div className="flex space-x-2">
                   <button
@@ -304,7 +645,7 @@ const MyProfile = () => {
         </div>
       </div>
 
-       {/* Profile Completion Progress Bar - NEW */}
+      {/* Profile Completion Progress Bar */}
       <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-4 sm:p-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -316,7 +657,6 @@ const MyProfile = () => {
           </span>
         </div>
         
-        {/* Progress Bar */}
         <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden mb-3">
           <div 
             className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${
@@ -324,12 +664,10 @@ const MyProfile = () => {
             }`}
             style={{ width: `${completion.percentage}%` }}
           >
-            {/* Animated shimmer effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
           </div>
         </div>
         
-        {/* Completion Message */}
         {completion.percentage === 100 ? (
           <div className="flex items-center gap-2 text-green-600 text-xs sm:text-sm">
             <CheckBadgeIcon className="h-4 w-4" />
@@ -355,7 +693,6 @@ const MyProfile = () => {
           </div>
         )}
         
-        {/* Quick Action Buttons for missing fields */}
         {completion.percentage < 100 && !editing && (
           <button
             onClick={() => setEditing(true)}
@@ -367,26 +704,26 @@ const MyProfile = () => {
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-        <StatCard 
-          title="Employee ID" 
-          value={profile?.employee_code || 'Not assigned'} 
-          icon={BriefcaseIcon}
-          color="from-blue-500 to-blue-600"
-        />
-        <StatCard 
-          title="Join Date" 
-          value={profile?.hire_date ? new Date(profile.hire_date).toLocaleDateString() : 'Not set'} 
-          icon={CalendarIcon}
-          color="from-green-500 to-green-600"
-        />
-        <StatCard 
-          title="Department" 
-          value={profile?.department || 'Not assigned'} 
-          icon={UserGroupIcon}
-          color="from-purple-500 to-purple-600"
-        />
-      </div>
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+  <StatCard 
+    title="Employee ID" 
+    value={profile?.employee_code || 'Not assigned'} 
+    icon={BriefcaseIcon}
+    color={theme.statGradient}
+  />
+  <StatCard 
+    title="Join Date" 
+    value={profile?.hire_date ? new Date(profile.hire_date).toLocaleDateString() : 'Not set'} 
+    icon={CalendarIcon}
+    color={theme.statGradient}
+  />
+  <StatCard 
+    title="Department" 
+    value={profile?.department || 'Not assigned'} 
+    icon={UserGroupIcon}
+    color={theme.statGradient}
+  />
+</div>
 
       {/* Profile Information */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
@@ -596,7 +933,6 @@ const MyProfile = () => {
         <h2 className="text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4 flex items-center">
           <IdentificationIcon className="h-5 w-5 mr-2 text-blue-600" />
           Government IDs
-          
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div className="border-b border-gray-200 pb-3">
