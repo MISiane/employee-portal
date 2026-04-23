@@ -8,10 +8,14 @@ import {
   TrashIcon,
   XMarkIcon,
   EyeIcon,
+  ChartBarIcon 
 } from '@heroicons/react/24/outline';
 import { useAuth } from '../context/AuthContext';
 import { getAnnouncements, deleteAnnouncement } from '../api/announcements';
+import { createPoll } from '../api/polls';
 import AnnouncementModal from '../components/Announcements/AnnouncementModal';
+import PollWidget from '../components/Announcements/PollWidget';
+import PollModal from '../components/Announcements/PollModal';
 
 const Announcements = () => {
   const { user } = useAuth();
@@ -22,6 +26,8 @@ const Announcements = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [viewingAnnouncement, setViewingAnnouncement] = useState(null);
+  const [showPollModal, setShowPollModal] = useState(false);
+const [selectedAnnouncementForPoll, setSelectedAnnouncementForPoll] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
 
@@ -220,6 +226,12 @@ const Announcements = () => {
                         </p>
                       </div>
 
+                      {/* Poll Widget */}
+<PollWidget 
+  announcementId={announcement.id} 
+  onPollUpdate={() => fetchAnnouncements()}
+/>
+
                       {/* View Button */}
                       <div className="mt-3 sm:mt-4">
                         <button
@@ -235,13 +247,6 @@ const Announcements = () => {
                     {/* Admin Actions */}
                     {isAdmin && (
                       <div className="flex items-center justify-end gap-2 self-start shrink-0">
-                        <button
-                          onClick={() => handleView(announcement)}
-                          className="rounded-xl border border-gray-200 bg-white p-2 sm:p-3 text-gray-500 transition hover:border-[#e6cce6] hover:bg-[#f5e6f7] hover:text-[#800080]"
-                          title="View"
-                        >
-                          <EyeIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-                        </button>
                         <button
                           onClick={() => handleEdit(announcement)}
                           className="rounded-xl border border-gray-200 bg-white p-2 sm:p-3 text-gray-500 transition hover:border-[#e6cce6] hover:bg-[#f5e6f7] hover:text-[#800080]"
@@ -300,57 +305,83 @@ const Announcements = () => {
       />
 
       {/* View Modal - Mobile Responsive */}
-      {showViewModal && viewingAnnouncement && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl sm:rounded-[28px] border border-[#e6cce6] bg-white shadow-2xl">
-            <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#e6cce6] bg-white/95 px-4 sm:px-6 py-4 sm:py-5 backdrop-blur">
-              <div>
-                <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-[#800080]">
-                  Announcement Details
-                </p>
-                <h2 className="text-lg sm:text-2xl font-bold text-gray-900 break-words">
-                  {viewingAnnouncement.title}
-                </h2>
-              </div>
+     {showViewModal && viewingAnnouncement && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 backdrop-blur-sm">
+    <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl sm:rounded-[28px] border border-[#e6cce6] bg-white shadow-2xl">
+      <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#e6cce6] bg-white/95 px-4 sm:px-6 py-4 sm:py-5 backdrop-blur">
+        <div>
+          <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.18em] text-[#800080]">
+            Announcement Details
+          </p>
+          <h2 className="text-lg sm:text-2xl font-bold text-gray-900 break-words">
+            {viewingAnnouncement.title}
+          </h2>
+        </div>
 
-              <button
-                onClick={() => setShowViewModal(false)}
-                className="self-end sm:self-center rounded-xl p-2 text-gray-500 transition hover:bg-[#f5e6f7] hover:text-[#800080]"
-              >
-                <XMarkIcon className="h-5 w-5 sm:h-6 sm:w-6" />
-              </button>
-            </div>
+        <button
+          onClick={() => setShowViewModal(false)}
+          className="self-end sm:self-center rounded-xl p-2 text-gray-500 transition hover:bg-[#f5e6f7] hover:text-[#800080]"
+        >
+          <XMarkIcon className="h-5 w-5 sm:h-6 sm:w-6" />
+        </button>
+      </div>
 
-            <div className="p-4 sm:p-6 md:p-7">
-              <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl sm:rounded-2xl bg-[#f5e6f7] p-3 sm:p-4">
-                <div className="rounded-xl sm:rounded-2xl bg-white p-2 sm:p-3 shadow-sm self-start">
-                  <UserCircleIcon className="h-5 w-5 sm:h-6 sm:w-6 text-[#800080]" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900 text-sm sm:text-base">
-                    {viewingAnnouncement.first_name} {viewingAnnouncement.last_name}
-                  </p>
-                  <p className="text-xs sm:text-sm text-gray-500">
-                    Posted on {formatDateTime(viewingAnnouncement.created_at)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-[#faf0fa] p-4 sm:p-5">
-                <p className="whitespace-pre-wrap text-sm sm:text-[15px] leading-6 sm:leading-7 text-gray-700">
-                  {viewingAnnouncement.content}
-                </p>
-              </div>
-
-              {viewingAnnouncement.expires_at && (
-                <div className="mt-4 sm:mt-6 rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-[#f5e6f7] px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-[#800080]">
-                  This announcement expires on {formatDate(viewingAnnouncement.expires_at)}
-                </div>
-              )}
-            </div>
+      <div className="p-4 sm:p-6 md:p-7">
+        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl sm:rounded-2xl bg-[#f5e6f7] p-3 sm:p-4">
+          <div className="rounded-xl sm:rounded-2xl bg-white p-2 sm:p-3 shadow-sm self-start">
+            <UserCircleIcon className="h-5 w-5 sm:h-6 sm:w-6 text-[#800080]" />
+          </div>
+          <div>
+            <p className="font-medium text-gray-900 text-sm sm:text-base">
+              {viewingAnnouncement.first_name} {viewingAnnouncement.last_name}
+            </p>
+            <p className="text-xs sm:text-sm text-gray-500">
+              Posted on {formatDateTime(viewingAnnouncement.created_at)}
+            </p>
           </div>
         </div>
-      )}
+
+        <div className="rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-[#faf0fa] p-4 sm:p-5">
+          <p className="whitespace-pre-wrap text-sm sm:text-[15px] leading-6 sm:leading-7 text-gray-700">
+            {viewingAnnouncement.content}
+          </p>
+        </div>
+
+        {/* Add Poll Widget Here */}
+        <div className="mt-4 sm:mt-6">
+          <PollWidget 
+            announcementId={viewingAnnouncement.id} 
+            onPollUpdate={() => {
+              // Optional: Refresh announcement data when poll is updated
+              fetchAnnouncements();
+            }}
+          />
+        </div>
+
+        {viewingAnnouncement.expires_at && (
+          <div className="mt-4 sm:mt-6 rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-[#f5e6f7] px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-[#800080]">
+            This announcement expires on {formatDate(viewingAnnouncement.expires_at)}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+      {/* Poll Modal */}
+<PollModal
+  isOpen={showPollModal}
+  onClose={() => {
+    setShowPollModal(false);
+    setSelectedAnnouncementForPoll(null);
+  }}
+  onSave={async (pollData) => {
+    await createPoll(selectedAnnouncementForPoll.id, pollData);
+    fetchAnnouncements();
+    setShowPollModal(false);
+    setSelectedAnnouncementForPoll(null);
+  }}
+/>
     </div>
   );
 };

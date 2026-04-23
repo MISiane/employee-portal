@@ -8,6 +8,7 @@ const payslipRoutes = require('./routes/payslips');
 const leaveRoutes = require('./routes/leave');
 const announcementRoutes = require('./routes/announcements');
 const feedbackRoutes = require('./routes/feedback');
+const pollRoutes = require('./routes/polls');
 const errorHandler = require('./middleware/errorHandler');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
@@ -117,6 +118,7 @@ app.use('/api/payslips', payslipRoutes);
 app.use('/api/leave', leaveRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api', feedbackRoutes);
+app.use('/api/polls', pollRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Employee Portal API is running' });

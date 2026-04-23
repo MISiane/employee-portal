@@ -215,7 +215,6 @@ const createLeaveRequest = async (req, res) => {
     const isProbationary = emp.employment_status === 'probationary';
     
     // Always set to 'pending' - admin will decide upon approval
-    // No automatic assignment for probationary employees anymore
     const finalPayType = 'pending';
     
     let hasSufficientBalance = true;
@@ -244,7 +243,6 @@ const createLeaveRequest = async (req, res) => {
       if (currentBalance < days) {
         hasSufficientBalance = false;
         balanceWarning = `Note: You only have ${currentBalance} days available. Admin may need to approve as "Without Pay".`;
-        // Don't block submission - just continue with warning
       }
     }
     
@@ -259,7 +257,6 @@ const createLeaveRequest = async (req, res) => {
     
     await client.query('COMMIT');
     
-    // Prepare response message
     let successMessage = 'Leave request submitted successfully!';
     let warningMessage = null;
     
@@ -290,6 +287,7 @@ const createLeaveRequest = async (req, res) => {
     client.release();
   }
 };
+
 // Get all leave requests (admin)
 const getAllLeaveRequests = async (req, res) => {
   if (req.user.role !== 'admin') {
@@ -560,17 +558,19 @@ const updateLeaveRequestStatus = async (req, res) => {
   }
 };
 
-// Edit leave request (employee only for pending requests)
+// Edit leave request (employee only for pending requests, admin can edit any)
 const editLeaveRequest = async (req, res) => {
   const { id } = req.params;
-  const { leave_type, start_date, end_date, reason, medical_certificate } = req.body;
+  const { leave_type, start_date, end_date, reason, medical_certificate, with_pay, status } = req.body;
   const userId = req.user.id;
+  const userRole = req.user.role;
+  const isAdmin = userRole === 'admin';
   
   try {
-    // Check if leave request exists and belongs to user
+    // Check if leave request exists
     const leaveRequest = await pool.query(
-      `SELECT * FROM leave_requests WHERE id = $1 AND user_id = $2`,
-      [id, userId]
+      `SELECT * FROM leave_requests WHERE id = $1`,
+      [id]
     );
     
     if (leaveRequest.rows.length === 0) {
@@ -578,43 +578,115 @@ const editLeaveRequest = async (req, res) => {
     }
     
     const request = leaveRequest.rows[0];
+    const isOwner = request.user_id === userId;
     
-    // Only allow editing of pending requests
-    if (request.status !== 'pending') {
+    // Check permissions
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // For employees: only allow editing of pending requests
+    if (!isAdmin && request.status !== 'pending') {
       return res.status(400).json({ error: 'Cannot edit approved or rejected requests' });
     }
     
-    // Check if new dates are valid
-    const start = new Date(start_date);
-    const end = new Date(end_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (start < today) {
-      return res.status(400).json({ error: 'Start date cannot be in the past' });
+    // Validate dates if provided
+    if (start_date && end_date) {
+      const start = new Date(start_date);
+      const end = new Date(end_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // For non-admins, prevent past dates
+      if (!isAdmin && start < today) {
+        return res.status(400).json({ error: 'Start date cannot be in the past' });
+      }
+      
+      if (end < start) {
+        return res.status(400).json({ error: 'End date must be after start date' });
+      }
     }
     
-    if (end < start) {
-      return res.status(400).json({ error: 'End date must be after start date' });
+    // Build dynamic update query
+    const updateFields = [];
+    const values = [];
+    let paramCount = 1;
+    
+    if (leave_type) {
+      updateFields.push(`leave_type = $${paramCount}`);
+      values.push(leave_type);
+      paramCount++;
     }
     
-    // Update the leave request
+    if (start_date) {
+      updateFields.push(`start_date = $${paramCount}`);
+      values.push(start_date);
+      paramCount++;
+    }
+    
+    if (end_date) {
+      updateFields.push(`end_date = $${paramCount}`);
+      values.push(end_date);
+      paramCount++;
+    }
+    
+    if (reason !== undefined) {
+      updateFields.push(`reason = $${paramCount}`);
+      values.push(reason);
+      paramCount++;
+    }
+    
+    if (medical_certificate !== undefined) {
+      updateFields.push(`medical_certificate = $${paramCount}`);
+      values.push(medical_certificate);
+      paramCount++;
+    }
+    
+    // Admin can edit pay type and status even for approved requests
+    if (isAdmin) {
+      if (with_pay !== undefined) {
+        updateFields.push(`leave_pay_type = $${paramCount}`);
+        values.push(with_pay ? 'with_pay' : 'without_pay');
+        paramCount++;
+      }
+      
+      if (status && ['pending', 'approved', 'rejected'].includes(status)) {
+        updateFields.push(`status = $${paramCount}`);
+        values.push(status);
+        paramCount++;
+        
+        // If setting back to pending, clear approval fields
+        if (status === 'pending') {
+          updateFields.push(`approved_by = NULL`);
+          updateFields.push(`approval_notes = NULL`);
+        }
+      }
+      
+      // Add admin audit note
+      updateFields.push(`admin_notes = COALESCE(admin_notes, '') || $${paramCount}`);
+      values.push(`\n[Edited on ${new Date().toLocaleString()} by ${req.user.email}]: Leave details updated`);
+      paramCount++;
+    }
+    
+    updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
+    
     const result = await pool.query(
       `UPDATE leave_requests 
-       SET leave_type = $1, 
-           start_date = $2, 
-           end_date = $3, 
-           reason = $4,
-           medical_certificate = $5,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $6 AND user_id = $7
+       SET ${updateFields.join(', ')}
+       WHERE id = $${paramCount}
        RETURNING *`,
-      [leave_type, start_date, end_date, reason, medical_certificate || false, id, userId]
+      values
     );
+    
+    let successMessage = 'Leave request updated successfully';
+    if (isAdmin && request.status === 'approved') {
+      successMessage = 'Leave request updated successfully (admin override)';
+    }
     
     res.json({
       success: true,
-      message: 'Leave request updated successfully',
+      message: successMessage,
       leaveRequest: result.rows[0]
     });
   } catch (error) {
@@ -622,6 +694,145 @@ const editLeaveRequest = async (req, res) => {
     res.status(500).json({ error: 'Server error: ' + error.message });
   }
 };
+
+// Admin edit leave request (legacy function - can be removed or kept for compatibility)
+const adminEditLeaveRequest = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  }
+  
+  const { id } = req.params;
+  const { leave_type, start_date, end_date, reason, leave_pay_type, status, medical_certificate, approval_notes } = req.body;
+  
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    const leaveRequest = await pool.query(
+      'SELECT * FROM leave_requests WHERE id = $1',
+      [id]
+    );
+    
+    if (leaveRequest.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Leave request not found' });
+    }
+    
+    const oldLeave = leaveRequest.rows[0];
+    const oldStatus = oldLeave.status;
+    const newStatus = status || oldLeave.status;
+    
+    // Calculate days if dates changed
+    const finalStartDate = start_date || oldLeave.start_date;
+    const finalEndDate = end_date || oldLeave.end_date;
+    const days = Math.ceil((new Date(finalEndDate) - new Date(finalStartDate)) / (1000 * 60 * 60 * 24)) + 1;
+    const year = new Date(finalStartDate).getFullYear();
+    
+    // Handle leave balance adjustments
+    if (oldStatus === 'approved' && oldLeave.leave_pay_type === 'with_pay') {
+      // Refund old leave balance first
+      let balanceField = '';
+      if (oldLeave.leave_type === 'Vacation Leave') balanceField = 'vacation_leave';
+      else if (oldLeave.leave_type === 'Sick Leave') balanceField = 'sick_leave';
+      else if (oldLeave.leave_type === 'Emergency Leave') balanceField = 'emergency_leave';
+      else if (oldLeave.leave_type === 'Special Leave') balanceField = 'special_leave';
+      
+      if (balanceField) {
+        const oldDays = Math.ceil((new Date(oldLeave.end_date) - new Date(oldLeave.start_date)) / (1000 * 60 * 60 * 24)) + 1;
+        await client.query(
+          `UPDATE leave_balances 
+           SET ${balanceField} = ${balanceField} + $1
+           WHERE user_id = $2 AND year = $3`,
+          [oldDays, oldLeave.user_id, year]
+        );
+      }
+    }
+    
+    // Deduct new balance if approved with pay
+    if (newStatus === 'approved' && leave_pay_type === 'with_pay') {
+      let balanceField = '';
+      if (leave_type === 'Vacation Leave') balanceField = 'vacation_leave';
+      else if (leave_type === 'Sick Leave') balanceField = 'sick_leave';
+      else if (leave_type === 'Emergency Leave') balanceField = 'emergency_leave';
+      else if (leave_type === 'Special Leave') balanceField = 'special_leave';
+      
+      if (balanceField) {
+        const balanceCheck = await client.query(
+          `SELECT ${balanceField} FROM leave_balances WHERE user_id = $1 AND year = $2`,
+          [oldLeave.user_id, year]
+        );
+        
+        const currentBalance = balanceCheck.rows[0]?.[balanceField] || 0;
+        
+        if (currentBalance >= days) {
+          await client.query(
+            `UPDATE leave_balances 
+             SET ${balanceField} = ${balanceField} - $1
+             WHERE user_id = $2 AND year = $3`,
+            [days, oldLeave.user_id, year]
+          );
+        } else {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: `Insufficient ${leave_type} balance` });
+        }
+      }
+    }
+    
+    // Update the leave request
+    const result = await pool.query(
+      `UPDATE leave_requests 
+       SET leave_type = COALESCE($1, leave_type),
+           start_date = COALESCE($2, start_date),
+           end_date = COALESCE($3, end_date),
+           reason = COALESCE($4, reason),
+           leave_pay_type = COALESCE($5, leave_pay_type),
+           status = COALESCE($6, status),
+           medical_certificate = COALESCE($7, medical_certificate),
+           approval_notes = COALESCE($8, approval_notes),
+           admin_notes = COALESCE(admin_notes, '') || $9,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $10
+       RETURNING *`,
+      [
+        leave_type, start_date, end_date, reason, leave_pay_type, 
+        status, medical_certificate, approval_notes,
+        `\n[Admin edited on ${new Date().toLocaleString()}]: Leave details updated`,
+        id
+      ]
+    );
+    
+    await client.query('COMMIT');
+    
+    res.json({
+      success: true,
+      message: 'Leave request updated successfully',
+      leaveRequest: result.rows[0]
+    });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error in admin edit leave request:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
+  } finally {
+    client.release();
+  }
+};
+
+// Add admin_notes column if not exists (run this once)
+const ensureAdminNotesColumn = async () => {
+  try {
+    await pool.query(`
+      ALTER TABLE leave_requests 
+      ADD COLUMN IF NOT EXISTS admin_notes TEXT
+    `);
+    console.log('admin_notes column verified');
+  } catch (error) {
+    console.error('Error adding admin_notes column:', error);
+  }
+};
+
+// Call this when the module loads
+ensureAdminNotesColumn();
 
 module.exports = {
   getMyLeaveBalances,
@@ -631,5 +842,6 @@ module.exports = {
   createLeaveRequest,
   getAllLeaveRequests,
   updateLeaveRequestStatus,
-  editLeaveRequest
+  editLeaveRequest,
+  adminEditLeaveRequest
 };

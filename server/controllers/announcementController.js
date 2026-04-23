@@ -13,7 +13,8 @@ const getAnnouncements = async (req, res) => {
   
   try {
     let query = `
-      SELECT a.*, u.email, ep.first_name, ep.last_name
+      SELECT a.*, u.email, ep.first_name, ep.last_name,
+        EXISTS(SELECT 1 FROM polls WHERE announcement_id = a.id) as has_poll
       FROM announcements a
       LEFT JOIN users u ON a.user_id = u.id
       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
@@ -62,7 +63,8 @@ const getAnnouncementById = async (req, res) => {
   
   try {
     const result = await pool.query(
-      `SELECT a.*, u.email, ep.first_name, ep.last_name
+      `SELECT a.*, u.email, ep.first_name, ep.last_name,
+        EXISTS(SELECT 1 FROM polls WHERE announcement_id = a.id) as has_poll
        FROM announcements a
        LEFT JOIN users u ON a.user_id = u.id
        LEFT JOIN employee_profiles ep ON u.id = ep.user_id
@@ -98,14 +100,15 @@ const createAnnouncement = async (req, res) => {
     const result = await pool.query(
       `INSERT INTO announcements (title, content, user_id, expires_at, is_active)
        VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
+       RETURNING id, title, content, expires_at, created_at, user_id, is_active`,
       [title, content, userId, sanitizeDate(expires_at), true]
     );
     
     res.status(201).json({
       success: true,
       message: 'Announcement created successfully',
-      announcement: result.rows[0]
+      announcement: result.rows[0],
+      id: result.rows[0].id  // Explicitly include ID for poll creation
     });
   } catch (error) {
     console.error('Error creating announcement:', error);
@@ -165,7 +168,7 @@ const updateAnnouncement = async (req, res) => {
       UPDATE announcements 
       SET ${updateFields.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING *
+      RETURNING id, title, content, expires_at, created_at, updated_at, user_id, is_active
     `;
     
     const result = await pool.query(query, values);
