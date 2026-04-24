@@ -21,9 +21,11 @@ import {
   CameraIcon,
   CheckCircleIcon,
   PaintBrushIcon,
-  SwatchIcon  
+  SwatchIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 import { getEmployeeById, updateEmployee } from '../api/employees';
+import { uploadAvatar, deleteAvatar } from '../api/auth';
 import ChangePasswordModal from '../components/Profile/ChangePasswordModal';
 
 const themes = [
@@ -222,9 +224,12 @@ const MyProfile = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [editSection, setEditSection] = useState(null);
   const [avatar, setAvatar] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
+const [uploadingAvatar, setUploadingAvatar] = useState(false);
+const fileInputRef = useRef(null);
   const [completion, setCompletion] = useState({ percentage: 0, missingFields: [] });
   const [showCustomizationModal, setShowCustomizationModal] = useState(false);
-const [activeTab, setActiveTab] = useState('avatar'); // 'avatar' or 'theme'
+const [activeTab, setActiveTab] = useState('avatar'); 
   const [avatarColor, setAvatarColor] = useState(() => {
     const savedColor = localStorage.getItem('avatarColor');
     return savedColor || 'blue';
@@ -286,6 +291,53 @@ const [activeTab, setActiveTab] = useState('avatar'); // 'avatar' or 'theme'
       setLoading(false);
     }
   };
+// Add avatar upload handlers
+const handleAvatarUpload = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  // Validate file size (max 2MB)
+  if (file.size > 2 * 1024 * 1024) {
+    setErrorMessage('File too large. Maximum 2MB.');
+    return;
+  }
+  
+  // Validate file type
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+  if (!allowedTypes.includes(file.type)) {
+    setErrorMessage('Only JPG and PNG files are allowed');
+    return;
+  }
+  
+  setUploadingAvatar(true);
+  const formData = new FormData();
+  formData.append('avatar', file);
+  
+  try {
+    const response = await uploadAvatar(formData);
+    setProfile(prev => ({ ...prev, avatar_url: response.avatarUrl }));
+    setSuccessMessage('Profile picture updated! 🎉');
+    setTimeout(() => setSuccessMessage(''), 3000);
+  } catch (error) {
+    setErrorMessage('Error uploading picture');
+    console.error('Upload error:', error);
+  } finally {
+    setUploadingAvatar(false);
+  }
+};
+
+const handleRemoveAvatar = async () => {
+  if (!confirm('Remove your profile picture?')) return;
+  
+  try {
+    await deleteAvatar();
+    setProfile(prev => ({ ...prev, avatar_url: null }));
+    setSuccessMessage('Profile picture removed');
+    setTimeout(() => setSuccessMessage(''), 3000);
+  } catch (error) {
+    setErrorMessage('Error removing picture');
+  }
+};
 
   const calculateCompletion = () => {
     const requiredFields = [
@@ -400,17 +452,24 @@ const [activeTab, setActiveTab] = useState('avatar'); // 'avatar' or 'theme'
   <div className={`bg-gradient-to-r ${theme.primary} h-20 sm:h-32`}></div>
         <div className="px-4 sm:px-6 pb-4 sm:pb-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-end -mt-10 sm:-mt-12 mb-4">
-          {/* Avatar with Color Picker - Modal Version */}
-<div className="relative">
-  <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 shadow-lg">
-    <div className={`h-full w-full rounded-full bg-gradient-to-r ${currentColor.gradient} flex items-center justify-center`}>
-      <span className="text-2xl sm:text-3xl font-bold text-white">
-        {profile?.first_name?.charAt(0)}{profile?.last_name?.charAt(0)}
-      </span>
-    </div>
+            <div className="relative">
+             <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-white p-1 shadow-lg">
+              
+    {profile?.avatar_url ? (
+      <img 
+        src={profile.avatar_url} 
+        alt="Profile" 
+        className="h-full w-full rounded-full object-cover"
+      />
+    ) : (
+      <div className="h-full w-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
+        <span className="text-2xl sm:text-3xl font-bold text-white">
+          {profile?.first_name?.charAt(0)}{profile?.last_name?.charAt(0)}
+        </span>
+      </div>
+    )}
   </div>
-  
- {/* Single Customization Button */}
+   {/* Single Customization Button */}
   <button
     onClick={() => {
       setActiveTab('avatar'); // Start with avatar tab
@@ -423,7 +482,9 @@ const [activeTab, setActiveTab] = useState('avatar'); // 'avatar' or 'theme'
   </button>
 </div>
 
-{/* Customization Modal - Avatar Colors + Themes */}
+  
+  
+         {/* Customization Modal - Avatar Colors + Themes + Profile Picture */}
 {showCustomizationModal && (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
     <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
@@ -441,7 +502,7 @@ const [activeTab, setActiveTab] = useState('avatar'); // 'avatar' or 'theme'
         <p className="text-white/80 text-xs mt-1">Make your profile look the way you want</p>
       </div>
       
-      {/* Tabs */}
+      {/* Tabs - Now with 3 tabs */}
       <div className="flex border-b border-gray-200">
         <button
           onClick={() => setActiveTab('avatar')}
@@ -456,6 +517,22 @@ const [activeTab, setActiveTab] = useState('avatar'); // 'avatar' or 'theme'
             Avatar Color
           </div>
           {activeTab === 'avatar' && (
+            <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${theme.accentSolid.split('-')[1]}-500`}></div>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('picture')}
+          className={`flex-1 py-3 text-sm font-medium transition-all relative ${
+            activeTab === 'picture' 
+              ? `text-${theme.accentSolid.split('-')[1]}-600` 
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <CameraIcon className="h-4 w-4" />
+            Profile Picture
+          </div>
+          {activeTab === 'picture' && (
             <div className={`absolute bottom-0 left-0 right-0 h-0.5 bg-${theme.accentSolid.split('-')[1]}-500`}></div>
           )}
         </button>
@@ -518,6 +595,73 @@ const [activeTab, setActiveTab] = useState('avatar'); // 'avatar' or 'theme'
                     {avatarColors.find(c => c.value === avatarColor)?.name}
                   </span>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Profile Picture Tab - NEW */}
+        {activeTab === 'picture' && (
+          <div>
+            <div className="text-center mb-4">
+              {/* Current Profile Picture Preview */}
+              <div className="relative inline-block">
+                {uploadingAvatar ? (
+                  <div className="h-24 w-24 mx-auto rounded-full bg-gray-100 flex items-center justify-center shadow-lg">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  </div>
+                ) : profile?.avatar_url ? (
+                  <img 
+                    src={profile.avatar_url} 
+                    alt="Profile" 
+                    className="h-24 w-24 mx-auto rounded-full object-cover shadow-lg"
+                  />
+                ) : (
+                  <div className={`h-24 w-24 mx-auto rounded-full bg-gradient-to-r ${currentColor.gradient} flex items-center justify-center shadow-lg`}>
+                    <span className="text-3xl font-bold text-white">
+                      {profile?.first_name?.charAt(0)}{profile?.last_name?.charAt(0)}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <p className="text-sm text-gray-600 mt-2">Upload a profile picture</p>
+              <p className="text-xs text-gray-400">JPEG, PNG (Max 2MB)</p>
+            </div>
+            
+            <div className="space-y-3">
+              {/* File Upload Button */}
+              <label className="block">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept="image/jpeg,image/png,image/jpg"
+                  onChange={handleAvatarUpload}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+                >
+                  {uploadingAvatar ? 'Uploading...' : '📸 Choose Picture'}
+                </button>
+              </label>
+              
+              {/* Remove Button - Only show if has avatar */}
+              {profile?.avatar_url && (
+                <button
+                  onClick={handleRemoveAvatar}
+                  disabled={uploadingAvatar}
+                  className="w-full py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
+                >
+                  🗑️ Remove Picture
+                </button>
+              )}
+              
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-xs text-gray-400 text-center">
+                  Your picture is stored securely on Cloudinary
+                </p>
               </div>
             </div>
           </div>

@@ -104,55 +104,76 @@ const formatDateTime = (dateString) => {
           </div>
         </div>
         
-        {/* Comments List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
-              <p className="text-sm text-gray-500 mt-2">Loading wishes...</p>
-            </div>
-          ) : comments.length === 0 ? (
-            <div className="text-center py-8">
-              <ChatBubbleLeftIcon className="h-12 w-12 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-500">No wishes yet. Be the first to greet!</p>
-            </div>
-          ) : (
-            comments.map(comment => (
-              <div key={comment.id} className="bg-gray-50 rounded-lg p-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-2 flex-1">
-                    <div className="flex-shrink-0">
-                      <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
-                        <UserCircleIcon className="h-5 w-5 text-purple-600" />
-                      </div>
+      {/* Comments List */}
+<div className="flex-1 overflow-y-auto p-4 space-y-3">
+  {loading ? (
+    <div className="text-center py-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+      <p className="text-sm text-gray-500 mt-2">Loading wishes...</p>
+    </div>
+  ) : comments.length === 0 ? (
+    <div className="text-center py-8">
+      <ChatBubbleLeftIcon className="h-12 w-12 text-gray-300 mx-auto mb-2" />
+      <p className="text-gray-500">No wishes yet. Be the first to greet!</p>
+    </div>
+  ) : (
+    comments.map(comment => (
+      <div key={comment.id} className="bg-gray-50 rounded-lg p-3 hover:bg-gray-100 transition">
+        <div className="flex items-start gap-3">
+          {/* Avatar - Now shows profile picture or initials */}
+          <div className="flex-shrink-0">
+            {comment.commenter_avatar_url ? (
+              <img 
+                src={comment.commenter_avatar_url} 
+                alt={comment.commenter_first_name}
+                className="h-8 w-8 rounded-full object-cover"
+                onError={(e) => {
+                  // Fallback to initials if image fails to load
+                  e.target.style.display = 'none';
+                  e.target.parentElement.innerHTML = `
+                    <div class="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
+                      <svg class="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
                     </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-gray-800 text-sm">
-                          {comment.commenter_first_name} {comment.commenter_last_name}
-                        </span>
-                        <span className="text-xs text-gray-400">
-  {formatDateTime(comment.created_at)}
-</span>
-                      </div>
-                      <p className="text-gray-700 text-sm mt-1">{comment.comment}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Delete button - only for admin or commenter */}
-                  {(user?.role === 'admin' || comment.commenter_id === user?.id) && (
-                    <button
-                      onClick={() => handleDeleteComment(comment.id)}
-                      className="text-gray-400 hover:text-red-500 transition"
-                    >
-                      <TrashIcon className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
+                  `;
+                }}
+              />
+            ) : (
+              <div className="h-8 w-8 rounded-full bg-purple-100 flex items-center justify-center">
+                <span className="text-xs font-bold text-purple-600">
+                  {comment.commenter_first_name?.charAt(0)}{comment.commenter_last_name?.charAt(0)}
+                </span>
               </div>
-            ))
+            )}
+          </div>
+          
+          <div className="flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-gray-800 text-sm">
+                {comment.commenter_first_name} {comment.commenter_last_name}
+              </span>
+              <span className="text-xs text-gray-400">
+                {formatDateTime(comment.created_at)}
+              </span>
+            </div>
+            <p className="text-gray-700 text-sm mt-1">{comment.comment}</p>
+          </div>
+          
+          {/* Delete button - only for admin or commenter */}
+          {(user?.role === 'admin' || comment.commenter_id === user?.id) && (
+            <button
+              onClick={() => handleDeleteComment(comment.id)}
+              className="text-gray-400 hover:text-red-500 transition flex-shrink-0"
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
           )}
         </div>
+      </div>
+    ))
+  )}
+</div>
         
         {/* Add Comment Form */}
         <form onSubmit={handleSubmitComment} className="border-t border-gray-200 p-4">

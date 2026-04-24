@@ -147,7 +147,7 @@ const getEmployees = async (req, res) => {
   }
 };
 
-/// Get single employee by ID
+// Get single employee by ID
 const getEmployeeById = async (req, res) => {
   const { id } = req.params;
   
@@ -157,15 +157,48 @@ const getEmployeeById = async (req, res) => {
     }
     
     const result = await pool.query(
-      `SELECT u.id, u.email, u.role, u.is_active, u.last_login,
-              ep.*,
-              TO_CHAR(ep.date_of_birth, 'YYYY-MM-DD') as date_of_birth,
-              TO_CHAR(ep.hire_date, 'YYYY-MM-DD') as hire_date,
-              TO_CHAR(ep.regularization_date, 'YYYY-MM-DD') as regularization_date,
-              TO_CHAR(ep.probationary_end_date, 'YYYY-MM-DD') as probationary_end_date
-       FROM users u
-       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
-       WHERE u.id = $1`,
+      `SELECT 
+        u.id, 
+        u.email, 
+        u.role, 
+        u.is_active, 
+        u.last_login, 
+        u.created_at, 
+        u.updated_at,
+        u.avatar_url,
+        u.avatar_filename,
+        u.avatar_uploaded_at,
+        ep.user_id as ep_user_id,
+        ep.first_name, 
+        ep.last_name, 
+        ep.employee_code, 
+        ep.department, 
+        ep.position, 
+        ep.phone, 
+        ep.address, 
+        ep.city, 
+        ep.state, 
+        ep.zip_code,
+        ep.date_of_birth,
+        ep.hire_date,
+        ep.employment_status,
+        ep.probationary_end_date,
+        ep.regularization_date,
+        ep.sss_number,
+        ep.philhealth_number,
+        ep.pagibig_number,
+        ep.tin_number,
+        ep.emergency_contact_name,
+        ep.emergency_contact_phone,
+        ep.created_at as profile_created_at,
+        ep.updated_at as profile_updated_at,
+        TO_CHAR(ep.date_of_birth, 'YYYY-MM-DD') as date_of_birth_formatted,
+        TO_CHAR(ep.hire_date, 'YYYY-MM-DD') as hire_date_formatted,
+        TO_CHAR(ep.regularization_date, 'YYYY-MM-DD') as regularization_date_formatted,
+        TO_CHAR(ep.probationary_end_date, 'YYYY-MM-DD') as probationary_end_date_formatted
+      FROM users u
+      LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+      WHERE u.id = $1`,
       [id]
     );
     
@@ -173,7 +206,43 @@ const getEmployeeById = async (req, res) => {
       return res.status(404).json({ error: 'Employee not found' });
     }
     
-    res.json(result.rows[0]);
+    // Create a clean response object
+    const profile = {
+      id: result.rows[0].id,
+      email: result.rows[0].email,
+      role: result.rows[0].role,
+      is_active: result.rows[0].is_active,
+      last_login: result.rows[0].last_login,
+      created_at: result.rows[0].created_at,
+      updated_at: result.rows[0].updated_at,
+      avatar_url: result.rows[0].avatar_url,
+      avatar_filename: result.rows[0].avatar_filename,
+      avatar_uploaded_at: result.rows[0].avatar_uploaded_at,
+      first_name: result.rows[0].first_name,
+      last_name: result.rows[0].last_name,
+      employee_code: result.rows[0].employee_code,
+      department: result.rows[0].department,
+      position: result.rows[0].position,
+      phone: result.rows[0].phone,
+      address: result.rows[0].address,
+      city: result.rows[0].city,
+      state: result.rows[0].state,
+      zip_code: result.rows[0].zip_code,
+      date_of_birth: result.rows[0].date_of_birth_formatted || result.rows[0].date_of_birth,
+      hire_date: result.rows[0].hire_date_formatted || result.rows[0].hire_date,
+      employment_status: result.rows[0].employment_status,
+      probationary_end_date: result.rows[0].probationary_end_date_formatted || result.rows[0].probationary_end_date,
+      regularization_date: result.rows[0].regularization_date_formatted || result.rows[0].regularization_date,
+      sss_number: result.rows[0].sss_number,
+      philhealth_number: result.rows[0].philhealth_number,
+      pagibig_number: result.rows[0].pagibig_number,
+      tin_number: result.rows[0].tin_number,
+      emergency_contact_name: result.rows[0].emergency_contact_name,
+      emergency_contact_phone: result.rows[0].emergency_contact_phone,
+    };
+    
+    
+    res.json(profile);
   } catch (error) {
     console.error('Error in getEmployeeById:', error);
     res.status(500).json({ error: 'Server error' });
@@ -877,42 +946,26 @@ const getEmployeeByCode = async (req, res) => {
 };
 
 
-// Get birthday comments for a specific person
+// Get birthday comments
 const getBirthdayComments = async (req, res) => {
   const { userId } = req.params;
-
+  
   try {
-    // Check if the user exists
-    const userCheck = await pool.query(
-      'SELECT id FROM users WHERE id = $1',
-      [userId]
-    );
-    
-    if (userCheck.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    
-    // Corrected query - get first_name and last_name from employee_profiles
     const result = await pool.query(
       `SELECT 
-        bc.id,
-        bc.birthday_person_id,
-        bc.commenter_id,
-        bc.comment,
-        bc.created_at,
+        bc.*,
         ep.first_name as commenter_first_name,
         ep.last_name as commenter_last_name,
         ep.employee_code as commenter_code,
-        ep.department as commenter_department
+        ep.department as commenter_department,
+        u.avatar_url as commenter_avatar_url
       FROM birthday_comments bc
       LEFT JOIN users u ON bc.commenter_id = u.id
       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
       WHERE bc.birthday_person_id = $1
-      ORDER BY bc.created_at DESC
-      LIMIT 50`,
+      ORDER BY bc.created_at DESC`,
       [userId]
     );
-    
     
     res.json({ 
       success: true, 
@@ -921,10 +974,7 @@ const getBirthdayComments = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching birthday comments:', error);
-    res.status(500).json({ 
-      error: 'Server error', 
-      details: error.message 
-    });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -1018,6 +1068,25 @@ const deleteBirthdayComment = async (req, res) => {
   }
 };
 
+// Get employee directory (limited info for employees)
+const getEmployeeDirectory = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.avatar_url,
+              ep.first_name, ep.last_name, ep.employee_code, ep.department, ep.position,  ep.date_of_birth
+       FROM users u
+       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+       WHERE u.is_active = true AND u.role = 'employee'
+       ORDER BY ep.department, ep.first_name`
+    );
+    
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching employee directory:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 
 module.exports = {
   getEmployees,
@@ -1035,5 +1104,6 @@ module.exports = {
   getTodayBirthdays,
    getBirthdayComments,
   addBirthdayComment,
-  deleteBirthdayComment
+  deleteBirthdayComment,
+  getEmployeeDirectory
 };

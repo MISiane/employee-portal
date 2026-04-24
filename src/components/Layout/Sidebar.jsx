@@ -13,7 +13,8 @@ import {
   BookOpenIcon,
   ChatBubbleLeftIcon, 
   QuestionMarkCircleIcon,
-  ClipboardDocumentCheckIcon  
+  ClipboardDocumentCheckIcon  ,
+  UserGroupIcon 
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -72,6 +73,7 @@ const employeeNavigation = [
   { name: 'Announcements', href: '/announcements', icon: MegaphoneIcon },
   { name: 'Employee Handbook', href: '/policies', icon: BookOpenIcon },
     { name: 'Support', href: '/support', icon: ChatBubbleLeftIcon },
+     { name: 'Meet the Team', href: '/directory', icon: UserGroupIcon },
 ];
   const navigation = isAdmin ? adminNavigation : employeeNavigation;
 

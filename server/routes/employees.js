@@ -15,7 +15,8 @@ const {
   getTodayBirthdays,
   getBirthdayComments,   
   addBirthdayComment,   
-  deleteBirthdayComment
+  deleteBirthdayComment,
+  getEmployeeDirectory
 } = require('../controllers/employeeController');
 const authMiddleware = require('../middleware/auth');
 
@@ -28,7 +29,8 @@ router.get('/stats', getEmployeeStats);
 router.get('/departments', getDepartments);
 router.get('/department-distribution', getDepartmentDistribution);
 router.get('/upcoming-birthdays', getUpcomingBirthdays);
-router.get('/today-birthdays', getTodayBirthdays);  // Add this new route
+router.get('/today-birthdays', getTodayBirthdays); 
+router.get('/directory', getEmployeeDirectory);
 
 
 // Birthday comments routes

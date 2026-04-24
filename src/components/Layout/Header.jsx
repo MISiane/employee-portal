@@ -67,7 +67,6 @@ const fetchNotifications = async () => {
       api.get('/announcements', { params: { limit: 3 } }).catch(() => ({ data: [] })),
     ]);
 
-    // Fix: Ensure announcements.data is an array
     const leaveNotifications = (leaveRequests.data?.leaveRequests || []).map((req) => ({
       id: `leave-${req.id}`,
       type: 'leave',
@@ -78,7 +77,6 @@ const fetchNotifications = async () => {
       link: '/my-leave-requests',
     }));
 
-    // Fix: Check if announcements.data is an array before mapping
     const announcementsList = Array.isArray(announcements.data) ? announcements.data : [];
     
     const announcementNotifications = announcementsList.map((ann) => ({
@@ -116,7 +114,6 @@ const handleSearch = async (e) => {
     const employeesRes = await api.get('/employees', { params: { search: term, limit: 5 } });
     const announcementsRes = await api.get('/announcements', { params: { search: term, limit: 3 } });
 
-    // Fix: Ensure employees data is an array
     const employeesList = employeesRes.data?.employees || [];
     const announcementsList = Array.isArray(announcementsRes.data) ? announcementsRes.data : 
                               (announcementsRes.data?.announcements || []);
@@ -130,6 +127,7 @@ const handleSearch = async (e) => {
         icon: UserCircleIcon,
         link: `/employees?id=${emp.id}`,
         department: emp.department,
+        avatar_url: emp.avatar_url,
       })),
       ...announcementsList.map((ann) => ({
         id: `ann-${ann.id}`,
@@ -174,6 +172,11 @@ const handleSearch = async (e) => {
       default:
         return <BellIcon className="h-5 w-5 text-[#800080]" />;
     }
+  };
+
+  // Helper to get initials
+  const getInitials = () => {
+    return `${user?.first_name?.charAt(0) || ''}${user?.last_name?.charAt(0) || ''}`;
   };
 
   return (
@@ -222,8 +225,19 @@ const handleSearch = async (e) => {
                     }}
                     className="flex cursor-pointer items-center border-b border-[#f1e4f2] p-3 transition-colors hover:bg-[#faf2fb] last:border-0"
                   >
-                    <div className="mr-3 rounded-xl bg-[#f5e6f7] p-2">
-                      <result.icon className="h-5 w-5 text-[#800080]" />
+                    {/* Avatar or Icon */}
+                    <div className="mr-3">
+                      {result.avatar_url ? (
+                        <img 
+                          src={result.avatar_url} 
+                          alt={result.title}
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="rounded-xl bg-[#f5e6f7] p-2">
+                          <result.icon className="h-5 w-5 text-[#800080]" />
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-800">{result.title}</p>
@@ -322,9 +336,21 @@ const handleSearch = async (e) => {
                 onClick={() => setShowDropdown(!showDropdown)}
                 className="header-user-menu flex items-center space-x-2 sm:space-x-3 rounded-2xl border border-[#b86bb8] bg-[#f5e6f7] px-2 sm:px-3 py-1.5 sm:py-2 transition-colors hover:bg-[#edd8ef]"
               >
-                <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-[#3b82f6] text-xs sm:text-sm font-semibold text-white">
-                  {user?.first_name?.charAt(0)}
-                  {user?.last_name?.charAt(0)}
+                {/* Avatar with Profile Picture */}
+                <div className="flex h-7 w-7 sm:h-9 sm:w-9 items-center justify-center rounded-full overflow-hidden">
+                  {user?.avatar_url ? (
+                    <img 
+                      src={user.avatar_url} 
+                      alt={user.first_name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
+                      <span className="text-xs sm:text-sm font-semibold text-white">
+                        {getInitials()}
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="hidden sm:block text-left">
                   <p className="text-xs sm:text-sm font-semibold text-gray-800">
@@ -338,10 +364,32 @@ const handleSearch = async (e) => {
               {showDropdown && (
                 <div className="header-user-dropdown absolute right-0 z-20 mt-2 w-56 sm:w-64 overflow-hidden rounded-2xl border border-[#e6cce6] bg-white shadow-[0_16px_40px_-20px_rgba(128,0,128,0.25)]">
                   <div className="border-b border-[#f1e4f2] bg-[#faf5fb] px-3 sm:px-4 py-3 sm:py-4">
-                    <p className="text-xs sm:text-sm font-semibold text-gray-800">
-                      {user?.first_name} {user?.last_name}
-                    </p>
-                    <p className="text-[10px] sm:text-xs text-gray-500 truncate max-w-[200px]">{user?.email}</p>
+                    {/* User info with avatar */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full overflow-hidden">
+                        {user?.avatar_url ? (
+                          <img 
+                            src={user.avatar_url} 
+                            alt={user.first_name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="h-full w-full bg-gradient-to-r from-blue-500 to-blue-600 flex items-center justify-center">
+                            <span className="text-sm sm:text-base font-bold text-white">
+                              {getInitials()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xs sm:text-sm font-semibold text-gray-800">
+                          {user?.first_name} {user?.last_name}
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-gray-500 truncate max-w-[150px]">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <button
@@ -408,8 +456,18 @@ const handleSearch = async (e) => {
                     }}
                     className="flex cursor-pointer items-center rounded-xl border border-gray-100 p-3 transition-colors hover:bg-gray-50"
                   >
-                    <div className="mr-3 rounded-lg bg-[#f5e6f7] p-2">
-                      <result.icon className="h-5 w-5 text-[#800080]" />
+                    <div className="mr-3">
+                      {result.avatar_url ? (
+                        <img 
+                          src={result.avatar_url} 
+                          alt={result.title}
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="rounded-lg bg-[#f5e6f7] p-2">
+                          <result.icon className="h-5 w-5 text-[#800080]" />
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-800">{result.title}</p>

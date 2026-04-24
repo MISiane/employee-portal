@@ -125,9 +125,9 @@ const register = async (req, res) => {
 const getCurrentUser = async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT u.id, u.email, u.role, u.is_active, u.last_login,
+      `SELECT u.id, u.email, u.role, u.is_active, u.last_login, u.avatar_url,
               ep.first_name, ep.last_name, ep.employee_code, ep.department,
-              ep.position, ep.phone, ep.hire_date, ep.avatar_url
+              ep.position, ep.phone, ep.hire_date
        FROM users u
        LEFT JOIN employee_profiles ep ON u.id = ep.user_id
        WHERE u.id = $1`,

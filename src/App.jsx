@@ -21,6 +21,7 @@ import CompanyPolicies from './pages/CompanyPolicies';
 import Support from './pages/Support';
 import AdminFeedback from './pages/AdminFeedback';
 import PendingPayslips from './pages/PendingPayslips';
+import EmployeeDirectory from './pages/EmployeeDirectory';
 
 // Private Route Component
 const PrivateRoute = ({ children }) => {
@@ -89,6 +90,7 @@ function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="/policies" element={<CompanyPolicies />} />
               <Route path="/support" element={<Support />} />
+              <Route path="/directory" element={<EmployeeDirectory />} />
 
               <Route path="*" element={<NotFound />} />
             </Route>
