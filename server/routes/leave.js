@@ -10,6 +10,7 @@ const {
   editLeaveRequest
 } = require('../controllers/leaveController');
 const authMiddleware = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 const router = express.Router();
 
@@ -19,8 +20,8 @@ router.use(authMiddleware);
 // Employee routes (accessible by both admin and employees, but filtered by user ID)
 router.get('/balances', getMyLeaveBalances);  // Get current user's balances
 router.get('/requests', getMyLeaveRequests);   // Get current user's leave requests
-router.post('/requests', createLeaveRequest);   // Create leave request
-router.put('/requests/:id/edit', editLeaveRequest);
+router.post('/requests', authMiddleware, upload.single('medical_certificate'), createLeaveRequest);
+router.put('/requests/:id', authMiddleware, upload.single('medical_certificate'), editLeaveRequest);
 
 // Admin only routes
 router.get('/all-requests', getAllLeaveRequests);           // Get all leave requests

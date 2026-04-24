@@ -14,6 +14,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const logger = require('./utils/logger');
 const pool = require('./config/database');
+const path = require('path');
 
 const app = express();
 
@@ -119,6 +120,7 @@ app.use('/api/leave', leaveRoutes);
 app.use('/api/announcements', announcementRoutes);
 app.use('/api', feedbackRoutes);
 app.use('/api/polls', pollRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/', (req, res) => {
   res.json({ message: 'Employee Portal API is running' });

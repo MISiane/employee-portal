@@ -1,5 +1,16 @@
 const pool = require('../config/database');
 
+// Helper function to get file URL (for Render)
+const getFileUrl = (filename) => {
+  if (!filename) return null;
+  // For local development
+  if (process.env.NODE_ENV !== 'production') {
+    return `${process.env.BASE_URL || 'http://localhost:5000'}/uploads/medical-certificates/${filename}`;
+  }
+  // For Render - you'll need to serve static files
+  return `/uploads/medical-certificates/${filename}`;
+};
+
 // Get leave balances for current user (employee)
 const getMyLeaveBalances = async (req, res) => {
   const userId = req.user.id;
@@ -186,11 +197,26 @@ const getMyLeaveRequests = async (req, res) => {
   }
 };
 
-// Create leave request (employee)
+/// Create leave request (employee) - UPDATED with Cloudinary
 const createLeaveRequest = async (req, res) => {
-  const { leave_type, start_date, end_date, reason, leave_pay_type, medical_certificate } = req.body;
+  const { leave_type, start_date, end_date, reason, leave_pay_type } = req.body;
   const userId = req.user.id;
   
+  // Handle Cloudinary file upload
+  let medicalCertUrl = null;
+  let medicalCertFilename = null;
+  let medicalCertSize = null;
+  let medicalCertType = null;
+  
+  if (req.file) {
+    // Cloudinary returns the URL directly
+    medicalCertUrl = req.file.path; // Cloudinary URL
+    medicalCertFilename = req.file.originalname;
+    medicalCertSize = req.file.size;
+    medicalCertType = req.file.mimetype;
+  }
+  
+  // Rest of your existing code...
   const days = Math.ceil((new Date(end_date) - new Date(start_date)) / (1000 * 60 * 60 * 24)) + 1;
   
   const client = await pool.connect();
@@ -214,14 +240,12 @@ const createLeaveRequest = async (req, res) => {
     const emp = employee.rows[0];
     const isProbationary = emp.employment_status === 'probationary';
     
-    // Always set to 'pending' - admin will decide upon approval
     const finalPayType = 'pending';
     
     let hasSufficientBalance = true;
     let currentBalance = 0;
     let balanceWarning = null;
     
-    // Check balance but don't block submission - just warn
     if (!isProbationary) {
       const year = new Date(start_date).getFullYear();
       const balance = await client.query(
@@ -249,10 +273,12 @@ const createLeaveRequest = async (req, res) => {
     const result = await client.query(
       `INSERT INTO leave_requests (
         user_id, leave_type, start_date, end_date, reason, status, 
-        leave_pay_type, medical_certificate
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        leave_pay_type, medical_certificate_url, medical_certificate_filename,
+        medical_certificate_size, medical_certificate_type
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *`,
-      [userId, leave_type, start_date, end_date, reason, 'pending', finalPayType, medical_certificate || false]
+      [userId, leave_type, start_date, end_date, reason, 'pending', finalPayType, 
+       medicalCertUrl, medicalCertFilename, medicalCertSize, medicalCertType]
     );
     
     await client.query('COMMIT');
@@ -611,6 +637,25 @@ const editLeaveRequest = async (req, res) => {
     const updateFields = [];
     const values = [];
     let paramCount = 1;
+
+    // In editLeaveRequest function, add file handling
+if (req.file) {
+  updateFields.push(`medical_certificate_url = $${paramCount}`);
+  values.push(req.file.path);
+  paramCount++;
+  
+  updateFields.push(`medical_certificate_filename = $${paramCount}`);
+  values.push(req.file.originalname);
+  paramCount++;
+  
+  updateFields.push(`medical_certificate_size = $${paramCount}`);
+  values.push(req.file.size);
+  paramCount++;
+  
+  updateFields.push(`medical_certificate_type = $${paramCount}`);
+  values.push(req.file.mimetype);
+  paramCount++;
+}
     
     if (leave_type) {
       updateFields.push(`leave_type = $${paramCount}`);

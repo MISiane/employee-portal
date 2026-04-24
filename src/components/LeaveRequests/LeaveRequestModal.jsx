@@ -18,6 +18,8 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
   const [balanceError, setBalanceError] = useState('');
   const [isProbationary, setIsProbationary] = useState(false);
   const [probationaryMessage, setProbationaryMessage] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+const [medicalCertificateRequired, setMedicalCertificateRequired] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -29,7 +31,7 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
         end_date: '',
         reason: '',
         leave_pay_type: 'pending',
-        medical_certificate: false
+        medical_certificate_required: false
       });
       setError('');
     }
@@ -72,6 +74,18 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
     }
   };
 
+  const handleFileChange = (e) => {
+  const file = e.target.files[0];
+  if (file) {
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File too large. Maximum 5MB.');
+      e.target.value = '';
+      return;
+    }
+    setSelectedFile(file);
+  }
+};
+
   const calculateDays = () => {
     if (!formData.start_date || !formData.end_date) return 0;
     const start = new Date(formData.start_date);
@@ -103,32 +117,35 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
     return currentBalance >= daysRequested;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // No confirmation dialog - just submit and let admin decide
-    setLoading(true);
-    setError('');
-    
-    // Prepare data without pay type (admin will decide)
-    const submitData = {
-      leave_type: formData.leave_type,
-      start_date: formData.start_date,
-      end_date: formData.end_date,
-      reason: formData.reason,
-      medical_certificate: formData.medical_certificate,
-      leave_pay_type: 'pending' // Admin will decide
-    };
-    
-    try {
-      await api.post('/leave/requests', submitData);
-      onSuccess();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Error submitting request. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  setLoading(true);
+  setError('');
+  
+  const formDataToSend = new FormData();
+  formDataToSend.append('leave_type', formData.leave_type);
+  formDataToSend.append('start_date', formData.start_date);
+  formDataToSend.append('end_date', formData.end_date);
+  formDataToSend.append('reason', formData.reason);
+  formDataToSend.append('leave_pay_type', 'pending');
+  
+  if (selectedFile) {
+    formDataToSend.append('medical_certificate', selectedFile);
+  }
+  
+  try {
+    await api.post('/leave/requests', formDataToSend, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    onSuccess();
+  } catch (err) {
+    console.error('Error:', err);
+    setError(err.response?.data?.error || 'Error submitting request. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (!isOpen) return null;
 
@@ -198,26 +215,64 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
               </select>
             </div>
 
-            {/* Medical Certificate Option */}
             {formData.leave_type === 'Sick Leave' && (
-              <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="medical_certificate"
-                    checked={formData.medical_certificate}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-blue-600 rounded"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    I will provide a medical certificate
-                  </span>
-                </label>
-                <p className="text-xs text-gray-500 mt-1">
-                  Medical certificate may be required for sick leave approval.
-                </p>
-              </div>
-            )}
+  <>
+    <div>
+      <label className="flex items-center">
+        <input
+          type="checkbox"
+          name="medical_certificate_required"
+          checked={formData.medical_certificate_required}
+          onChange={(e) => {
+            setFormData(prev => ({ 
+              ...prev, 
+              medical_certificate_required: e.target.checked,
+              medical_certificate_file: null 
+            }));
+          }}
+          className="h-4 w-4 text-blue-600 rounded"
+        />
+        <span className="ml-2 text-sm text-gray-700">
+          I will provide a medical certificate
+        </span>
+      </label>
+      <p className="text-xs text-gray-500 mt-1">
+        Medical certificate may be required for sick leave approval.
+      </p>
+    </div>
+
+    {/* File Upload */}
+    {formData.medical_certificate_required && (
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Upload Medical Certificate *
+        </label>
+        <input
+  type="file"
+  name="medical_certificate"
+  onChange={handleFileChange}
+  accept=".jpg,.jpeg,.png,.pdf"
+  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+/>
+        {selectedFile && (
+          <div className="mt-2 text-sm text-gray-600">
+            📄 {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+            <button
+              type="button"
+              onClick={() => setSelectedFile(null)}
+              className="ml-2 text-red-500 hover:text-red-700"
+            >
+              Remove
+            </button>
+          </div>
+        )}
+        <p className="text-xs text-gray-400 mt-1">
+          Allowed: JPG, PNG, PDF (Max 5MB)
+        </p>
+      </div>
+    )}
+  </>
+)}
 
             {/* Leave Balance Display - Informational only */}
             {fetchingBalance ? (

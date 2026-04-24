@@ -1,6 +1,32 @@
 import { useState, useEffect } from 'react';
-import { XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, InformationCircleIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import api from '../../api/config';
+
+const getFileUrl = (fileUrl) => {
+  if (!fileUrl) return null;
+  // Cloudinary URLs are already full HTTPS URLs
+  if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+    return fileUrl;
+  }
+  // Fallback for local development
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  return `${baseUrl}${fileUrl}`;
+};
+
+const hasMedicalCertificate = (request) => {
+  const url = request?.medical_certificate_url;
+  if (!url) return false;
+  if (typeof url === 'string') {
+    if (url === 'true' || url === 'false' || url === 't' || url === 'f' || url === '1' || url === '0') {
+      return false;
+    }
+    if (url === '' || url === 'null' || url === 'NULL') {
+      return false;
+    }
+    return url.startsWith('http') || url.startsWith('/uploads');
+  }
+  return false;
+};
 
 const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => {
   const [formData, setFormData] = useState({
@@ -15,14 +41,14 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
   const [leaveBalances, setLeaveBalances] = useState(null);
   const [fetchingBalance, setFetchingBalance] = useState(false);
   const [balanceError, setBalanceError] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null); // Add this state
+  const [uploadingFile, setUploadingFile] = useState(false); // Add this state
 
   // Function to format ISO date to YYYY-MM-DD for input[type="date"]
   const formatDateForInput = (dateString) => {
     if (!dateString) return '';
-    // Create a date object and adjust for timezone
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '';
-    // Get local date components to avoid timezone shift
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -38,6 +64,7 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
         reason: leaveRequest.reason || '',
         medical_certificate: leaveRequest.medical_certificate || false
       });
+      setSelectedFile(null); // Reset file selection when modal opens
       fetchLeaveBalances();
     }
   }, [isOpen, leaveRequest]);
@@ -64,6 +91,19 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
     }));
     if (name === 'leave_type') {
       setError('');
+    }
+  };
+
+  // Add the handleFileChange function
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError('File too large. Maximum 5MB.');
+        e.target.value = '';
+        return;
+      }
+      setSelectedFile(file);
     }
   };
 
@@ -103,17 +143,23 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
     setLoading(true);
     setError('');
 
-    const submitData = {
-      leave_type: formData.leave_type,
-      start_date: formData.start_date,
-      end_date: formData.end_date,
-      reason: formData.reason,
-      medical_certificate: formData.medical_certificate,
-      leave_pay_type: 'pending'
-    };
+    // Create FormData to handle file upload
+    const submitData = new FormData();
+    submitData.append('leave_type', formData.leave_type);
+    submitData.append('start_date', formData.start_date);
+    submitData.append('end_date', formData.end_date);
+    submitData.append('reason', formData.reason);
+    submitData.append('leave_pay_type', 'pending');
+    
+    // Append file if selected
+    if (selectedFile) {
+      submitData.append('medical_certificate', selectedFile);
+    }
     
     try {
-      await api.put(`/leave/requests/${leaveRequest.id}/edit`, submitData);
+      await api.put(`/leave/requests/${leaveRequest.id}`, submitData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
       onSuccess();
     } catch (err) {
       setError(err.response?.data?.error || 'Error updating request. Please try again.');
@@ -175,24 +221,50 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
               </select>
             </div>
 
-            {/* Medical Certificate Option */}
-            {formData.leave_type === 'Sick Leave' && (
-              <div>
-                <label className="flex items-center">
+            {/* Medical Certificate section */}
+            {leaveRequest?.leave_type === 'Sick Leave' && (
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Medical Certificate
+                  </label>
+                  
+                  {/* Show existing file if uploaded */}
+                  {hasMedicalCertificate(leaveRequest) && (
+                    <div className="mb-2 p-2 bg-green-50 rounded-lg flex items-center justify-between">
+                      <div className="flex items-center">
+                        <DocumentTextIcon className="h-4 w-4 text-green-600 mr-2" />
+                        <span className="text-sm text-green-700">
+                          Current file: {leaveRequest.medical_certificate_filename || 'Medical Certificate'}
+                        </span>
+                      </div>
+                      <a
+                        href={getFileUrl(leaveRequest.medical_certificate_url)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        View
+                      </a>
+                    </div>
+                  )}
+                  
+                  {/* File upload input */}
                   <input
-                    type="checkbox"
-                    name="medical_certificate"
-                    checked={formData.medical_certificate}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-blue-600 rounded"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    onChange={handleFileChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
-                  <span className="ml-2 text-sm text-gray-700">
-                    I will provide a medical certificate
-                  </span>
-                </label>
-                <p className="text-xs text-gray-500 mt-1">
-                  Medical certificate may be required for sick leave approval.
-                </p>
+                  {selectedFile && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">
+                    Allowed: JPG, PNG, PDF (Max 5MB). Upload a new file to replace the existing one.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -265,20 +337,6 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
               </div>
             </div>
 
-            {/* Days Calculation */}
-            {/* {formData.start_date && formData.end_date && (
-              <div className={`rounded-lg p-3 ${sufficientBalance ? 'bg-blue-50' : 'bg-yellow-50'}`}>
-                <div className="flex items-center justify-between">
-                  <span className={`text-sm ${sufficientBalance ? 'text-blue-700' : 'text-yellow-700'}`}>
-                    Total days requested:
-                  </span>
-                  <span className={`text-lg font-bold ${sufficientBalance ? 'text-blue-700' : 'text-yellow-700'}`}>
-                    {daysRequested} day{daysRequested !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </div>
-            )} */}
-
             {/* Reason */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -316,17 +374,6 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
               {loading ? 'Saving...' : 'Update Request'}
             </button>
           </div>
-
-          {/* <div className="mt-4 pt-3 border-t border-gray-100">
-            <p className="text-xs text-gray-500 text-center">
-              ⚠️ <strong>Note:</strong> Your request will remain pending for approval after editing.
-              {!sufficientBalance && formData.leave_type && formData.start_date && formData.end_date && (
-                <span className="block text-yellow-600 mt-1">
-                  Note: You have insufficient balance. Your request may be approved as WITHOUT PAY.
-                </span>
-              )}
-            </p>
-          </div> */}
         </form>
       </div>
     </div>
