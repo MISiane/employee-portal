@@ -1073,7 +1073,8 @@ const getEmployeeDirectory = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.avatar_url,
-              ep.first_name, ep.last_name, ep.employee_code, ep.department, ep.position,  ep.date_of_birth
+              ep.first_name, ep.last_name, ep.employee_code, ep.department, ep.position,  ep.date_of_birth,
+              EXTRACT(YEAR FROM AGE(CURRENT_DATE, ep.hire_date)) as years_at_company
        FROM users u
        LEFT JOIN employee_profiles ep ON u.id = ep.user_id
        WHERE u.is_active = true AND u.role = 'employee'
