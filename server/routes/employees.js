@@ -16,7 +16,11 @@ const {
   getBirthdayComments,   
   addBirthdayComment,   
   deleteBirthdayComment,
-  getEmployeeDirectory
+  getEmployeeDirectory,
+  giveHighFive,
+  getHighFiveCount,
+  getHighFiveLeaderboard,
+  hasHighFived
 } = require('../controllers/employeeController');
 const authMiddleware = require('../middleware/auth');
 
@@ -37,6 +41,12 @@ router.get('/directory', getEmployeeDirectory);
 router.get('/birthdays/:userId/comments', getBirthdayComments);
 router.post('/birthdays/:userId/comments', addBirthdayComment);
 router.delete('/birthdays/comments/:commentId', deleteBirthdayComment);
+
+// High-five routes
+router.post('/:id/high-five', giveHighFive);
+router.get('/:id/high-five-count', getHighFiveCount);
+router.get('/:id/has-high-fived', hasHighFived);
+router.get('/leaderboard/high-fives', getHighFiveLeaderboard);
 
 router.get('/profile', getEmployeeById);
 router.get('/me', getEmployeeById);

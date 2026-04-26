@@ -1068,22 +1068,176 @@ const deleteBirthdayComment = async (req, res) => {
   }
 };
 
-// Get employee directory (limited info for employees)
 const getEmployeeDirectory = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.avatar_url,
-              ep.first_name, ep.last_name, ep.employee_code, ep.department, ep.position,  ep.date_of_birth,
-              EXTRACT(YEAR FROM AGE(CURRENT_DATE, ep.hire_date)) as years_at_company
+              ep.first_name, ep.last_name, ep.employee_code, ep.department, ep.position, ep.date_of_birth, ep.hire_date,
+              ep.high_five_count,
+              EXTRACT(YEAR FROM AGE(CURRENT_DATE, ep.hire_date)) as years_at_company,
+              EXTRACT(MONTH FROM AGE(CURRENT_DATE, ep.hire_date)) as months_at_company
        FROM users u
        LEFT JOIN employee_profiles ep ON u.id = ep.user_id
        WHERE u.is_active = true AND u.role = 'employee'
        ORDER BY ep.department, ep.first_name`
     );
     
-    res.json(result.rows);
+    // Format tenure for each employee
+    const formattedResult = result.rows.map(emp => {
+      const years = parseInt(emp.years_at_company) || 0;
+      const months = parseInt(emp.months_at_company) || 0;
+      
+      let tenureText = '';
+      if (years > 0 && months > 0) {
+        tenureText = `${years} year${years > 1 ? 's' : ''}, ${months} month${months > 1 ? 's' : ''}`;
+      } else if (years > 0) {
+        tenureText = `${years} year${years > 1 ? 's' : ''}`;
+      } else if (months > 0) {
+        tenureText = `${months} month${months > 1 ? 's' : ''}`;
+      } else if (emp.hire_date) {
+        tenureText = 'Less than 1 month';
+      } else {
+        tenureText = 'Not specified';
+      }
+      
+      return {
+        ...emp,
+        tenure: tenureText,
+        years_at_company: years,
+        months_at_company: months,
+        high_five_count: parseInt(emp.high_five_count) || 0
+      };
+    });
+    
+    res.json(formattedResult);
   } catch (error) {
     console.error('Error fetching employee directory:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Give a high-five to a colleague
+const giveHighFive = async (req, res) => {
+  const { id } = req.params; // receiver_id
+  const giverId = req.user.id; // from auth middleware
+
+  // Prevent self high-five
+  if (parseInt(id) === giverId) {
+    return res.status(400).json({ error: "You can't give props to yourself haha!" });
+  }
+
+  try {
+    // Check if already high-fived
+    const existing = await pool.query(
+      'SELECT * FROM high_fives WHERE giver_id = $1 AND receiver_id = $2',
+      [giverId, id]
+    );
+
+    if (existing.rows.length > 0) {
+      return res.status(400).json({ error: 'You already give props to this colleague!' });
+    }
+
+    // Start transaction
+    await pool.query('BEGIN');
+
+    // Update high-five count
+    const updateResult = await pool.query(
+      `UPDATE employee_profiles 
+       SET high_five_count = high_five_count + 1 
+       WHERE user_id = $1 
+       RETURNING high_five_count`,
+      [id]
+    );
+
+    // Record the high-five
+    await pool.query(
+      'INSERT INTO high_fives (giver_id, receiver_id) VALUES ($1, $2)',
+      [giverId, id]
+    );
+
+    await pool.query('COMMIT');
+
+    res.json({ 
+      success: true, 
+      high_five_count: updateResult.rows[0]?.high_five_count || 0,
+      message: 'High-five sent! 🖐️'
+    });
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    console.error('Error giving high-five:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Get high-five count for an employee
+const getHighFiveCount = async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const result = await pool.query(
+      'SELECT high_five_count FROM employee_profiles WHERE user_id = $1',
+      [id]
+    );
+    res.json({ count: result.rows[0]?.high_five_count || 0 });
+  } catch (error) {
+    console.error('Error fetching high-five count:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Get high-five leaderboard (top 10 most high-fived)
+const getHighFiveLeaderboard = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.avatar_url,
+              ep.first_name, ep.last_name, ep.department, ep.position,
+              ep.high_five_count
+       FROM users u
+       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+       WHERE u.is_active = true AND ep.high_five_count > 0
+       ORDER BY ep.high_five_count DESC
+       LIMIT 10`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Check if user already high-fived someone
+const hasHighFived = async (req, res) => {
+  const { id } = req.params;
+  const giverId = req.user.id;
+
+  try {
+    const result = await pool.query(
+      'SELECT * FROM high_fives WHERE giver_id = $1 AND receiver_id = $2',
+      [giverId, id]
+    );
+    res.json({ hasHighFived: result.rows.length > 0 });
+  } catch (error) {
+    console.error('Error checking high-five:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Get props leaderboard (all time)
+const getPropsLeaderboard = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.avatar_url,
+              ep.first_name, ep.last_name, ep.department, ep.position,
+              ep.props_count
+       FROM users u
+       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+       WHERE u.is_active = true AND ep.props_count > 0
+       ORDER BY ep.props_count DESC
+       LIMIT 20`
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching props leaderboard:', error);
     res.status(500).json({ error: 'Server error' });
   }
 };
@@ -1106,5 +1260,10 @@ module.exports = {
    getBirthdayComments,
   addBirthdayComment,
   deleteBirthdayComment,
-  getEmployeeDirectory
+  getEmployeeDirectory,
+   giveHighFive,
+  getHighFiveCount,
+  getHighFiveLeaderboard,
+  hasHighFived,
+  getPropsLeaderboard
 };

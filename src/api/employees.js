@@ -111,3 +111,35 @@ export const deleteBirthdayComment = async (commentId) => {
   return response.data;
 };
 
+// Give a high-five to a colleague
+export const giveHighFive = async (employeeId) => {
+  try {
+    const response = await api.post(`/employees/${employeeId}/high-five`);
+    return response.data;
+  } catch (error) {
+    console.error('Error giving high-five:', error);
+    throw error;
+  }
+};
+
+// Check if user already high-fived someone
+export const hasHighFived = async (employeeId) => {
+  try {
+    const response = await api.get(`/employees/${employeeId}/has-high-fived`);
+    return response.data;
+  } catch (error) {
+    console.error('Error checking high-five:', error);
+    throw error;
+  }
+};
+
+// Get high-five leaderboard
+export const getHighFiveLeaderboard = async () => {
+  try {
+    const response = await api.get('/employees/leaderboard/high-fives');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    throw error;
+  }
+};
