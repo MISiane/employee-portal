@@ -20,7 +20,8 @@ const {
   giveHighFive,
   getHighFiveCount,
   getHighFiveLeaderboard,
-  hasHighFived
+  hasHighFived,
+  getTodayAnniversaries
 } = require('../controllers/employeeController');
 const authMiddleware = require('../middleware/auth');
 
@@ -35,6 +36,7 @@ router.get('/department-distribution', getDepartmentDistribution);
 router.get('/upcoming-birthdays', getUpcomingBirthdays);
 router.get('/today-birthdays', getTodayBirthdays); 
 router.get('/directory', getEmployeeDirectory);
+router.get('/today-anniversaries', getTodayAnniversaries);
 
 
 // Birthday comments routes
@@ -47,6 +49,7 @@ router.post('/:id/high-five', giveHighFive);
 router.get('/:id/high-five-count', getHighFiveCount);
 router.get('/:id/has-high-fived', hasHighFived);
 router.get('/leaderboard/high-fives', getHighFiveLeaderboard);
+
 
 router.get('/profile', getEmployeeById);
 router.get('/me', getEmployeeById);

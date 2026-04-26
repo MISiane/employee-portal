@@ -143,3 +143,14 @@ export const getHighFiveLeaderboard = async () => {
     throw error;
   }
 };
+
+// Get today's work anniversaries
+export const getTodayAnniversaries = async () => {
+  try {
+    const response = await api.get('/employees/today-anniversaries');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching today\'s anniversaries:', error);
+    return { anniversaries: [], count: 0 };
+  }
+};

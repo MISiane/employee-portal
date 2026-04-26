@@ -1191,16 +1191,17 @@ const getHighFiveLeaderboard = async (req, res) => {
     const result = await pool.query(
       `SELECT u.id, u.avatar_url,
               ep.first_name, ep.last_name, ep.department, ep.position,
+              ep.hire_date,  -- Make sure this is included
               ep.high_five_count
        FROM users u
        LEFT JOIN employee_profiles ep ON u.id = ep.user_id
        WHERE u.is_active = true AND ep.high_five_count > 0
        ORDER BY ep.high_five_count DESC
-       LIMIT 10`
+       LIMIT 20`
     );
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching leaderboard:', error);
+    console.error('Error fetching high-five leaderboard:', error);
     res.status(500).json({ error: 'Server error' });
   }
 };
@@ -1242,6 +1243,47 @@ const getPropsLeaderboard = async (req, res) => {
   }
 };
 
+// Get today's work anniversaries
+const getTodayAnniversaries = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        u.id, 
+        ep.first_name, 
+        ep.last_name, 
+        ep.position,
+        ep.department,
+        ep.employee_code,
+        ep.hire_date,
+        EXTRACT(YEAR FROM AGE(CURRENT_DATE, ep.hire_date)) as years_at_company
+      FROM users u
+      LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+      WHERE u.is_active = true 
+        AND ep.hire_date IS NOT NULL
+        AND u.role = 'employee'
+        AND EXTRACT(MONTH FROM ep.hire_date) = EXTRACT(MONTH FROM CURRENT_DATE)
+        AND EXTRACT(DAY FROM ep.hire_date) = EXTRACT(DAY FROM CURRENT_DATE)
+      ORDER BY ep.first_name
+    `);
+    
+    // Add formatted anniversary text
+    const anniversaries = result.rows.map(ann => ({
+      ...ann,
+      anniversary_text: `${ann.years_at_company} year${ann.years_at_company !== 1 ? 's' : ''}`,
+      celebration_emoji: ann.years_at_company >= 10 ? '💎' : ann.years_at_company >= 5 ? '🏆' : '⭐'
+    }));
+    
+    res.json({ 
+      success: true,
+      anniversaries: anniversaries,
+      count: anniversaries.length
+    });
+  } catch (error) {
+    console.error('Error fetching today\'s anniversaries:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 
 module.exports = {
   getEmployees,
@@ -1265,5 +1307,6 @@ module.exports = {
   getHighFiveCount,
   getHighFiveLeaderboard,
   hasHighFived,
-  getPropsLeaderboard
+  getPropsLeaderboard,
+  getTodayAnniversaries
 };

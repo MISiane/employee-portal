@@ -16,7 +16,7 @@ import {
 import { getPayslips } from '../api/payslips';
 import { getMyLeaveRequests, getLeaveBalances } from '../api/leave';
 import { getLatestAnnouncements } from '../api/announcements';
-import { getTodayBirthdays } from '../api/employees';
+import { getTodayBirthdays,getTodayAnniversaries } from '../api/employees';
 import BirthdayComments from '../components/BirthdayComments';
 
 
@@ -45,6 +45,7 @@ const EmployeeDashboard = () => {
   const [isBirthday, setIsBirthday] = useState(false);
 const [birthdayCelebrants, setBirthdayCelebrants] = useState([]);
 const [showCommentsFor, setShowCommentsFor] = useState(null);
+const [anniversaryCelebrants, setAnniversaryCelebrants] = useState([]);
 
 const fetchTodayBirthdays = async () => {
   try {
@@ -55,10 +56,20 @@ const fetchTodayBirthdays = async () => {
   }
 };
 
+const fetchTodayAnniversaries = async () => {
+  try {
+    const response = await getTodayAnniversaries();
+    setAnniversaryCelebrants(response.anniversaries || []);
+  } catch (error) {
+    console.error('Error fetching anniversaries:', error);
+  }
+};
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     fetchDashboardData();
        fetchTodayBirthdays();
+       fetchTodayAnniversaries();
     return () => clearInterval(timer);
   }, []);
 
@@ -225,111 +236,208 @@ const fetchTodayBirthdays = async () => {
           </div>
         </div>
       </div>
-{/* Birthday Banner - Enhanced Version */}
+{/* Birthday Banner - Scaled Down */}
 {birthdayCelebrants.length > 0 && (
-  <div className="overflow-hidden rounded-xl sm:rounded-[30px] bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 p-5 sm:p-6 text-white shadow-lg animate-gradient">
-    <div className="flex flex-col lg:flex-row items-center lg:items-start gap-5">
-      {/* Cake Icon */}
-      <div className="flex-shrink-0">
-        <div className="rounded-full bg-white/20 p-4 animate-bounce">
-          <CakeIcon className="h-10 w-10 sm:h-14 sm:w-14" />
-        </div>
-      </div>
-      
-      {/* Message Content */}
-      <div className="flex-1 text-center lg:text-left">
-        <h3 className="text-xl sm:text-2xl font-bold mb-2">
-          🎉 Happy Birthday! 🎉
-        </h3>
-        
-        {/* Single Birthday */}
-        {birthdayCelebrants.length === 1 && (
-          <div className="space-y-3">
-            <p className="text-base sm:text-lg text-white/95">
-              Please join us in wishing
-            </p>
-            <div className="inline-block bg-white/20 backdrop-blur-sm rounded-xl px-5 py-3">
-              <p className="text-xl sm:text-2xl font-extrabold">
-                {birthdayCelebrants[0].first_name} {birthdayCelebrants[0].last_name}
-              </p>
-              {birthdayCelebrants[0].department && (
-                <p className="text-sm text-white/80 mt-1">
-                  📍 {birthdayCelebrants[0].department}
-                  {birthdayCelebrants[0].position && ` • ${birthdayCelebrants[0].position}`}
-                </p>
-              )}
-            </div>
-            
-            {/* Enhanced CTA Button */}
-            <div className="mt-4">
-              <button
-                onClick={() => setShowCommentsFor(birthdayCelebrants[0])}
-                className="group relative inline-flex items-center gap-3 px-8 py-3 bg-white rounded-xl font-bold text-purple-600 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
-              >
-                {/* Animated badge */}
-                <span className="absolute -top-2 -right-2 flex h-5 w-5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-5 w-5 bg-yellow-500 text-white text-xs items-center justify-center">
-                    🎁
-                  </span>
-                </span>
-                
-                <ChatBubbleLeftIcon className="h-5 w-5 group-hover:animate-bounce" />
-                <span>Leave Birthday Wishes</span>
-                <span className="text-lg group-hover:translate-x-1 transition-transform">→</span>
-              </button>
-              <p className="text-xs text-white/70 mt-2">
-                Click to view and send birthday wishes
-              </p>
-            </div>
+  <div className="overflow-hidden rounded-xl sm:rounded-[30px] bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white shadow-lg">
+    <div className="p-3 sm:p-5 md:p-6">
+      <div className="flex flex-col lg:flex-row items-center lg:items-start gap-3 sm:gap-5">
+        {/* Cake Icon - Smaller */}
+        <div className="flex-shrink-0">
+          <div className="rounded-full bg-white/20 p-2 sm:p-4 animate-bounce">
+            <CakeIcon className="h-8 w-8 sm:h-10 sm:w-10 md:h-14 md:w-14" />
           </div>
-        )}
+        </div>
         
-        {/* Multiple Birthdays */}
-        {birthdayCelebrants.length > 1 && (
-          <div className="space-y-4">
-            <p className="text-base sm:text-lg text-white/95">
-              Please join us in wishing our {birthdayCelebrants.length} team members a happy birthday today! 🎉
-            </p>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {birthdayCelebrants.map(celebrant => (
-                <div key={celebrant.id} className="bg-white/20 backdrop-blur-sm rounded-xl p-3 hover:bg-white/30 transition-all duration-300">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-yellow-400 flex items-center justify-center text-xl">
-                        🎂
+        {/* Message Content */}
+        <div className="flex-1 text-center lg:text-left">
+          <h3 className="text-base sm:text-xl md:text-2xl font-bold mb-1 sm:mb-2">
+            🎉 Happy Birthday! 🎉
+          </h3>
+          
+          {/* Single Birthday */}
+          {birthdayCelebrants.length === 1 && (
+            <div className="space-y-2 sm:space-y-3">
+              <p className="text-sm sm:text-base md:text-lg text-white/95">
+                Please join us in wishing
+              </p>
+              <div className="inline-block bg-white/20 backdrop-blur-sm rounded-lg sm:rounded-xl px-3 sm:px-5 py-2 sm:py-3">
+                <p className="text-base sm:text-xl md:text-2xl font-extrabold">
+                  {birthdayCelebrants[0].first_name} {birthdayCelebrants[0].last_name}
+                </p>
+                {birthdayCelebrants[0].department && (
+                  <p className="text-xs sm:text-sm text-white/80 mt-0.5 sm:mt-1">
+                    📍 {birthdayCelebrants[0].department}
+                    {birthdayCelebrants[0].position && ` • ${birthdayCelebrants[0].position}`}
+                  </p>
+                )}
+              </div>
+              
+              {/* CTA Button - Smaller */}
+              <div className="mt-2 sm:mt-4">
+                <button
+                  onClick={() => setShowCommentsFor(birthdayCelebrants[0])}
+                  className="group relative inline-flex items-center gap-2 sm:gap-3 px-4 sm:px-8 py-1.5 sm:py-3 bg-white rounded-lg sm:rounded-xl font-semibold sm:font-bold text-sm sm:text-base text-purple-600 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105"
+                >
+                  <span className="absolute -top-2 -right-2 flex h-4 w-4 sm:h-5 sm:w-5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-4 w-4 sm:h-5 sm:w-5 bg-yellow-500 text-white text-[10px] sm:text-xs items-center justify-center">
+                      🎁
+                    </span>
+                  </span>
+                  <ChatBubbleLeftIcon className="h-3 w-3 sm:h-5 sm:w-5 group-hover:animate-bounce" />
+                  <span>Leave Birthday Wishes</span>
+                  <span className="text-base sm:text-lg group-hover:translate-x-1 transition-transform">→</span>
+                </button>
+                <p className="text-[10px] sm:text-xs text-white/70 mt-1 sm:mt-2">
+                  Click to view and send birthday wishes
+                </p>
+              </div>
+            </div>
+          )}
+          
+          {/* Multiple Birthdays */}
+          {birthdayCelebrants.length > 1 && (
+            <div className="space-y-2 sm:space-y-4">
+              <p className="text-sm sm:text-base md:text-lg text-white/95">
+                Please join us in wishing our {birthdayCelebrants.length} team members a happy birthday today! 🎉
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                {birthdayCelebrants.slice(0, 4).map(celebrant => (
+                  <div key={celebrant.id} className="bg-white/20 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-yellow-400 flex items-center justify-center text-sm sm:text-base">
+                          🎂
+                        </div>
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="font-bold text-xs sm:text-sm md:text-base">
+                          {celebrant.first_name} {celebrant.last_name}
+                        </p>
+                        {celebrant.department && (
+                          <p className="text-[10px] sm:text-xs text-white/80">📍 {celebrant.department}</p>
+                        )}
                       </div>
                     </div>
-                    <div className="flex-1 text-left">
-                      <p className="font-bold text-base">
-                        {celebrant.first_name} {celebrant.last_name}
-                      </p>
-                      {celebrant.department && (
-                        <p className="text-xs text-white/80">📍 {celebrant.department}</p>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowCommentsFor(celebrant)}
-                    className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-all duration-300 group"
-                  >
-                    <ChatBubbleLeftIcon className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                    Leave Birthday Wishes 🎁
-                  </button>
-                  <p className="text-xs text-white/70 mt-2">
+                    <button
+                      onClick={() => setShowCommentsFor(celebrant)}
+                      className="mt-1 sm:mt-2 w-full inline-flex items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] sm:text-xs font-medium"
+                    >
+                      <ChatBubbleLeftIcon className="h-3 w-3" />
+                      Leave Wishes 🎁
+                    </button>
+                    <p className="text-[9px] sm:text-xs text-white/70 mt-1 sm:mt-2">
                 Click to view and send birthday wishes
               </p>
-                </div>
-              ))}
+                  </div>
+                ))}
+                {birthdayCelebrants.length > 4 && (
+                  <div className="bg-white/20 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-3 text-center">
+                    <p className="text-xs sm:text-sm">+{birthdayCelebrants.length - 4} more</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+        
+        {/* Decorative - Hidden on mobile, visible on desktop */}
+        <div className="hidden lg:flex flex-shrink-0 text-3xl sm:text-4xl">
+          🎊 🎈 🎁
+        </div>
       </div>
-      
-      {/* Decorative */}
-      <div className="flex-shrink-0 text-3xl sm:text-4xl hidden lg:block">
-        🎊 🎈 🎁
+    </div>
+  </div>
+)}
+
+{/* Work Anniversary Banner - Scaled Down */}
+{anniversaryCelebrants.length > 0 && (
+  <div className="overflow-hidden rounded-xl sm:rounded-[30px] bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white shadow-lg">
+    <div className="p-3 sm:p-5 md:p-6">
+      <div className="flex flex-col lg:flex-row items-center lg:items-start gap-3 sm:gap-5">
+        {/* Trophy Icon - Smaller */}
+        <div className="flex-shrink-0">
+          <div className="rounded-full bg-white/20 p-2 sm:p-4 animate-bounce">
+            <svg className="h-8 w-8 sm:h-10 sm:w-10 md:h-14 md:w-14" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+            </svg>
+          </div>
+        </div>
+        
+        {/* Message Content */}
+        <div className="flex-1 text-center lg:text-left">
+          <h3 className="text-base sm:text-xl md:text-2xl font-bold mb-1 sm:mb-2">
+            🏆 Work Anniversary! 🏆
+          </h3>
+          
+          {/* Single Anniversary */}
+          {anniversaryCelebrants.length === 1 && (
+            <div className="space-y-2 sm:space-y-3">
+              <p className="text-sm sm:text-base md:text-lg text-white/95">
+                Please join us in celebrating
+              </p>
+              <div className="inline-block bg-white/20 backdrop-blur-sm rounded-lg sm:rounded-xl px-3 sm:px-5 py-2 sm:py-3">
+                <p className="text-base sm:text-xl md:text-2xl font-extrabold">
+                  {anniversaryCelebrants[0].first_name} {anniversaryCelebrants[0].last_name}
+                </p>
+                <p className="text-xs sm:text-sm md:text-md text-white/90 mt-0.5 sm:mt-1">
+                  {anniversaryCelebrants[0].celebration_emoji} {anniversaryCelebrants[0].anniversary_text} with us! {anniversaryCelebrants[0].celebration_emoji}
+                </p>
+                {anniversaryCelebrants[0].department && (
+                  <p className="text-xs sm:text-sm text-white/80 mt-0.5 sm:mt-1">
+                    📍 {anniversaryCelebrants[0].department}
+                    {anniversaryCelebrants[0].position && ` • ${anniversaryCelebrants[0].position}`}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          
+          {/* Multiple Anniversaries */}
+          {anniversaryCelebrants.length > 1 && (
+            <div className="space-y-2 sm:space-y-4">
+              <p className="text-sm sm:text-base md:text-lg text-white/95">
+                Please join us in celebrating our team members on their work anniversary today! 🎊
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                {anniversaryCelebrants.slice(0, 4).map(celebrant => (
+                  <div key={celebrant.id} className="bg-white/20 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="flex-shrink-0">
+                        <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-yellow-400 flex items-center justify-center text-sm sm:text-base">
+                          🏆
+                        </div>
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="font-bold text-xs sm:text-sm md:text-base">
+                          {celebrant.first_name} {celebrant.last_name}
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-white/90">
+                          {celebrant.celebration_emoji} {celebrant.anniversary_text}
+                        </p>
+                        {celebrant.department && (
+                          <p className="text-[10px] sm:text-xs text-white/80">📍 {celebrant.department}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {anniversaryCelebrants.length > 4 && (
+                  <div className="bg-white/20 backdrop-blur-sm rounded-lg sm:rounded-xl p-2 sm:p-3 text-center">
+                    <p className="text-xs sm:text-sm">+{anniversaryCelebrants.length - 4} more</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Decorative - Hidden on mobile, visible on desktop */}
+        <div className="hidden lg:flex flex-shrink-0 text-3xl sm:text-4xl">
+          🎊 🎈 🎁
+        </div>
       </div>
     </div>
   </div>
