@@ -22,6 +22,7 @@ import Support from './pages/Support';
 import AdminFeedback from './pages/AdminFeedback';
 import PendingPayslips from './pages/PendingPayslips';
 import EmployeeDirectory from './pages/EmployeeDirectory';
+import MobileAppPage from './pages/MobileAppPage';
 
 // Private Route Component
 const PrivateRoute = ({ children }) => {
@@ -91,6 +92,7 @@ function App() {
               <Route path="/policies" element={<CompanyPolicies />} />
               <Route path="/support" element={<Support />} />
               <Route path="/directory" element={<EmployeeDirectory />} />
+              <Route path="/mobile-app" element={<MobileAppPage />} />
 
               <Route path="*" element={<NotFound />} />
             </Route>

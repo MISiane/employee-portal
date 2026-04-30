@@ -11,14 +11,13 @@ import {
   MegaphoneIcon,
   ExclamationTriangleIcon,
   CakeIcon,
-  ChatBubbleLeftIcon 
+  ChatBubbleLeftIcon,
 } from '@heroicons/react/24/outline';
 import { getPayslips } from '../api/payslips';
 import { getMyLeaveRequests, getLeaveBalances } from '../api/leave';
 import { getLatestAnnouncements } from '../api/announcements';
 import { getTodayBirthdays,getTodayAnniversaries } from '../api/employees';
 import BirthdayComments from '../components/BirthdayComments';
-
 
 const EmployeeDashboard = () => {
   const { user } = useAuth();

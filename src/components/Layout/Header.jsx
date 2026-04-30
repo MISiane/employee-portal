@@ -11,6 +11,7 @@ import {
   CalendarIcon,
   MegaphoneIcon,
   Bars3Icon,
+    CloudArrowDownIcon
 } from '@heroicons/react/24/outline';
 import api from '../../api/config';
 
@@ -28,6 +29,7 @@ const Header = () => {
   const searchRef = useRef(null);
   const notificationRef = useRef(null);
   const mobileSearchRef = useRef(null);
+  const [showApkInfo, setShowApkInfo] = useState(false);
 
   useEffect(() => {
     fetchNotifications();
@@ -262,6 +264,14 @@ const handleSearch = async (e) => {
 
           {/* Right Side */}
           <div className="flex items-center space-x-2 sm:space-x-4">
+<button
+  onClick={() => navigate('/mobile-app')}
+  className="flex items-center gap-1.5 rounded-2xl px-2 sm:px-3 py-1.5 text-[#800080] transition-colors hover:bg-[#f5e6f7] hover:text-[#660066]"
+  title="Download Mobile App"
+>
+  <CloudArrowDownIcon className="h-4 w-4 sm:h-5 sm:w-5" />
+  <span className="text-xs sm:text-sm font-medium">Download App</span>
+</button>
             {/* Notifications */}
             <div className="relative" ref={notificationRef}>
               <button
@@ -400,6 +410,17 @@ const handleSearch = async (e) => {
                     My Profile
                   </button>
 
+<button
+  onClick={() => {
+    setShowDropdown(false);
+    navigate('/mobile-app');
+  }}
+  className="flex w-full items-center px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm text-gray-700 transition-colors hover:bg-[#faf2fb]"
+>
+  <CloudArrowDownIcon className="mr-2 h-4 w-4 text-[#800080]" />
+  Download Mobile App
+</button>
+
                   <div className="my-1 border-t border-[#f1e4f2]"></div>
 
                   <button
@@ -491,6 +512,7 @@ const handleSearch = async (e) => {
           </div>
         </div>
       )}
+
     </>
   );
 };
