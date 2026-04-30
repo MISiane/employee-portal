@@ -20,6 +20,7 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
   const [probationaryMessage, setProbationaryMessage] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
 const [medicalCertificateRequired, setMedicalCertificateRequired] = useState(false);
+const [dateErrors, setDateErrors] = useState({});
 
   useEffect(() => {
     if (isOpen) {
@@ -63,16 +64,82 @@ const [medicalCertificateRequired, setMedicalCertificateRequired] = useState(fal
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
-    }));
-    if (name === 'leave_type') {
-      setError('');
-    }
-  };
+  // Add this function after fetchLeaveBalances and before handleChange
+const validateDates = (startDate, endDate) => {
+  const errors = {};
+  if (!startDate || !endDate) return errors;
+  
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Set date to 1 year ago
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(today.getFullYear() - 1);
+  oneYearAgo.setHours(0, 0, 0, 0);
+  
+  // Set date to 2 years from now
+  const twoYearsFromNow = new Date();
+  twoYearsFromNow.setFullYear(today.getFullYear() + 2);
+  twoYearsFromNow.setHours(0, 0, 0, 0);
+
+  // Check if start date is more than 1 year in the past
+  if (start < oneYearAgo) {
+    errors.start_date = `Cannot file leave more than 1 year in the past. Earliest: ${oneYearAgo.toLocaleDateString()}`;
+  }
+  
+  // Check if end date is more than 1 year in the past
+  if (end < oneYearAgo) {
+    errors.end_date = `End date cannot be more than 1 year in the past.`;
+  }
+  
+  // Check if start date is more than 2 years in the future
+  if (start > twoYearsFromNow) {
+    errors.start_date = `Cannot file leave more than 2 years in advance. Latest: ${twoYearsFromNow.toLocaleDateString()}`;
+  }
+  
+  // Check if end date is more than 2 years in the future
+  if (end > twoYearsFromNow) {
+    errors.end_date = `Cannot file leave more than 2 years in advance.`;
+  }
+  
+  // Check if start date is after end date
+  if (start > end) {
+    errors.end_date = "End date must be on or after start date.";
+  }
+  
+  return errors;
+};
+
+// Add function to check if filing is late
+const isLateFiling = (startDate) => {
+  if (!startDate) return false;
+  const start = new Date(startDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return start < today;
+};
+
+const handleChange = (e) => {
+  const { name, value, type, checked } = e.target;
+  setFormData(prev => ({ 
+    ...prev, 
+    [name]: type === 'checkbox' ? checked : value 
+  }));
+  
+  // Validate dates when start_date or end_date changes
+  if (name === 'start_date' || name === 'end_date') {
+    const newStartDate = name === 'start_date' ? value : formData.start_date;
+    const newEndDate = name === 'end_date' ? value : formData.end_date;
+    const errors = validateDates(newStartDate, newEndDate);
+    setDateErrors(errors);
+  }
+  
+  if (name === 'leave_type') {
+    setError('');
+  }
+};
 
   const handleFileChange = (e) => {
   const file = e.target.files[0];
@@ -119,6 +186,14 @@ const [medicalCertificateRequired, setMedicalCertificateRequired] = useState(fal
 
 const handleSubmit = async (e) => {
   e.preventDefault();
+  
+  // Check date validation first
+  const dateValidationErrors = validateDates(formData.start_date, formData.end_date);
+  if (Object.keys(dateValidationErrors).length > 0) {
+    setDateErrors(dateValidationErrors);
+    setError('Please fix the date errors before submitting.');
+    return;
+  }
   
   setLoading(true);
   setError('');
@@ -345,7 +420,7 @@ const handleSubmit = async (e) => {
                   value={formData.start_date}
                   onChange={handleChange}
                   required
-                  min={new Date().toISOString().split('T')[0]}
+                  // min={new Date().toISOString().split('T')[0]}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -359,7 +434,7 @@ const handleSubmit = async (e) => {
                   value={formData.end_date}
                   onChange={handleChange}
                   required
-                  min={formData.start_date || new Date().toISOString().split('T')[0]}
+                  // min={formData.start_date || new Date().toISOString().split('T')[0]}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>

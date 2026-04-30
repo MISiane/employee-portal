@@ -216,7 +216,6 @@ const createLeaveRequest = async (req, res) => {
     medicalCertType = req.file.mimetype;
   }
   
-  // Rest of your existing code...
   const days = Math.ceil((new Date(end_date) - new Date(start_date)) / (1000 * 60 * 60 * 24)) + 1;
   
   const client = await pool.connect();
@@ -623,10 +622,6 @@ const editLeaveRequest = async (req, res) => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      // For non-admins, prevent past dates
-      if (!isAdmin && start < today) {
-        return res.status(400).json({ error: 'Start date cannot be in the past' });
-      }
       
       if (end < start) {
         return res.status(400).json({ error: 'End date must be after start date' });

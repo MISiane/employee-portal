@@ -41,8 +41,9 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
   const [leaveBalances, setLeaveBalances] = useState(null);
   const [fetchingBalance, setFetchingBalance] = useState(false);
   const [balanceError, setBalanceError] = useState('');
-  const [selectedFile, setSelectedFile] = useState(null); // Add this state
-  const [uploadingFile, setUploadingFile] = useState(false); // Add this state
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadingFile, setUploadingFile] = useState(false); 
+  const [dateErrors, setDateErrors] = useState({});
 
   // Function to format ISO date to YYYY-MM-DD for input[type="date"]
   const formatDateForInput = (dateString) => {
@@ -83,16 +84,81 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: type === 'checkbox' ? checked : value 
-    }));
-    if (name === 'leave_type') {
-      setError('');
-    }
-  };
+  // Add validation functions after fetchLeaveBalances
+const validateDates = (startDate, endDate) => {
+  const errors = {};
+  if (!startDate || !endDate) return errors;
+  
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  // Set date to 1 year ago
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(today.getFullYear() - 1);
+  oneYearAgo.setHours(0, 0, 0, 0);
+  
+  // Set date to 2 years from now
+  const twoYearsFromNow = new Date();
+  twoYearsFromNow.setFullYear(today.getFullYear() + 2);
+  twoYearsFromNow.setHours(0, 0, 0, 0);
+
+  // Check if start date is more than 1 year in the past
+  if (start < oneYearAgo) {
+    errors.start_date = `Cannot edit leave more than 1 year in the past. Earliest: ${oneYearAgo.toLocaleDateString()}`;
+  }
+  
+  // Check if end date is more than 1 year in the past
+  if (end < oneYearAgo) {
+    errors.end_date = `End date cannot be more than 1 year in the past.`;
+  }
+  
+  // Check if start date is more than 2 years in the future
+  if (start > twoYearsFromNow) {
+    errors.start_date = `Cannot edit leave more than 2 years in advance. Latest: ${twoYearsFromNow.toLocaleDateString()}`;
+  }
+  
+  // Check if end date is more than 2 years in the future
+  if (end > twoYearsFromNow) {
+    errors.end_date = `Cannot edit leave more than 2 years in advance.`;
+  }
+  
+  // Check if start date is after end date
+  if (start > end) {
+    errors.end_date = "End date must be on or after start date.";
+  }
+  
+  return errors;
+};
+
+const isLateFiling = (startDate) => {
+  if (!startDate) return false;
+  const start = new Date(startDate);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return start < today;
+};
+
+const handleChange = (e) => {
+  const { name, value, type, checked } = e.target;
+  setFormData(prev => ({ 
+    ...prev, 
+    [name]: type === 'checkbox' ? checked : value 
+  }));
+  
+  // Validate dates when start_date or end_date changes
+  if (name === 'start_date' || name === 'end_date') {
+    const newStartDate = name === 'start_date' ? value : formData.start_date;
+    const newEndDate = name === 'end_date' ? value : formData.end_date;
+    const errors = validateDates(newStartDate, newEndDate);
+    setDateErrors(errors);
+  }
+  
+  if (name === 'leave_type') {
+    setError('');
+  }
+};
 
   // Add the handleFileChange function
   const handleFileChange = (e) => {
@@ -138,35 +204,44 @@ const EditLeaveRequestModal = ({ isOpen, onClose, onSuccess, leaveRequest }) => 
     return currentBalance >= daysRequested;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  // Check date validation first
+  const dateValidationErrors = validateDates(formData.start_date, formData.end_date);
+  if (Object.keys(dateValidationErrors).length > 0) {
+    setDateErrors(dateValidationErrors);
+    setError('Please fix the date errors before submitting.');
+    return;
+  }
+  
+  setLoading(true);
+  setError('');
 
-    // Create FormData to handle file upload
-    const submitData = new FormData();
-    submitData.append('leave_type', formData.leave_type);
-    submitData.append('start_date', formData.start_date);
-    submitData.append('end_date', formData.end_date);
-    submitData.append('reason', formData.reason);
-    submitData.append('leave_pay_type', 'pending');
-    
-    // Append file if selected
-    if (selectedFile) {
-      submitData.append('medical_certificate', selectedFile);
-    }
-    
-    try {
-      await api.put(`/leave/requests/${leaveRequest.id}`, submitData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      onSuccess();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Error updating request. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Create FormData to handle file upload
+  const submitData = new FormData();
+  submitData.append('leave_type', formData.leave_type);
+  submitData.append('start_date', formData.start_date);
+  submitData.append('end_date', formData.end_date);
+  submitData.append('reason', formData.reason);
+  submitData.append('leave_pay_type', 'pending');
+  
+  // Append file if selected
+  if (selectedFile) {
+    submitData.append('medical_certificate', selectedFile);
+  }
+  
+  try {
+    await api.put(`/leave/requests/${leaveRequest.id}`, submitData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    onSuccess();
+  } catch (err) {
+    setError(err.response?.data?.error || 'Error updating request. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   if (!isOpen) return null;
 
