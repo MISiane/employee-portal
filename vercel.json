@@ -3,7 +3,6 @@
   "outputDirectory": "dist",
   "installCommand": "npm install --legacy-peer-deps",
   "framework": "vite",
-  "cache": false,
   "routes": [
     {
       "src": "/(.*)",
