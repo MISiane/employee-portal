@@ -20,6 +20,10 @@
       }
     },
     {
+      "src": "/icon-(.*).png",
+      "dest": "/icon-$1.png"
+    },
+    {
       "src": "/assets/(.*)",
       "dest": "/assets/$1"
     },
