@@ -45,23 +45,5 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-<!-- Completely disable service worker -->
-<script>
-  // Block service worker registration completely
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-      for(let registration of registrations) {
-        registration.unregister();
-        console.log('Unregistered service worker');
-      }
-    });
-  }
-  
-  // Also prevent new registration
-  window.addEventListener('load', function() {
-    // Do NOT register service worker
-    console.log('Service worker registration disabled for debugging');
-  });
-</script>
   </body>
 </html>
