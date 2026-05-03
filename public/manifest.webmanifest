@@ -1,6 +1,6 @@
 {
   "name": "Employee Portal",
-  "short_name": "EmpPortal",
+  "short_name": "LMHPortal",
   "description": "Employee Management System for Le Monet Hotel",
   "start_url": "/",
   "display": "standalone",
