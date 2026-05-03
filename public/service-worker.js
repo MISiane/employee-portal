@@ -1,4 +1,4 @@
-const CACHE_NAME = 'employee-portal-v1';
+const CACHE_NAME = 'employee-portal-v2';
 
 // Only cache these specific files that exist in production
 const urlsToCache = [
