@@ -45,20 +45,23 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
-<!-- Temporarily disable service worker for debugging
+<!-- Completely disable service worker -->
 <script>
+  // Block service worker registration completely
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js')
-        .then(registration => {
-          console.log('✅ Service Worker registered:', registration.scope);
-        })
-        .catch(error => {
-          console.log('❌ Service Worker registration failed:', error);
-        });
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      for(let registration of registrations) {
+        registration.unregister();
+        console.log('Unregistered service worker');
+      }
     });
   }
+  
+  // Also prevent new registration
+  window.addEventListener('load', function() {
+    // Do NOT register service worker
+    console.log('Service worker registration disabled for debugging');
+  });
 </script>
--->
   </body>
 </html>
