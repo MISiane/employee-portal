@@ -2,8 +2,7 @@ const CACHE_NAME = 'employee-portal-v1';
 const urlsToCache = [
   '/',
   '/index.html',
-  '/src/main.jsx',
-  '/src/index.css'
+  '/manifest.webmanifest'
 ];
 
 // Install service worker
@@ -15,29 +14,33 @@ self.addEventListener('install', event => {
         console.log('📦 Caching app assets');
         return cache.addAll(urlsToCache);
       })
+      .then(() => self.skipWaiting())
   );
 });
 
 // Fetch from cache first, then network
 self.addEventListener('fetch', event => {
+  // Skip non-GET requests and external URLs
+  if (event.request.method !== 'GET') return;
+  if (!event.request.url.startsWith(self.location.origin)) return;
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {
         if (response) {
           return response;
         }
-        return fetch(event.request)
-          .then(response => {
-            if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
-              return response;
-            }
-            const responseToCache = response.clone();
+        return fetch(event.request).then(networkResponse => {
+          // Cache valid responses
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME)
               .then(cache => {
                 cache.put(event.request, responseToCache);
               });
-            return response;
-          });
+          }
+          return networkResponse;
+        });
       })
   );
 });
@@ -57,5 +60,6 @@ self.addEventListener('activate', event => {
         })
       );
     })
+    .then(() => self.clients.claim())
   );
 });
