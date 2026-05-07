@@ -16,6 +16,7 @@ const logger = require('./utils/logger');
 const pool = require('./config/database');
 const path = require('path');
 const uploadRoutes = require('./routes/upload');
+const notificationsRouter = require('./routes/notifications');
 
 const app = express();
 
@@ -123,6 +124,7 @@ app.use('/api', feedbackRoutes);
 app.use('/api/polls', pollRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api', uploadRoutes);
+app.use('/api/notifications', notificationsRouter);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Employee Portal API is running' });

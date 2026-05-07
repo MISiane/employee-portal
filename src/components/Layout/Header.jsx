@@ -62,43 +62,115 @@ const Header = () => {
 
 const fetchNotifications = async () => {
   try {
-    const [leaveRequests, announcements] = await Promise.all([
-      api.get('/leave/requests', { params: { limit: 5, status: 'pending' } }).catch(() => ({
-        data: { leaveRequests: [] },
-      })),
-      api.get('/announcements', { params: { limit: 3 } }).catch(() => ({ data: [] })),
-    ]);
-
-    const leaveNotifications = (leaveRequests.data?.leaveRequests || []).map((req) => ({
-      id: `leave-${req.id}`,
-      type: 'leave',
-      title: 'Leave Request',
-      message: `${req.first_name} ${req.last_name} requested ${req.leave_type}`,
-      time: new Date(req.created_at).toLocaleString(),
-      read: false,
-      link: '/my-leave-requests',
-    }));
-
-    const announcementsList = Array.isArray(announcements.data) ? announcements.data : [];
+    // Fetch database notifications (leave status, payslips)
+    const notificationsRes = await api.get('/notifications', { params: { limit: 20 } });
+    const dbNotifications = notificationsRes.data?.notifications || [];
     
-    const announcementNotifications = announcementsList.map((ann) => ({
-      id: `ann-${ann.id}`,
-      type: 'announcement',
-      title: 'New Announcement',
-      message: ann.title,
-      time: new Date(ann.created_at).toLocaleString(),
-      read: false,
-      link: '/announcements',
+    // Format database notifications
+    const formattedDbNotifications = dbNotifications.map(n => ({
+      id: n.id,
+      type: n.type,
+      title: n.title,
+      message: n.message,
+      time: new Date(n.created_at).toLocaleString(),
+      read: n.is_read,
+      link: n.type === 'leave_status' ? '/my-leave-requests' : 
+            n.type === 'payslip' ? '/my-payslips' : '/announcements',
     }));
-
-    const allNotifications = [...leaveNotifications, ...announcementNotifications]
+    
+    // Fetch announcements (for notification bell)
+    const announcementsRes = await api.get('/announcements', { params: { limit: 3 } }).catch(() => ({ data: [] }));
+    
+    // Handle different response structures
+    let announcementsList = [];
+    if (Array.isArray(announcementsRes.data)) {
+      announcementsList = announcementsRes.data;
+    } else if (announcementsRes.data?.announcements) {
+      announcementsList = announcementsRes.data.announcements;
+    } else if (announcementsRes.data?.data) {
+      announcementsList = announcementsRes.data.data;
+    }
+    
+    // Get read announcements from localStorage
+    const readAnnouncements = JSON.parse(localStorage.getItem('read_announcements') || '[]');
+    
+    // Format announcement notifications (only unread ones)
+    const announcementNotifications = announcementsList
+      .filter(ann => !readAnnouncements.includes(ann.id))
+      .map((ann) => ({
+        id: `ann-${ann.id}`,
+        type: 'announcement',
+        title: '📢 New Announcement',
+        message: ann.title,
+        time: new Date(ann.created_at).toLocaleString(),
+        read: false,
+        link: '/announcements',
+      }));
+    
+    // Combine both sources
+    const allNotifications = [...formattedDbNotifications, ...announcementNotifications]
       .sort((a, b) => new Date(b.time) - new Date(a.time))
-      .slice(0, 10);
-
+      .slice(0, 20);
+    
     setNotifications(allNotifications);
-    setUnreadCount(allNotifications.filter((n) => !n.read).length);
+    setUnreadCount(allNotifications.filter(n => !n.read).length);
   } catch (error) {
     console.error('Error fetching notifications:', error);
+  }
+};
+
+const markAsRead = async (notificationId) => {
+  // Handle announcement notifications (stored in localStorage)
+  if (typeof notificationId === 'string' && notificationId.startsWith('ann-')) {
+    const annId = parseInt(notificationId.replace('ann-', ''));
+    const readAnnouncements = JSON.parse(localStorage.getItem('read_announcements') || '[]');
+    if (!readAnnouncements.includes(annId)) {
+      readAnnouncements.push(annId);
+      localStorage.setItem('read_announcements', JSON.stringify(readAnnouncements));
+    }
+    
+    // Update local state
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+    return;
+  }
+  
+  // Handle database notifications (leave status, payslips)
+  try {
+    await api.put(`/notifications/${notificationId}/read`);
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+    );
+    setUnreadCount((prev) => Math.max(0, prev - 1));
+  } catch (error) {
+    console.error('Error marking as read:', error);
+  }
+};
+
+const markAllAsRead = async () => {
+  try {
+    // Mark all database notifications as read
+    await api.put('/notifications/read-all');
+    
+    // Mark all announcement notifications as read (store in localStorage)
+    const announcementIds = notifications
+      .filter(n => typeof n.id === 'string' && n.id.startsWith('ann-') && !n.read)
+      .map(n => parseInt(n.id.replace('ann-', '')));
+    
+    if (announcementIds.length > 0) {
+      const readAnnouncements = JSON.parse(localStorage.getItem('read_announcements') || '[]');
+      const updatedRead = [...new Set([...readAnnouncements, ...announcementIds])];
+      localStorage.setItem('read_announcements', JSON.stringify(updatedRead));
+    }
+    
+    // Update local state
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    setUnreadCount(0);
+    setShowNotifications(false);
+  } catch (error) {
+    console.error('Error marking all as read:', error);
   }
 };
 
@@ -156,13 +228,6 @@ const handleSearch = async (e) => {
   const handleProfileClick = () => {
     setShowDropdown(false);
     navigate('/my-profile');
-  };
-
-  const markAsRead = (notificationId) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-    );
-    setUnreadCount((prev) => Math.max(0, prev - 1));
   };
 
   const getNotificationIcon = (type) => {
@@ -325,17 +390,17 @@ const handleSearch = async (e) => {
                       ))
                     )}
                   </div>
-                  <div className="border-t border-[#f1e4f2] bg-white p-3">
-                    <button
-                      onClick={() => {
-                        setShowNotifications(false);
-                        navigate('/announcements');
-                      }}
-                      className="w-full text-center text-sm font-medium text-[#800080] hover:text-[#660066]"
-                    >
-                      View all
-                    </button>
-                  </div>
+                 {/* Mark all as read button - only show if there are unread notifications */}
+{unreadCount > 0 && (
+  <div className="border-t border-[#f1e4f2] bg-white p-3">
+    <button
+      onClick={markAllAsRead}
+      className="w-full text-center text-sm font-medium text-[#800080] hover:text-[#660066] transition-colors"
+    >
+      Mark all as read ({unreadCount})
+    </button>
+  </div>
+)}
                 </div>
               )}
             </div>
