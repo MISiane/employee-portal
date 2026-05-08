@@ -195,3 +195,77 @@
 .animate-shimmer {
   animation: shimmer 2s infinite;
 }
+
+/* Rich text content styling for announcements */
+.prose {
+  line-height: 1.6;
+}
+
+.prose h1 {
+  font-size: 1.8em;
+  font-weight: bold;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose h2 {
+  font-size: 1.5em;
+  font-weight: bold;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose h3 {
+  font-size: 1.25em;
+  font-weight: bold;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose ul, .prose ol {
+  margin-left: 1.5em;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose li {
+  margin-bottom: 0.25em;
+}
+
+.prose blockquote {
+  border-left: 3px solid #800080;
+  padding-left: 1em;
+  margin: 0.5em 0;
+  font-style: italic;
+  color: #555;
+}
+
+.prose code {
+  background-color: #f5f5f5;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+/* Quill editor height fix */
+.quill {
+  height: auto;
+}
+
+.ql-container {
+  min-height: 200px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Mobile adjustments */
+@media (max-width: 640px) {
+  .ql-toolbar {
+    flex-wrap: wrap;
+  }
+  
+  .ql-toolbar button {
+    width: 28px;
+    height: 28px;
+  }
+}

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { XMarkIcon, PlusIcon, TrashIcon, ChartBarIcon } from '@heroicons/react/24/outline';
 import { createAnnouncement, updateAnnouncement } from '../../api/announcements';
 import { createPoll, getPollByAnnouncement, deletePoll, updatePoll } from '../../api/polls';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 
 const AnnouncementModal = ({ isOpen, onClose, announcement, mode }) => {
   const [formData, setFormData] = useState({
@@ -19,6 +21,25 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, mode }) => {
   const [pollExpiresAt, setPollExpiresAt] = useState('');
   const [existingPollId, setExistingPollId] = useState(null);
   const [fetchingPoll, setFetchingPoll] = useState(false);
+
+  // Quill toolbar configuration
+const quillModules = {
+  toolbar: [
+    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ 'color': [] }, { 'background': [] }],
+    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+    [{ 'align': [] }],
+    ['link', 'clean'],
+    ['blockquote', 'code-block']
+  ],
+};
+
+const quillFormats = [
+  'header', 'bold', 'italic', 'underline', 'strike',
+  'color', 'background', 'list', 'bullet', 'align',
+  'link', 'blockquote', 'code-block'
+];
 
   useEffect(() => {
     if (announcement && mode === 'edit') {
@@ -251,19 +272,24 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, mode }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Content *
-              </label>
-              <textarea
-                name="content"
-                value={formData.content}
-                onChange={handleChange}
-                required
-                rows="6"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="Write your announcement content here..."
-              />
-            </div>
+  <label className="block text-sm font-medium text-gray-700 mb-2">
+    Content *
+  </label>
+  <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+    <ReactQuill
+      theme="snow"
+      value={formData.content}
+      onChange={(value) => setFormData(prev => ({ ...prev, content: value }))}
+      modules={quillModules}
+      formats={quillFormats}
+      placeholder="Write your announcement content here..."
+      className="h-64"
+    />
+  </div>
+  <p className="text-xs text-gray-500 mt-2">
+    You can format text with bold, italic, lists, colors, and more.
+  </p>
+</div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

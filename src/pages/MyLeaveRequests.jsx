@@ -20,11 +20,11 @@ import api from "../api/config";
 const getFileUrl = (fileUrl) => {
   if (!fileUrl) return null;
   // Cloudinary URLs are already full HTTPS URLs
-  if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+  if (fileUrl.startsWith("http://") || fileUrl.startsWith("https://")) {
     return fileUrl;
   }
   // Fallback for local development
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+  const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
   return `${baseUrl}${fileUrl}`;
 };
 
@@ -417,146 +417,170 @@ const MyLeaveRequests = () => {
 
             {/* Desktop view - Table */}
             {/* Desktop view - Optimized Table */}
-<div className="hidden md:block overflow-x-auto">
-  <table className="min-w-full divide-y divide-[#eee5ef]">
-    <thead className="bg-[#faf5fb]">
-      <tr>
-        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-          Leave Details
-        </th>
-        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-          Duration
-        </th>
-        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-          Status
-        </th>
-        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-          Info
-        </th>
-        <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
-          Actions
-        </th>
-      </tr>
-    </thead>
-    <tbody className="divide-y divide-[#f1e7f2] bg-white">
-      {leaveRequests.map((request) => (
-        <tr
-          key={request.id}
-          className="transition hover:bg-[#fcf8fc] cursor-pointer group"
-          onClick={() => handleViewDetails(request)}
-        >
-          {/* Leave Details - Combined Type + Reason */}
-          <td className="px-4 py-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className={`h-9 w-9 rounded-full flex items-center justify-center ${
-                  request.leave_type === 'Sick Leave' ? 'bg-green-100' :
-                  request.leave_type === 'Vacation Leave' ? 'bg-blue-100' :
-                  request.leave_type === 'Emergency Leave' ? 'bg-red-100' : 'bg-purple-100'
-                }`}>
-                  <CalendarIcon className={`h-5 w-5 ${
-                    request.leave_type === 'Sick Leave' ? 'text-green-600' :
-                    request.leave_type === 'Vacation Leave' ? 'text-blue-600' :
-                    request.leave_type === 'Emergency Leave' ? 'text-red-600' : 'text-purple-600'
-                  }`} />
-                </div>
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900">
-                  {request.leave_type}
-                </p>
-                <p className="text-xs text-gray-500 truncate max-w-[200px]" title={request.reason}>
-                  {request.reason || 'No reason provided'}
-                </p>
-                {/* Medical Certificate Indicator */}
-                {request.leave_type === 'Sick Leave' && hasMedicalCertificate(request) && (
-                  <span className="inline-flex items-center mt-1 text-xs text-green-600">
-                    <DocumentTextIcon className="h-3 w-3 mr-0.5" />
-                    Med Cert attached
-                  </span>
-                )}
-              </div>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="min-w-full divide-y divide-[#eee5ef]">
+                <thead className="bg-[#faf5fb]">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Leave Details
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Duration
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Info
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f1e7f2] bg-white">
+                  {leaveRequests.map((request) => (
+                    <tr
+                      key={request.id}
+                      className="transition hover:bg-[#fcf8fc] cursor-pointer group"
+                      onClick={() => handleViewDetails(request)}
+                    >
+                      {/* Leave Details - Combined Type + Reason */}
+                      <td className="px-4 py-4">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0">
+                            <div
+                              className={`h-9 w-9 rounded-full flex items-center justify-center ${
+                                request.leave_type === "Sick Leave"
+                                  ? "bg-green-100"
+                                  : request.leave_type === "Vacation Leave"
+                                    ? "bg-blue-100"
+                                    : request.leave_type === "Emergency Leave"
+                                      ? "bg-red-100"
+                                      : "bg-purple-100"
+                              }`}
+                            >
+                              <CalendarIcon
+                                className={`h-5 w-5 ${
+                                  request.leave_type === "Sick Leave"
+                                    ? "text-green-600"
+                                    : request.leave_type === "Vacation Leave"
+                                      ? "text-blue-600"
+                                      : request.leave_type === "Emergency Leave"
+                                        ? "text-red-600"
+                                        : "text-purple-600"
+                                }`}
+                              />
+                            </div>
+                          </div>
+                          <div className="ml-3">
+                            <p className="text-sm font-medium text-gray-900">
+                              {request.leave_type}
+                            </p>
+                            <p
+                              className="text-xs text-gray-500 truncate max-w-[200px]"
+                              title={request.reason}
+                            >
+                              {request.reason || "No reason provided"}
+                            </p>
+                            {/* Medical Certificate Indicator */}
+                            {request.leave_type === "Sick Leave" &&
+                              hasMedicalCertificate(request) && (
+                                <span className="inline-flex items-center mt-1 text-xs text-green-600">
+                                  <DocumentTextIcon className="h-3 w-3 mr-0.5" />
+                                  Med Cert attached
+                                </span>
+                              )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Duration - Start/End + Days */}
+                      <td className="px-4 py-4">
+                        <div className="text-sm text-gray-900">
+                          {formatDate(request.start_date)}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          to {formatDate(request.end_date)}
+                        </div>
+                        <div className="text-xs font-medium text-gray-500 mt-1">
+                          {calculateDays(request.start_date, request.end_date)}{" "}
+                          days
+                        </div>
+                      </td>
+
+                      {/* Status + Pay Type */}
+                      <td className="px-4 py-4">
+                        <div>{getStatusBadge(request.status)}</div>
+                        {request.status === "approved" &&
+                          request.leave_pay_type &&
+                          request.leave_pay_type !== "pending" && (
+                            <div className="mt-1">
+                              {getPayTypeBadge(
+                                request.leave_pay_type,
+                                request.status,
+                              )}
+                            </div>
+                          )}
+                      </td>
+
+                      {/* Info - Approval Notes + Date Filed + Pay Type */}
+                      <td className="px-4 py-4">
+                        {/* Approval Notes (if any) */}
+                        {request.status === "approved" &&
+                          request.approval_notes && (
+                            <div className="flex items-start mb-2">
+                              <ChatBubbleLeftIcon className="h-3 w-3 text-blue-500 mr-1 mt-0.5 flex-shrink-0" />
+                              <span
+                                className="text-xs text-gray-500 truncate max-w-[180px]"
+                                title={request.approval_notes}
+                              >
+                                {request.approval_notes}
+                              </span>
+                            </div>
+                          )}
+                        {/* Date Filed */}
+                        <div className="text-xs text-gray-400">
+                          Filed: {formatDate(request.created_at)}
+                        </div>
+                        {/* Date adjusted indicator */}
+                        {request.dates_adjusted_by_admin && (
+                          <div className="text-xs text-amber-600 mt-1">
+                            Dates adjusted
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-4 text-right whitespace-nowrap">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleViewDetails(request);
+                          }}
+                          className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition mx-0.5"
+                          title="View Details"
+                        >
+                          <EyeIcon className="h-4 w-4" />
+                        </button>
+                        {request.status === "pending" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(request);
+                            }}
+                            className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition mx-0.5"
+                            title="Edit Request"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </td>
-          
-          {/* Duration - Start/End + Days */}
-          <td className="px-4 py-4">
-            <div className="text-sm text-gray-900">
-              {formatDate(request.start_date)}
-            </div>
-            <div className="text-xs text-gray-400">
-              to {formatDate(request.end_date)}
-            </div>
-            <div className="text-xs font-medium text-gray-500 mt-1">
-              {calculateDays(request.start_date, request.end_date)} days
-            </div>
-          </td>
-          
-          {/* Status + Pay Type */}
-          <td className="px-4 py-4">
-            <div>
-              {getStatusBadge(request.status)}
-            </div>
-            {request.status === 'approved' && request.leave_pay_type && request.leave_pay_type !== 'pending' && (
-              <div className="mt-1">
-                {getPayTypeBadge(request.leave_pay_type, request.status)}
-              </div>
-            )}
-          </td>
-          
-          {/* Info - Approval Notes + Date Filed + Pay Type */}
-          <td className="px-4 py-4">
-            {/* Approval Notes (if any) */}
-            {request.status === 'approved' && request.approval_notes && (
-              <div className="flex items-start mb-2">
-                <ChatBubbleLeftIcon className="h-3 w-3 text-blue-500 mr-1 mt-0.5 flex-shrink-0" />
-                <span className="text-xs text-gray-500 truncate max-w-[180px]" title={request.approval_notes}>
-                  {request.approval_notes}
-                </span>
-              </div>
-            )}
-            {/* Date Filed */}
-            <div className="text-xs text-gray-400">
-              Filed: {formatDate(request.created_at)}
-            </div>
-            {/* Date adjusted indicator */}
-            {request.dates_adjusted_by_admin && (
-              <div className="text-xs text-amber-600 mt-1">
-                Dates adjusted
-              </div>
-            )}
-          </td>
-          
-          {/* Actions */}
-          <td className="px-4 py-4 text-right whitespace-nowrap">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleViewDetails(request);
-              }}
-              className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition mx-0.5"
-              title="View Details"
-            >
-              <EyeIcon className="h-4 w-4" />
-            </button>
-            {request.status === 'pending' && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleEdit(request);
-                }}
-                className="p-1.5 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition mx-0.5"
-                title="Edit Request"
-              >
-                <PencilIcon className="h-4 w-4" />
-              </button>
-            )}
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
-</div>
           </>
         )}
       </div>
@@ -634,6 +658,11 @@ const MyLeaveRequests = () => {
                     selectedRequest.end_date,
                   )}{" "}
                   days
+                </div>
+
+                <div className="text-sm text-gray-500">Regular Day(s) Off:</div>
+                <div className="text-sm font-medium text-gray-800">
+                  {selectedRequest.regular_days_off || "Not specified"}
                 </div>
 
                 <div className="text-gray-500">Reason:</div>

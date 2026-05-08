@@ -669,6 +669,16 @@ const LeaveRequestsAdmin = () => {
                       </p>
                     </div>
 
+                    {/* REGULAR DAY OFF - ADD THIS */}
+{request.regular_days_off && (
+  <div>
+    <p className="text-xs text-gray-500">Regular Day(s) Off</p>
+    <p className="text-sm text-gray-600">
+      📅 {request.regular_days_off}
+    </p>
+  </div>
+)}
+
                     {/* Medical Certificate Indicator for Mobile */}
                     {request.leave_type === "Sick Leave" && (
                       <div className="col-span-2 mt-1">
@@ -880,6 +890,16 @@ const LeaveRequestsAdmin = () => {
                         >
                           📝 {request.reason || "-"}
                         </div>
+                          {request.regular_days_off && (
+    <div className="flex items-center mt-1">
+      <svg className="h-3 w-3 text-gray-400 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+      </svg>
+      <span className="text-xs text-gray-500" title="Employee's regular day off">
+        Day off: {request.regular_days_off}
+      </span>
+    </div>
+  )}
                         {/* Medical Certificate Indicator */}
                         {request.leave_type === "Sick Leave" && (
                           <div className="flex items-center mt-1">
@@ -1064,6 +1084,11 @@ const LeaveRequestsAdmin = () => {
                 <div className="text-sm font-medium text-gray-800">
                   {selectedRequest.reason || "No reason provided"}
                 </div>
+
+                <div className="text-sm text-gray-500">Regular Day(s) Off:</div>
+<div className="text-sm font-medium text-gray-800">
+  {selectedRequest.regular_days_off || "Not specified"}
+</div>
 
                 <div className="text-sm text-gray-500">Status:</div>
                 <div className="text-sm font-medium">

@@ -135,8 +135,9 @@ const getMyLeaveRequests = async (req, res) => {
   
   try {
     let query = `
-      SELECT lr.*,
-             TO_CHAR(lr.start_date, 'YYYY-MM-DD') as start_date,
+      SELECT lr.*, 
+       lr.regular_days_off,
+       TO_CHAR(lr.start_date, 'YYYY-MM-DD') as start_date,
              TO_CHAR(lr.end_date, 'YYYY-MM-DD') as end_date,
              TO_CHAR(lr.original_start_date, 'YYYY-MM-DD') as original_start_date,
              TO_CHAR(lr.original_end_date, 'YYYY-MM-DD') as original_end_date,
@@ -197,7 +198,7 @@ const getMyLeaveRequests = async (req, res) => {
   }
 };
 
-/// Create leave request (employee) - UPDATED with Cloudinary
+/// Create leave request (employee)
 const createLeaveRequest = async (req, res) => {
   const { leave_type, start_date, end_date, reason, leave_pay_type } = req.body;
   const userId = req.user.id;
@@ -269,16 +270,16 @@ const createLeaveRequest = async (req, res) => {
       }
     }
     
-    const result = await client.query(
-      `INSERT INTO leave_requests (
-        user_id, leave_type, start_date, end_date, reason, status, 
-        leave_pay_type, medical_certificate_url, medical_certificate_filename,
-        medical_certificate_size, medical_certificate_type
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING *`,
-      [userId, leave_type, start_date, end_date, reason, 'pending', finalPayType, 
-       medicalCertUrl, medicalCertFilename, medicalCertSize, medicalCertType]
-    );
+const result = await client.query(
+  `INSERT INTO leave_requests (
+    user_id, leave_type, start_date, end_date, reason, status, 
+    leave_pay_type, medical_certificate_url, medical_certificate_filename,
+    medical_certificate_size, medical_certificate_type, regular_days_off
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+  RETURNING *`,
+  [userId, leave_type, start_date, end_date, reason, 'pending', finalPayType, 
+   medicalCertUrl, medicalCertFilename, medicalCertSize, medicalCertType, req.body.regular_days_off || null]
+);
     
     await client.query('COMMIT');
     
@@ -325,7 +326,8 @@ const getAllLeaveRequests = async (req, res) => {
   try {
     let query = `
       SELECT lr.*, 
-             u.email,
+       lr.regular_days_off,
+       u.email,
              ep.first_name, ep.last_name, ep.employee_code, ep.department,
              TO_CHAR(lr.start_date, 'YYYY-MM-DD') as start_date,
              TO_CHAR(lr.end_date, 'YYYY-MM-DD') as end_date,
@@ -669,6 +671,12 @@ if (req.file) {
       values.push(end_date);
       paramCount++;
     }
+
+    if (req.body.regular_days_off !== undefined) {
+  updateFields.push(`regular_days_off = $${paramCount}`);
+  values.push(req.body.regular_days_off || null);
+  paramCount++;
+}
     
     if (reason !== undefined) {
       updateFields.push(`reason = $${paramCount}`);
@@ -735,14 +743,14 @@ if (req.file) {
   }
 };
 
-// Admin edit leave request (legacy function - can be removed or kept for compatibility)
+// Admin edit leave request 
 const adminEditLeaveRequest = async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied. Admin only.' });
   }
   
   const { id } = req.params;
-  const { leave_type, start_date, end_date, reason, leave_pay_type, status, medical_certificate, approval_notes } = req.body;
+  const { leave_type, start_date, end_date, reason, leave_pay_type, status, medical_certificate, approval_notes, regular_days_off } = req.body;
   
   const client = await pool.connect();
   
@@ -820,27 +828,28 @@ const adminEditLeaveRequest = async (req, res) => {
     }
     
     // Update the leave request
-    const result = await pool.query(
-      `UPDATE leave_requests 
-       SET leave_type = COALESCE($1, leave_type),
-           start_date = COALESCE($2, start_date),
-           end_date = COALESCE($3, end_date),
-           reason = COALESCE($4, reason),
-           leave_pay_type = COALESCE($5, leave_pay_type),
-           status = COALESCE($6, status),
-           medical_certificate = COALESCE($7, medical_certificate),
-           approval_notes = COALESCE($8, approval_notes),
-           admin_notes = COALESCE(admin_notes, '') || $9,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $10
-       RETURNING *`,
-      [
-        leave_type, start_date, end_date, reason, leave_pay_type, 
-        status, medical_certificate, approval_notes,
-        `\n[Admin edited on ${new Date().toLocaleString()}]: Leave details updated`,
-        id
-      ]
-    );
+   const result = await pool.query(
+  `UPDATE leave_requests 
+   SET leave_type = COALESCE($1, leave_type),
+       start_date = COALESCE($2, start_date),
+       end_date = COALESCE($3, end_date),
+       reason = COALESCE($4, reason),
+       leave_pay_type = COALESCE($5, leave_pay_type),
+       status = COALESCE($6, status),
+       medical_certificate = COALESCE($7, medical_certificate),
+       approval_notes = COALESCE($8, approval_notes),
+       regular_days_off = COALESCE($9, regular_days_off),
+       admin_notes = COALESCE(admin_notes, '') || $10,
+       updated_at = CURRENT_TIMESTAMP
+   WHERE id = $11
+   RETURNING *`,
+  [
+    leave_type, start_date, end_date, reason, leave_pay_type, 
+    status, medical_certificate, approval_notes, regular_days_off || null,
+    `\n[Admin edited on ${new Date().toLocaleString()}]: Leave details updated`,
+    id
+  ]
+);
     
     await client.query('COMMIT');
     

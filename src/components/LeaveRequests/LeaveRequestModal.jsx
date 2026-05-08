@@ -1,157 +1,163 @@
-import { useState, useEffect } from 'react';
-import { XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
-import api from '../../api/config';
+import { useState, useEffect } from "react";
+import { XMarkIcon, InformationCircleIcon } from "@heroicons/react/24/outline";
+import api from "../../api/config";
 
 const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
-    leave_type: '',
-    start_date: '',
-    end_date: '',
-    reason: '',
-    leave_pay_type: 'pending',
-    medical_certificate: false
+    leave_type: "",
+    start_date: "",
+    end_date: "",
+    reason: "",
+    leave_pay_type: "pending",
+    medical_certificate: false,
+    regular_days_off: "",
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [leaveBalances, setLeaveBalances] = useState(null);
   const [fetchingBalance, setFetchingBalance] = useState(false);
-  const [balanceError, setBalanceError] = useState('');
+  const [balanceError, setBalanceError] = useState("");
   const [isProbationary, setIsProbationary] = useState(false);
-  const [probationaryMessage, setProbationaryMessage] = useState('');
+  const [probationaryMessage, setProbationaryMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
-const [medicalCertificateRequired, setMedicalCertificateRequired] = useState(false);
-const [dateErrors, setDateErrors] = useState({});
+  const [medicalCertificateRequired, setMedicalCertificateRequired] =
+    useState(false);
+  const [dateErrors, setDateErrors] = useState({});
 
   useEffect(() => {
     if (isOpen) {
       fetchLeaveBalances();
       // Reset form when modal opens
       setFormData({
-        leave_type: '',
-        start_date: '',
-        end_date: '',
-        reason: '',
-        leave_pay_type: 'pending',
-        medical_certificate_required: false
+        leave_type: "",
+        start_date: "",
+        end_date: "",
+        reason: "",
+        leave_pay_type: "pending",
+        medical_certificate_required: false,
+        regular_days_off: "",
       });
-      setError('');
+      setError("");
     }
   }, [isOpen]);
 
   const fetchLeaveBalances = async () => {
     setFetchingBalance(true);
-    setBalanceError('');
+    setBalanceError("");
     try {
-      const response = await api.get('/leave/balances');
+      const response = await api.get("/leave/balances");
       setLeaveBalances(response.data);
-      
+
       // Check if balances are zero to determine probationary status
-      if (response.data && 
-          response.data.vacation_leave === 0 && 
-          response.data.sick_leave === 0 && 
-          response.data.emergency_leave === 0) {
+      if (
+        response.data &&
+        response.data.vacation_leave === 0 &&
+        response.data.sick_leave === 0 &&
+        response.data.emergency_leave === 0
+      ) {
         setIsProbationary(true);
-        setProbationaryMessage('You appear to be on probationary status with zero leave balances.');
+        setProbationaryMessage(
+          "You appear to be on probationary status with zero leave balances.",
+        );
       } else {
         setIsProbationary(false);
-        setProbationaryMessage('');
+        setProbationaryMessage("");
       }
     } catch (error) {
-      console.error('Error fetching leave balances:', error);
-      setBalanceError('Unable to fetch leave balance');
+      console.error("Error fetching leave balances:", error);
+      setBalanceError("Unable to fetch leave balance");
     } finally {
       setFetchingBalance(false);
     }
   };
 
-  // Add this function after fetchLeaveBalances and before handleChange
-const validateDates = (startDate, endDate) => {
-  const errors = {};
-  if (!startDate || !endDate) return errors;
-  
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  // Set date to 1 year ago
-  const oneYearAgo = new Date();
-  oneYearAgo.setFullYear(today.getFullYear() - 1);
-  oneYearAgo.setHours(0, 0, 0, 0);
-  
-  // Set date to 2 years from now
-  const twoYearsFromNow = new Date();
-  twoYearsFromNow.setFullYear(today.getFullYear() + 2);
-  twoYearsFromNow.setHours(0, 0, 0, 0);
+  const validateDates = (startDate, endDate) => {
+    const errors = {};
+    if (!startDate || !endDate) return errors;
 
-  // Check if start date is more than 1 year in the past
-  if (start < oneYearAgo) {
-    errors.start_date = `Cannot file leave more than 1 year in the past. Earliest: ${oneYearAgo.toLocaleDateString()}`;
-  }
-  
-  // Check if end date is more than 1 year in the past
-  if (end < oneYearAgo) {
-    errors.end_date = `End date cannot be more than 1 year in the past.`;
-  }
-  
-  // Check if start date is more than 2 years in the future
-  if (start > twoYearsFromNow) {
-    errors.start_date = `Cannot file leave more than 2 years in advance. Latest: ${twoYearsFromNow.toLocaleDateString()}`;
-  }
-  
-  // Check if end date is more than 2 years in the future
-  if (end > twoYearsFromNow) {
-    errors.end_date = `Cannot file leave more than 2 years in advance.`;
-  }
-  
-  // Check if start date is after end date
-  if (start > end) {
-    errors.end_date = "End date must be on or after start date.";
-  }
-  
-  return errors;
-};
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-// Add function to check if filing is late
-const isLateFiling = (startDate) => {
-  if (!startDate) return false;
-  const start = new Date(startDate);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return start < today;
-};
+    // Set date to 1 year ago
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(today.getFullYear() - 1);
+    oneYearAgo.setHours(0, 0, 0, 0);
 
-const handleChange = (e) => {
-  const { name, value, type, checked } = e.target;
-  setFormData(prev => ({ 
-    ...prev, 
-    [name]: type === 'checkbox' ? checked : value 
-  }));
-  
-  // Validate dates when start_date or end_date changes
-  if (name === 'start_date' || name === 'end_date') {
-    const newStartDate = name === 'start_date' ? value : formData.start_date;
-    const newEndDate = name === 'end_date' ? value : formData.end_date;
-    const errors = validateDates(newStartDate, newEndDate);
-    setDateErrors(errors);
-  }
-  
-  if (name === 'leave_type') {
-    setError('');
-  }
-};
+    // Set date to 2 years from now
+    const twoYearsFromNow = new Date();
+    twoYearsFromNow.setFullYear(today.getFullYear() + 2);
+    twoYearsFromNow.setHours(0, 0, 0, 0);
+
+    // Check if start date is more than 1 year in the past
+    if (start < oneYearAgo) {
+      errors.start_date = `Cannot file leave more than 1 year in the past. Earliest: ${oneYearAgo.toLocaleDateString()}`;
+    }
+
+    // Check if end date is more than 1 year in the past
+    if (end < oneYearAgo) {
+      errors.end_date = `End date cannot be more than 1 year in the past.`;
+    }
+
+    // Check if start date is more than 2 years in the future
+    if (start > twoYearsFromNow) {
+      errors.start_date = `Cannot file leave more than 2 years in advance. Latest: ${twoYearsFromNow.toLocaleDateString()}`;
+    }
+
+    // Check if end date is more than 2 years in the future
+    if (end > twoYearsFromNow) {
+      errors.end_date = `Cannot file leave more than 2 years in advance.`;
+    }
+
+    // Check if start date is after end date
+    if (start > end) {
+      errors.end_date = "End date must be on or after start date.";
+    }
+
+    return errors;
+  };
+
+  // check if filing is late
+  const isLateFiling = (startDate) => {
+    if (!startDate) return false;
+    const start = new Date(startDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return start < today;
+  };
+
+  const handleChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+
+    // Validate dates when start_date or end_date changes
+    if (name === "start_date" || name === "end_date") {
+      const newStartDate = name === "start_date" ? value : formData.start_date;
+      const newEndDate = name === "end_date" ? value : formData.end_date;
+      const errors = validateDates(newStartDate, newEndDate);
+      setDateErrors(errors);
+    }
+
+    if (name === "leave_type") {
+      setError("");
+    }
+  };
 
   const handleFileChange = (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    if (file.size > 5 * 1024 * 1024) {
-      setError('File too large. Maximum 5MB.');
-      e.target.value = '';
-      return;
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setError("File too large. Maximum 5MB.");
+        e.target.value = "";
+        return;
+      }
+      setSelectedFile(file);
     }
-    setSelectedFile(file);
-  }
-};
+  };
 
   const calculateDays = () => {
     if (!formData.start_date || !formData.end_date) return 0;
@@ -163,14 +169,14 @@ const handleChange = (e) => {
 
   const getCurrentBalance = () => {
     if (!leaveBalances) return 0;
-    switch(formData.leave_type) {
-      case 'Vacation Leave':
+    switch (formData.leave_type) {
+      case "Vacation Leave":
         return leaveBalances.vacation_leave || 0;
-      case 'Sick Leave':
+      case "Sick Leave":
         return leaveBalances.sick_leave || 0;
-      case 'Emergency Leave':
+      case "Emergency Leave":
         return leaveBalances.emergency_leave || 0;
-      case 'Special Leave':
+      case "Special Leave":
         return leaveBalances.special_leave || 0;
       default:
         return 0;
@@ -184,43 +190,50 @@ const handleChange = (e) => {
     return currentBalance >= daysRequested;
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  // Check date validation first
-  const dateValidationErrors = validateDates(formData.start_date, formData.end_date);
-  if (Object.keys(dateValidationErrors).length > 0) {
-    setDateErrors(dateValidationErrors);
-    setError('Please fix the date errors before submitting.');
-    return;
-  }
-  
-  setLoading(true);
-  setError('');
-  
-  const formDataToSend = new FormData();
-  formDataToSend.append('leave_type', formData.leave_type);
-  formDataToSend.append('start_date', formData.start_date);
-  formDataToSend.append('end_date', formData.end_date);
-  formDataToSend.append('reason', formData.reason);
-  formDataToSend.append('leave_pay_type', 'pending');
-  
-  if (selectedFile) {
-    formDataToSend.append('medical_certificate', selectedFile);
-  }
-  
-  try {
-    await api.post('/leave/requests', formDataToSend, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
-    onSuccess();
-  } catch (err) {
-    console.error('Error:', err);
-    setError(err.response?.data?.error || 'Error submitting request. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Check date validation first
+    const dateValidationErrors = validateDates(
+      formData.start_date,
+      formData.end_date,
+    );
+    if (Object.keys(dateValidationErrors).length > 0) {
+      setDateErrors(dateValidationErrors);
+      setError("Please fix the date errors before submitting.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    const formDataToSend = new FormData();
+    formDataToSend.append("leave_type", formData.leave_type);
+    formDataToSend.append("start_date", formData.start_date);
+    formDataToSend.append("end_date", formData.end_date);
+    formDataToSend.append("reason", formData.reason);
+    formDataToSend.append("leave_pay_type", "pending");
+    formDataToSend.append("regular_days_off", formData.regular_days_off || "");
+
+    if (selectedFile) {
+      formDataToSend.append("medical_certificate", selectedFile);
+    }
+
+    try {
+      await api.post("/leave/requests", formDataToSend, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      onSuccess();
+    } catch (err) {
+      console.error("Error:", err);
+      setError(
+        err.response?.data?.error ||
+          "Error submitting request. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -260,9 +273,12 @@ const handleSubmit = async (e) => {
               <div className="flex items-start space-x-2">
                 <InformationCircleIcon className="h-5 w-5 text-yellow-500 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-yellow-800">Probationary Employee</p>
+                  <p className="text-sm font-medium text-yellow-800">
+                    Probationary Employee
+                  </p>
                   <p className="text-xs text-yellow-700 mt-1">
-                    {probationaryMessage || 'As a probationary employee, admin will decide your pay type upon approval.'}
+                    {probationaryMessage ||
+                      "As a probationary employee, admin will decide your pay type upon approval."}
                   </p>
                 </div>
               </div>
@@ -290,102 +306,119 @@ const handleSubmit = async (e) => {
               </select>
             </div>
 
-            {formData.leave_type === 'Sick Leave' && (
-  <>
-    <div>
-      <label className="flex items-center">
-        <input
-          type="checkbox"
-          name="medical_certificate_required"
-          checked={formData.medical_certificate_required}
-          onChange={(e) => {
-            setFormData(prev => ({ 
-              ...prev, 
-              medical_certificate_required: e.target.checked,
-              medical_certificate_file: null 
-            }));
-          }}
-          className="h-4 w-4 text-blue-600 rounded"
-        />
-        <span className="ml-2 text-sm text-gray-700">
-          I will provide a medical certificate
-        </span>
-      </label>
-      <p className="text-xs text-gray-500 mt-1">
-        Medical certificate may be required for sick leave approval.
-      </p>
-    </div>
+            {formData.leave_type === "Sick Leave" && (
+              <>
+                <div>
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="medical_certificate_required"
+                      checked={formData.medical_certificate_required}
+                      onChange={(e) => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          medical_certificate_required: e.target.checked,
+                          medical_certificate_file: null,
+                        }));
+                      }}
+                      className="h-4 w-4 text-blue-600 rounded"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">
+                      I will provide a medical certificate
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Medical certificate may be required for sick leave approval.
+                  </p>
+                </div>
 
-    {/* File Upload */}
-    {formData.medical_certificate_required && (
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Upload Medical Certificate *
-        </label>
-        <input
-  type="file"
-  name="medical_certificate"
-  onChange={handleFileChange}
-  accept=".jpg,.jpeg,.png,.pdf"
-  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-/>
-        {selectedFile && (
-          <div className="mt-2 text-sm text-gray-600">
-            📄 {selectedFile.name} ({(selectedFile.size / 1024).toFixed(2)} KB)
-            <button
-              type="button"
-              onClick={() => setSelectedFile(null)}
-              className="ml-2 text-red-500 hover:text-red-700"
-            >
-              Remove
-            </button>
-          </div>
-        )}
-        <p className="text-xs text-gray-400 mt-1">
-          Allowed: JPG, PNG, PDF (Max 5MB)
-        </p>
-      </div>
-    )}
-  </>
-)}
+                {/* File Upload */}
+                {formData.medical_certificate_required && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Upload Medical Certificate *
+                    </label>
+                    <input
+                      type="file"
+                      name="medical_certificate"
+                      onChange={handleFileChange}
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    {selectedFile && (
+                      <div className="mt-2 text-sm text-gray-600">
+                        📄 {selectedFile.name} (
+                        {(selectedFile.size / 1024).toFixed(2)} KB)
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFile(null)}
+                          className="ml-2 text-red-500 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-400 mt-1">
+                      Allowed: JPG, PNG, PDF (Max 5MB)
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Leave Balance Display - Informational only */}
             {fetchingBalance ? (
               <div className="bg-gray-50 rounded-lg p-3 flex items-center justify-center">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-2"></div>
-                <span className="text-sm text-gray-500">Loading balance...</span>
+                <span className="text-sm text-gray-500">
+                  Loading balance...
+                </span>
               </div>
-            ) : leaveBalances && formData.leave_type && (
-              <div className={`rounded-lg p-3 ${sufficientBalance ? 'bg-blue-50' : 'bg-yellow-50'}`}>
-                <div className="flex items-start space-x-2">
-                  <InformationCircleIcon className={`h-5 w-5 mt-0.5 ${sufficientBalance ? 'text-blue-500' : 'text-yellow-500'}`} />
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium ${sufficientBalance ? 'text-blue-800' : 'text-yellow-800'}`}>
-                      Current {formData.leave_type} Balance
-                    </p>
-                    <p className={`text-lg font-bold ${sufficientBalance ? 'text-blue-600' : 'text-yellow-600'}`}>
-                      {currentBalance} days
-                    </p>
-                    {formData.start_date && formData.end_date && (
-                      <>
-                        <p className={`text-sm mt-2 ${sufficientBalance ? 'text-blue-700' : 'text-yellow-700'}`}>
-                          You are requesting: <strong>{daysRequested} days</strong>
-                          {!sufficientBalance && (
-                            <span className="block text-xs text-red-600 mt-1">
-                              ⚠️ This exceeds your available balance!
-                            </span>
-                          )}
-                          {sufficientBalance && (
-                            <span className="block text-xs text-green-600 mt-1">
-                              ✓ You have sufficient balance. 
-                            </span>
-                          )}
-                        </p>
-                      </>
-                    )}
+            ) : (
+              leaveBalances &&
+              formData.leave_type && (
+                <div
+                  className={`rounded-lg p-3 ${sufficientBalance ? "bg-blue-50" : "bg-yellow-50"}`}
+                >
+                  <div className="flex items-start space-x-2">
+                    <InformationCircleIcon
+                      className={`h-5 w-5 mt-0.5 ${sufficientBalance ? "text-blue-500" : "text-yellow-500"}`}
+                    />
+                    <div className="flex-1">
+                      <p
+                        className={`text-sm font-medium ${sufficientBalance ? "text-blue-800" : "text-yellow-800"}`}
+                      >
+                        Current {formData.leave_type} Balance
+                      </p>
+                      <p
+                        className={`text-lg font-bold ${sufficientBalance ? "text-blue-600" : "text-yellow-600"}`}
+                      >
+                        {currentBalance} days
+                      </p>
+                      {formData.start_date && formData.end_date && (
+                        <>
+                          <p
+                            className={`text-sm mt-2 ${sufficientBalance ? "text-blue-700" : "text-yellow-700"}`}
+                          >
+                            You are requesting:{" "}
+                            <strong>{daysRequested} days</strong>
+                            {!sufficientBalance && (
+                              <span className="block text-xs text-red-600 mt-1">
+                                ⚠️ This exceeds your available balance!
+                              </span>
+                            )}
+                            {sufficientBalance && (
+                              <span className="block text-xs text-green-600 mt-1">
+                                ✓ You have sufficient balance.
+                              </span>
+                            )}
+                          </p>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
+              )
             )}
 
             {/* For probationary employees, show a different message */}
@@ -394,20 +427,26 @@ const handleSubmit = async (e) => {
                 <div className="flex items-start space-x-2">
                   <InformationCircleIcon className="h-5 w-5 text-green-500 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-green-800">Probationary Employee</p>
+                    <p className="text-sm font-medium text-green-800">
+                      Probationary Employee
+                    </p>
                     <p className="text-xs text-green-700 mt-1">
-                      As a probationary employee, admin will decide if your leave is with or without pay upon approval.
+                      As a probationary employee, admin will decide if your
+                      leave is with or without pay upon approval.
                     </p>
                     {formData.start_date && formData.end_date && (
                       <p className="text-xs text-green-600 mt-2">
-                        You are requesting {daysRequested} day{daysRequested !== 1 ? 's' : ''} of leave.
+                        You are requesting {daysRequested} day
+                        {daysRequested !== 1 ? "s" : ""} of leave.
                       </p>
                     )}
                   </div>
                 </div>
               </div>
             )}
-            
+
+           
+
             {/* Date Selection */}
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -420,7 +459,6 @@ const handleSubmit = async (e) => {
                   value={formData.start_date}
                   onChange={handleChange}
                   required
-                  // min={new Date().toISOString().split('T')[0]}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -440,19 +478,21 @@ const handleSubmit = async (e) => {
               </div>
             </div>
 
-            {/* Days Calculation */}
-            {/* {formData.start_date && formData.end_date && (
-              <div className={`rounded-lg p-3 ${sufficientBalance ? 'bg-blue-50' : 'bg-yellow-50'}`}>
-                <div className="flex items-center justify-between">
-                  <span className={`text-sm ${sufficientBalance ? 'text-blue-700' : 'text-yellow-700'}`}>
-                    Total days requested:
-                  </span>
-                  <span className={`text-lg font-bold ${sufficientBalance ? 'text-blue-700' : 'text-yellow-700'}`}>
-                    {daysRequested} day{daysRequested !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </div>
-            )} */}
+             {/* Regular Day Off Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Regular Day(s) Off*{" "}
+              </label>
+              <input
+                type="text"
+                name="regular_days_off"
+                value={formData.regular_days_off || ""}
+                onChange={handleChange}
+                placeholder="e.g. 05/15/2026 or May 15, 2026; separate multiple days with commas"
+                className="w-full rounded-lg border border-gray-300 p-2.5 focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
 
             {/* Reason */}
             <div>
@@ -481,28 +521,26 @@ const handleSubmit = async (e) => {
             </button>
             <button
               type="submit"
-              disabled={loading || !formData.leave_type || !formData.start_date || !formData.end_date || !formData.reason}
+              disabled={
+                loading ||
+                !formData.leave_type ||
+                !formData.start_date ||
+                !formData.end_date ||
+                !formData.reason
+              }
               className={`flex-1 px-4 py-2 rounded-lg text-white ${
-                loading || !formData.leave_type || !formData.start_date || !formData.end_date || !formData.reason
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700'
+                loading ||
+                !formData.leave_type ||
+                !formData.start_date ||
+                !formData.end_date ||
+                !formData.reason
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
               }`}
             >
-              {loading ? 'Submitting...' : 'Submit Request'}
+              {loading ? "Submitting..." : "Submit Request"}
             </button>
           </div>
-
-          {/* Info Note */}
-          {/* <div className="mt-4 pt-3 border-t border-gray-100">
-            <p className="text-xs text-gray-500 text-center">
-              ⚠️ <strong>Important:</strong> Admin will decide whether your leave is WITH PAY or WITHOUT PAY upon approval.
-              {!sufficientBalance && formData.leave_type && formData.start_date && formData.end_date && (
-                <span className="block text-yellow-600 mt-1">
-                  Note: You have insufficient balance. Your request may be approved as WITHOUT PAY.
-                </span>
-              )}
-            </p>
-          </div> */}
         </form>
       </div>
     </div>
