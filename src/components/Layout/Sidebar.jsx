@@ -71,9 +71,10 @@ const employeeNavigation = [
   { name: 'My Payslips', href: '/my-payslips', icon: CurrencyDollarIcon },
   { name: 'My Leave Requests', href: '/my-leave-requests', icon: CalendarIcon },
   { name: 'Announcements', href: '/announcements', icon: MegaphoneIcon },
+  { name: 'Meet the Team', href: '/directory', icon: UserGroupIcon },
   { name: 'Employee Handbook', href: '/policies', icon: BookOpenIcon },
     { name: 'Support', href: '/support', icon: ChatBubbleLeftIcon },
-     { name: 'Meet the Team', href: '/directory', icon: UserGroupIcon },
+     
 ];
   const navigation = isAdmin ? adminNavigation : employeeNavigation;
 

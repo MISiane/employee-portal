@@ -478,11 +478,14 @@ const Dashboard = () => {
                     onClick={() => navigate('/announcements')}
                   >
                     <p className="text-sm font-medium text-gray-800">{announcement.title}</p>
-                    <p className="mt-1 line-clamp-2 text-xs text-gray-500">
-                      {announcement.content?.length > 80
-                        ? `${announcement.content.substring(0, 80)}...`
-                        : announcement.content}
-                    </p>
+                    <div 
+  className="mt-1 text-xs text-gray-500 line-clamp-2"
+  dangerouslySetInnerHTML={{ 
+    __html: announcement.content.length > 80
+      ? `${announcement.content.substring(0, 80)}...`
+      : announcement.content
+  }}
+/>
                     <p className="mt-2 text-xs text-gray-400">
                       {formatAnnouncementDate(announcement.created_at)}
                     </p>

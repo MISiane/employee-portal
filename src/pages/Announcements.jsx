@@ -232,14 +232,16 @@ const Announcements = () => {
 
                       {/* Content Preview */}
                       <div className="mt-3 sm:mt-4 rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-[#faf0fa] px-3 sm:px-4 py-3 sm:py-4">
-                      <div 
-  className="text-sm leading-6 text-gray-700 line-clamp-3 sm:line-clamp-none"
-  dangerouslySetInnerHTML={{ 
-    __html: announcement.content.length > 150 && !showViewModal
-      ? `${announcement.content.substring(0, 150)}...`
-      : announcement.content
-  }}
-/>
+                        <div
+                          className="text-sm leading-6 text-gray-700 line-clamp-3 sm:line-clamp-none"
+                          dangerouslySetInnerHTML={{
+                            __html:
+                              announcement.content.length > 150 &&
+                              !showViewModal
+                                ? `${announcement.content.substring(0, 150)}...`
+                                : announcement.content,
+                          }}
+                        />
                       </div>
 
                       {/* Poll Widget */}
@@ -362,12 +364,14 @@ const Announcements = () => {
                 </div>
               </div>
 
-             <div className="rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-[#faf0fa] p-4 sm:p-5">
-  <div 
-    className="prose prose-sm max-w-none"
-    dangerouslySetInnerHTML={{ __html: viewingAnnouncement.content }}
-  />
-</div>
+              <div className="rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-[#faf0fa] p-4 sm:p-5">
+                <div
+                  className="prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{
+                    __html: viewingAnnouncement.content,
+                  }}
+                />
+              </div>
 
               {/* Add Poll Widget Here */}
               <div className="mt-4 sm:mt-6">
