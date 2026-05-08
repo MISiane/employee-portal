@@ -231,7 +231,8 @@ const Announcements = () => {
                       </div>
 
                       {/* Content Preview */}
-                     <div 
+                      <div className="mt-3 sm:mt-4 rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-[#faf0fa] px-3 sm:px-4 py-3 sm:py-4">
+                      <div 
   className="text-sm leading-6 text-gray-700 line-clamp-3 sm:line-clamp-none"
   dangerouslySetInnerHTML={{ 
     __html: announcement.content.length > 150 && !showViewModal
@@ -239,6 +240,7 @@ const Announcements = () => {
       : announcement.content
   }}
 />
+                      </div>
 
                       {/* Poll Widget */}
                       <PollWidget
