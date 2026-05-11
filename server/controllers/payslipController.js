@@ -276,8 +276,7 @@ const createPayslip = async (req, res) => {
 
 // Get payslips with employee details
 const getPayslips = async (req, res) => {
-  // ADD 'department' to the destructuring
-  const { user_id, year, month, status, search, department, page = 1, limit = 12 } = req.query;
+  const { user_id, year, month, status, search, department, period_start, period_end, page = 1, limit = 12 } = req.query;
   const offset = (page - 1) * limit;
   
   try {
@@ -324,7 +323,29 @@ const getPayslips = async (req, res) => {
       paramCount++;
     }
     
-    // ADD DEPARTMENT FILTER
+    // PERIOD START FILTER - Using date range (>=) to handle timezone shifts
+    if (period_start && period_start !== '' && period_start !== 'undefined') {
+      let startDateValue = period_start;
+      if (period_start.includes('T')) {
+        startDateValue = period_start.split('T')[0];
+      }
+      query += ` AND DATE(p.pay_period_start) >= $${paramCount}::date`;
+      values.push(startDateValue);
+      paramCount++;
+    }
+    
+    // PERIOD END FILTER - Using date range (<=) to handle timezone shifts
+    if (period_end && period_end !== '' && period_end !== 'undefined') {
+      let endDateValue = period_end;
+      if (period_end.includes('T')) {
+        endDateValue = period_end.split('T')[0];
+      }
+      query += ` AND DATE(p.pay_period_end) <= $${paramCount}::date`;
+      values.push(endDateValue);
+      paramCount++;
+    }
+    
+    // Department filter
     if (department && department !== '' && department !== 'undefined') {
       query += ` AND ep.department = $${paramCount}`;
       values.push(department);
@@ -348,7 +369,7 @@ const getPayslips = async (req, res) => {
     
     const result = await pool.query(query, values);
     
-    // Count query - also needs department filter
+    // COUNT query - SAME filters as main query
     let countQuery = `
       SELECT COUNT(*) 
       FROM payslips p
@@ -387,7 +408,28 @@ const getPayslips = async (req, res) => {
       countParamCount++;
     }
     
-    // Add department filter to count query
+    // FIXED: PERIOD START FILTER in COUNT query
+    if (period_start && period_start !== '' && period_start !== 'undefined') {
+      let startDateValue = period_start;
+      if (period_start.includes('T')) {
+        startDateValue = period_start.split('T')[0];
+      }
+      countQuery += ` AND DATE(p.pay_period_start) >= $${countParamCount}::date`;
+      countValues.push(startDateValue);
+      countParamCount++;
+    }
+    
+    // FIXED: PERIOD END FILTER in COUNT query
+    if (period_end && period_end !== '' && period_end !== 'undefined') {
+      let endDateValue = period_end;
+      if (period_end.includes('T')) {
+        endDateValue = period_end.split('T')[0];
+      }
+      countQuery += ` AND DATE(p.pay_period_end) <= $${countParamCount}::date`;
+      countValues.push(endDateValue);
+      countParamCount++;
+    }
+    
     if (department && department !== '' && department !== 'undefined') {
       countQuery += ` AND ep.department = $${countParamCount}`;
       countValues.push(department);

@@ -80,6 +80,7 @@ const handleUpload = async () => {
     
     if (result.results.success.length > 0) {
       console.log('Successfully created payslips:', result.results.success);
+      alert(`Successfully created ${result.results.success.length} payslip(s)`);
     }
     
     if (result.results.failed.length > 0) {

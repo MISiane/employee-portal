@@ -807,9 +807,9 @@ const CreatePayslipModal = ({ isOpen, onClose, onSuccess, employees }) => {
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 >
-                  <option value="generated">Generated</option>
-                  <option value="sent">Sent</option>
-                  <option value="paid">Paid</option>
+                  <option value="draft">Draft</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
                 </select>
               </div>
             </div>
