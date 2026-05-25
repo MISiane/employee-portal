@@ -136,13 +136,13 @@ const PendingPayslips = () => {
               Review and approve bulk uploaded payslips before employees can see them
             </p>
           </div>
-          {payslips.length > 0 && (
+          {pagination.total > 0 && (
             <button
               onClick={handleApproveAll}
               disabled={processing}
               className="px-4 py-2 bg-white text-orange-600 rounded-lg hover:bg-orange-50 transition font-medium"
             >
-              Approve All ({payslips.length})
+              Approve All ({pagination.total})
             </button>
           )}
         </div>

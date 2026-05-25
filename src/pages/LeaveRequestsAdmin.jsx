@@ -321,41 +321,42 @@ const LeaveRequestsAdmin = () => {
       reason: request.reason || "",
       leave_pay_type: request.leave_pay_type || "with_pay",
       status: request.status,
+        regular_days_off: request.regular_days_off || "", 
       admin_note: "",
     });
     setShowEditModal(true);
   };
 
-  const handleSaveEdit = async () => {
-    if (!selectedRequest) return;
+const handleSaveEdit = async () => {
+  if (!selectedRequest) return;
 
-    try {
-      const updateData = {
-        leave_type: editFormData.leave_type,
-        start_date: editFormData.start_date,
-        end_date: editFormData.end_date,
-        reason: editFormData.reason,
-        leave_pay_type: editFormData.leave_pay_type,
-        status: editFormData.status,
-      };
+  try {
+    const updateData = {
+      leave_type: editFormData.leave_type,
+      start_date: editFormData.start_date,
+      end_date: editFormData.end_date,
+      reason: editFormData.reason,
+      leave_pay_type: editFormData.leave_pay_type,
+      status: editFormData.status,
+      regular_days_off: editFormData.regular_days_off || '',
+    };
 
-      if (editFormData.admin_note) {
-        updateData.admin_note = editFormData.admin_note;
-      }
-
-      await api.put(`/leave/requests/${selectedRequest.id}`, updateData);
-      alert("Leave request updated successfully!");
-      setShowEditModal(false);
-      fetchRequests();
-    } catch (error) {
-      console.error("Error updating leave request:", error);
-      alert(
-        "Error updating leave request: " +
-          (error.response?.data?.error || error.message),
-      );
+    if (editFormData.admin_note) {
+      updateData.admin_note = editFormData.admin_note;
     }
-  };
 
+    
+    // CHANGE THIS - use the admin endpoint
+    const response = await api.put(`/leave/requests/${selectedRequest.id}/admin`, updateData);
+    
+    alert("Leave request updated successfully!");
+    setShowEditModal(false);
+    fetchRequests();
+  } catch (error) {
+    console.error("Error updating leave request:", error);
+    alert("Error updating leave request: " + (error.response?.data?.error || error.message));
+  }
+};
   const resetApproveModal = () => {
     setShowApproveModal(false);
     setSelectedRequest(null);
@@ -1714,6 +1715,26 @@ const LeaveRequestsAdmin = () => {
                   />
                 </div>
               </div>
+
+              {/* Regular Day Off Field */}
+<div>
+  <label className="mb-1 block text-sm font-medium text-gray-700">
+    Regular Day(s) Off{" "}
+    <span className="text-xs text-gray-400">(for HR reference)</span>
+  </label>
+  <input
+    type="text"
+    value={editFormData.regular_days_off || ""}
+    onChange={(e) =>
+      setEditFormData({ ...editFormData, regular_days_off: e.target.value })
+    }
+    placeholder="e.g., Friday, or 05/15/2026"
+    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:border-[#800080] focus:outline-none focus:ring-2 focus:ring-[#800080]/20"
+  />
+  <p className="mt-1 text-xs text-gray-500">
+    Indicate your regular day(s) off for HR reference
+  </p>
+</div>
 
               {/* Reason */}
               <div>

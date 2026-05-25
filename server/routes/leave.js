@@ -7,7 +7,8 @@ const {
   createLeaveRequest,
   getAllLeaveRequests,
   updateLeaveRequestStatus,
-  editLeaveRequest
+  editLeaveRequest,
+  adminEditLeaveRequest
 } = require('../controllers/leaveController');
 const authMiddleware = require('../middleware/auth');
 const upload = require('../middleware/upload');
@@ -17,16 +18,17 @@ const router = express.Router();
 // All routes require authentication
 router.use(authMiddleware);
 
-// Employee routes (accessible by both admin and employees, but filtered by user ID)
-router.get('/balances', getMyLeaveBalances);  // Get current user's balances
-router.get('/requests', getMyLeaveRequests);   // Get current user's leave requests
-router.post('/requests', authMiddleware, upload.single('medical_certificate'), createLeaveRequest);
-router.put('/requests/:id', authMiddleware, upload.single('medical_certificate'), editLeaveRequest);
+// ============ ADMIN ROUTES (put these FIRST) ============
+router.put('/requests/:id/admin', authMiddleware, adminEditLeaveRequest);  // Full admin edit
+router.put('/requests/:id/status', authMiddleware, updateLeaveRequestStatus);  // Approve/reject only
+router.get('/all-requests', getAllLeaveRequests);
+router.get('/balances/:userId', getUserLeaveBalances);
+router.put('/balances/:userId', updateLeaveBalances);
 
-// Admin only routes
-router.get('/all-requests', getAllLeaveRequests);           // Get all leave requests
-router.get('/balances/:userId', getUserLeaveBalances);      // Get specific user's balances
-router.put('/balances/:userId', updateLeaveBalances);       // Update specific user's balances
-router.put('/requests/:id', updateLeaveRequestStatus);      // Approve/reject leave request
+// ============ EMPLOYEE ROUTES (put these LAST) ============
+router.get('/balances', getMyLeaveBalances);
+router.get('/requests', getMyLeaveRequests);
+router.post('/requests', authMiddleware, upload.single('medical_certificate'), createLeaveRequest);
+router.put('/requests/:id', authMiddleware, upload.single('medical_certificate'), editLeaveRequest);  // ← Employee edit
 
 module.exports = router;

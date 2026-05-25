@@ -240,7 +240,7 @@ const createLeaveRequest = async (req, res) => {
     const emp = employee.rows[0];
     const isProbationary = emp.employment_status === 'probationary';
     
-    const finalPayType = 'pending';
+    const finalPayType = 'without_pay';
     
     let hasSufficientBalance = true;
     let currentBalance = 0;
@@ -743,115 +743,55 @@ if (req.file) {
   }
 };
 
-// Admin edit leave request 
-const adminEditLeaveRequest = async (req, res) => {
+const adminEditLeaveRequest = async (req, res) => {  
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied. Admin only.' });
   }
   
   const { id } = req.params;
-  const { leave_type, start_date, end_date, reason, leave_pay_type, status, medical_certificate, approval_notes, regular_days_off } = req.body;
-  
-  const client = await pool.connect();
+  const { 
+    leave_type, 
+    start_date, 
+    end_date, 
+    reason, 
+    leave_pay_type, 
+    status, 
+    medical_certificate, 
+    approval_notes, 
+    regular_days_off 
+  } = req.body;
+
   
   try {
-    await client.query('BEGIN');
-    
-    const leaveRequest = await pool.query(
-      'SELECT * FROM leave_requests WHERE id = $1',
-      [id]
+    const result = await pool.query(
+      `UPDATE leave_requests 
+       SET leave_type = $1,
+           start_date = $2,
+           end_date = $3,
+           reason = $4,
+           leave_pay_type = $5,
+           status = $6,
+           medical_certificate = COALESCE($7, medical_certificate),
+           approval_notes = COALESCE($8, approval_notes),
+           regular_days_off = COALESCE($9, regular_days_off),
+           admin_notes = COALESCE(admin_notes, '') || $10,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $11
+       RETURNING *`,
+      [
+        leave_type, 
+        start_date, 
+        end_date, 
+        reason, 
+        leave_pay_type,  // This should be "with_pay"
+        status, 
+        medical_certificate, 
+        approval_notes, 
+        regular_days_off || null,
+        `\n[Admin edited on ${new Date().toLocaleString()}]: Leave details updated`,
+        id
+      ]
     );
-    
-    if (leaveRequest.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Leave request not found' });
-    }
-    
-    const oldLeave = leaveRequest.rows[0];
-    const oldStatus = oldLeave.status;
-    const newStatus = status || oldLeave.status;
-    
-    // Calculate days if dates changed
-    const finalStartDate = start_date || oldLeave.start_date;
-    const finalEndDate = end_date || oldLeave.end_date;
-    const days = Math.ceil((new Date(finalEndDate) - new Date(finalStartDate)) / (1000 * 60 * 60 * 24)) + 1;
-    const year = new Date(finalStartDate).getFullYear();
-    
-    // Handle leave balance adjustments
-    if (oldStatus === 'approved' && oldLeave.leave_pay_type === 'with_pay') {
-      // Refund old leave balance first
-      let balanceField = '';
-      if (oldLeave.leave_type === 'Vacation Leave') balanceField = 'vacation_leave';
-      else if (oldLeave.leave_type === 'Sick Leave') balanceField = 'sick_leave';
-      else if (oldLeave.leave_type === 'Emergency Leave') balanceField = 'emergency_leave';
-      else if (oldLeave.leave_type === 'Special Leave') balanceField = 'special_leave';
-      
-      if (balanceField) {
-        const oldDays = Math.ceil((new Date(oldLeave.end_date) - new Date(oldLeave.start_date)) / (1000 * 60 * 60 * 24)) + 1;
-        await client.query(
-          `UPDATE leave_balances 
-           SET ${balanceField} = ${balanceField} + $1
-           WHERE user_id = $2 AND year = $3`,
-          [oldDays, oldLeave.user_id, year]
-        );
-      }
-    }
-    
-    // Deduct new balance if approved with pay
-    if (newStatus === 'approved' && leave_pay_type === 'with_pay') {
-      let balanceField = '';
-      if (leave_type === 'Vacation Leave') balanceField = 'vacation_leave';
-      else if (leave_type === 'Sick Leave') balanceField = 'sick_leave';
-      else if (leave_type === 'Emergency Leave') balanceField = 'emergency_leave';
-      else if (leave_type === 'Special Leave') balanceField = 'special_leave';
-      
-      if (balanceField) {
-        const balanceCheck = await client.query(
-          `SELECT ${balanceField} FROM leave_balances WHERE user_id = $1 AND year = $2`,
-          [oldLeave.user_id, year]
-        );
-        
-        const currentBalance = balanceCheck.rows[0]?.[balanceField] || 0;
-        
-        if (currentBalance >= days) {
-          await client.query(
-            `UPDATE leave_balances 
-             SET ${balanceField} = ${balanceField} - $1
-             WHERE user_id = $2 AND year = $3`,
-            [days, oldLeave.user_id, year]
-          );
-        } else {
-          await client.query('ROLLBACK');
-          return res.status(400).json({ error: `Insufficient ${leave_type} balance` });
-        }
-      }
-    }
-    
-    // Update the leave request
-   const result = await pool.query(
-  `UPDATE leave_requests 
-   SET leave_type = COALESCE($1, leave_type),
-       start_date = COALESCE($2, start_date),
-       end_date = COALESCE($3, end_date),
-       reason = COALESCE($4, reason),
-       leave_pay_type = COALESCE($5, leave_pay_type),
-       status = COALESCE($6, status),
-       medical_certificate = COALESCE($7, medical_certificate),
-       approval_notes = COALESCE($8, approval_notes),
-       regular_days_off = COALESCE($9, regular_days_off),
-       admin_notes = COALESCE(admin_notes, '') || $10,
-       updated_at = CURRENT_TIMESTAMP
-   WHERE id = $11
-   RETURNING *`,
-  [
-    leave_type, start_date, end_date, reason, leave_pay_type, 
-    status, medical_certificate, approval_notes, regular_days_off || null,
-    `\n[Admin edited on ${new Date().toLocaleString()}]: Leave details updated`,
-    id
-  ]
-);
-    
-    await client.query('COMMIT');
     
     res.json({
       success: true,
@@ -859,11 +799,8 @@ const adminEditLeaveRequest = async (req, res) => {
       leaveRequest: result.rows[0]
     });
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error('Error in admin edit leave request:', error);
     res.status(500).json({ error: 'Server error: ' + error.message });
-  } finally {
-    client.release();
   }
 };
 
@@ -874,7 +811,6 @@ const ensureAdminNotesColumn = async () => {
       ALTER TABLE leave_requests 
       ADD COLUMN IF NOT EXISTS admin_notes TEXT
     `);
-    console.log('admin_notes column verified');
   } catch (error) {
     console.error('Error adding admin_notes column:', error);
   }
