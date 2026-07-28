@@ -238,60 +238,63 @@ const LeaveRequestsAdmin = () => {
     setShowApproveModal(true);
   };
 
-  const handleApprove = async () => {
-    if (!selectedRequest) return;
+const handleApprove = async () => {
+  if (!selectedRequest) return;
 
-    if (approvePayType === "with_pay" && !hasSufficientBalance()) {
-      const days = getAdjustedDays();
-      alert(
-        `Cannot approve: Insufficient leave balance. Only ${getCurrentBalance()} days available. Requesting ${days} days.`,
-      );
-      return;
+  if (approvePayType === "with_pay" && !hasSufficientBalance()) {
+    const days = getAdjustedDays();
+    alert(
+      `Cannot approve: Insufficient leave balance. Only ${getCurrentBalance()} days available. Requesting ${days} days.`,
+    );
+    return;
+  }
+
+  try {
+    const updateData = {
+      status: "approved",
+      comments: approvalNotes,
+      leave_pay_type: approvePayType,
+      medical_certificate:
+        selectedRequest.leave_type === "Sick Leave" ? approveMedCert : null,
+      approval_notes: approvalNotes || null,
+    };
+
+    if (editDates && adjustedStartDate && adjustedEndDate) {
+      updateData.start_date = adjustedStartDate;
+      updateData.end_date = adjustedEndDate;
+      updateData.adjustment_reason = adjustmentReason;
+      updateData.dates_adjusted_by_admin = true;
     }
 
-    try {
-      const updateData = {
-        status: "approved",
-        comments: approvalNotes,
-        leave_pay_type: approvePayType,
-        medical_certificate:
-          selectedRequest.leave_type === "Sick Leave" ? approveMedCert : null,
-        approval_notes: approvalNotes || null,
-      };
+    // ===== FIX: Use the correct admin route =====
+    await api.put(`/leave/requests/${selectedRequest.id}/status`, updateData);
+    // ==========================================
 
-      if (editDates && adjustedStartDate && adjustedEndDate) {
-        updateData.start_date = adjustedStartDate;
-        updateData.end_date = adjustedEndDate;
-        updateData.adjustment_reason = adjustmentReason;
-        updateData.dates_adjusted_by_admin = true;
-      }
+    fetchRequests();
+    setShowApproveModal(false);
+    setSelectedRequest(null);
+    setApprovePayType("with_pay");
+    setApproveMedCert(false);
+    setApprovalNotes("");
+    setEditDates(false);
+    setAdjustedStartDate("");
+    setAdjustedEndDate("");
+    setAdjustmentReason("");
+    setLeaveBalances(null);
 
-      await api.put(`/leave/requests/${selectedRequest.id}`, updateData);
-      fetchRequests();
-      setShowApproveModal(false);
-      setSelectedRequest(null);
-      setApprovePayType("with_pay");
-      setApproveMedCert(false);
-      setApprovalNotes("");
-      setEditDates(false);
-      setAdjustedStartDate("");
-      setAdjustedEndDate("");
-      setAdjustmentReason("");
-      setLeaveBalances(null);
-
-      const message =
-        approvePayType === "with_pay"
-          ? "Leave request approved successfully!"
-          : "Leave request approved successfully (Without Pay - no balance deducted).";
-      alert(message);
-    } catch (error) {
-      console.error("Error approving leave request:", error);
-      alert(
-        "Error approving leave request: " +
-          (error.response?.data?.error || error.message),
-      );
-    }
-  };
+    const message =
+      approvePayType === "with_pay"
+        ? "Leave request approved successfully!"
+        : "Leave request approved successfully (Without Pay - no balance deducted).";
+    alert(message);
+  } catch (error) {
+    console.error("Error approving leave request:", error);
+    alert(
+      "Error approving leave request: " +
+        (error.response?.data?.error || error.message)
+    );
+  }
+};
 
   const handleReject = async (id) => {
     if (window.confirm("Are you sure you want to reject this leave request?")) {

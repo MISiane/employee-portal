@@ -421,20 +421,35 @@ const updateLeaveRequestStatus = async (req, res) => {
     const leave = leaveRequest.rows[0];
     
     // Determine pay type
-    const payType = leave_pay_type || leave.leave_pay_type || 'with_pay';
+    const payType = leave_pay_type || leave.leave_pay_type || 'without_pay';
     
     // Use adjusted dates if provided, otherwise use original dates
     const finalStartDate = start_date || leave.start_date;
     const finalEndDate = end_date || leave.end_date;
     
-    // Calculate days based on final dates
-    const days = Math.ceil((new Date(finalEndDate) - new Date(finalStartDate)) / (1000 * 60 * 60 * 24)) + 1;
+    // ===== FIXED: Calculate days reliably =====
+    const start = new Date(finalStartDate);
+    const end = new Date(finalEndDate);
+    
+    // Reset to midnight UTC to avoid timezone issues
+    const startUTC = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
+    const endUTC = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
+    
+    // Calculate difference in days (inclusive of both start and end)
+    const diffTime = endUTC - startUTC;
+    const days = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    
+    // ===========================================
+    
     const year = new Date(finalStartDate).getFullYear();
     
+    // Track if deduction happened
+    let deductionHappened = false;
+    let balanceField = '';
+
+
     // ONLY deduct balance for WITH PAY approvals
     if (status === 'approved' && leave.status !== 'approved' && payType === 'with_pay') {
-      let balanceField = '';
-      
       if (leave.leave_type === 'Vacation Leave') {
         balanceField = 'vacation_leave';
       } else if (leave.leave_type === 'Sick Leave') {
@@ -446,23 +461,42 @@ const updateLeaveRequestStatus = async (req, res) => {
       }
       
       if (balanceField) {
-        const balanceCheck = await client.query(
+        // Check if balance exists
+        let balanceCheck = await client.query(
           `SELECT ${balanceField} FROM leave_balances 
            WHERE user_id = $1 AND year = $2`,
           [leave.user_id, year]
         );
         
+        // Create balance record if it doesn't exist
+        if (balanceCheck.rows.length === 0) {
+          await client.query(
+            `INSERT INTO leave_balances (user_id, year, vacation_leave, sick_leave, emergency_leave, special_leave)
+             VALUES ($1, $2, 15, 10, 3, 3)`,
+            [leave.user_id, year]
+          );
+          
+          balanceCheck = await client.query(
+            `SELECT ${balanceField} FROM leave_balances 
+             WHERE user_id = $1 AND year = $2`,
+            [leave.user_id, year]
+          );
+        }
+        
         const currentBalance = balanceCheck.rows[0]?.[balanceField] || 0;
         
         if (currentBalance >= days) {
-          const updateQuery = `UPDATE leave_balances 
-                               SET ${balanceField} = ${balanceField} - $1, updated_at = CURRENT_TIMESTAMP
-                               WHERE user_id = $2 AND year = $3`;
-          await client.query(updateQuery, [days, leave.user_id, year]);
+          await client.query(
+            `UPDATE leave_balances 
+             SET ${balanceField} = ${balanceField} - $1, updated_at = CURRENT_TIMESTAMP
+             WHERE user_id = $2 AND year = $3`,
+            [days, leave.user_id, year]
+          );
+          deductionHappened = true;
         } else {
           await client.query('ROLLBACK');
           return res.status(400).json({ 
-            error: `Insufficient leave balance. Only ${currentBalance} days available.` 
+            error: `Insufficient ${leave.leave_type} balance. Only ${currentBalance} days available.` 
           });
         }
       }
@@ -472,6 +506,12 @@ const updateLeaveRequestStatus = async (req, res) => {
     const updateFields = [];
     const updateValues = [];
     let paramCount = 1;
+    
+    // Always update leave_pay_type with the admin's selection
+    const newPayType = leave_pay_type || 'without_pay';
+    updateFields.push(`leave_pay_type = $${paramCount}`);
+    updateValues.push(newPayType);
+    paramCount++;
     
     updateFields.push(`status = $${paramCount}`);
     updateValues.push(status);
@@ -483,7 +523,6 @@ const updateLeaveRequestStatus = async (req, res) => {
     
     // If dates are being adjusted, store original dates first
     if (start_date || end_date) {
-      // Store original dates if not already stored
       if (!leave.original_start_date && !leave.original_end_date) {
         updateFields.push(`original_start_date = $${paramCount}`);
         updateValues.push(leave.start_date);
@@ -494,7 +533,6 @@ const updateLeaveRequestStatus = async (req, res) => {
         paramCount++;
       }
       
-      // Update with new dates
       if (start_date) {
         updateFields.push(`start_date = $${paramCount}`);
         updateValues.push(start_date);
@@ -512,7 +550,6 @@ const updateLeaveRequestStatus = async (req, res) => {
       paramCount++;
     }
     
-    // Add adjustment reason if provided
     if (adjustment_reason) {
       updateFields.push(`adjustment_reason = $${paramCount}`);
       updateValues.push(adjustment_reason);
@@ -522,12 +559,6 @@ const updateLeaveRequestStatus = async (req, res) => {
     if (comments !== undefined) {
       updateFields.push(`comments = $${paramCount}`);
       updateValues.push(comments);
-      paramCount++;
-    }
-    
-    if (leave_pay_type !== undefined) {
-      updateFields.push(`leave_pay_type = $${paramCount}`);
-      updateValues.push(leave_pay_type);
       paramCount++;
     }
     
@@ -561,10 +592,18 @@ const updateLeaveRequestStatus = async (req, res) => {
     
     // Custom success message
     let successMessage = `Leave request ${status} successfully`;
-    if (status === 'approved' && payType === 'without_pay') {
-      successMessage = `Leave request approved WITHOUT PAY - no leave balance deducted`;
-    } else if (status === 'approved' && payType === 'with_pay') {
-      successMessage = `Leave request approved WITH PAY - leave balance deducted`;
+    const adminSelectedPayType = leave_pay_type || result.rows[0].leave_pay_type;
+    
+    if (status === 'approved') {
+      if (adminSelectedPayType === 'without_pay') {
+        successMessage = `Leave request approved WITHOUT PAY - no leave balance deducted`;
+      } else if (adminSelectedPayType === 'with_pay') {
+        if (deductionHappened) {
+          successMessage = `Leave request approved WITH PAY - ${days} day(s) deducted from balance`;
+        } else {
+          successMessage = `Leave request approved WITH PAY - but no balance was deducted`;
+        }
+      }
     }
     
     if (start_date || end_date) {
@@ -584,7 +623,6 @@ const updateLeaveRequestStatus = async (req, res) => {
     client.release();
   }
 };
-
 // Edit leave request (employee only for pending requests, admin can edit any)
 const editLeaveRequest = async (req, res) => {
   const { id } = req.params;
