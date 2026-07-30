@@ -11,7 +11,8 @@ const {
   getDraftPayslips,        
   approvePayslip,          
   approveAllPayslips,     
-  rejectPayslip,     
+  rejectPayslip,
+  rejectAllPayslips,      
   downloadPayslip,
   getAvailablePayPeriods
  
@@ -30,8 +31,12 @@ router.get('/:id/download', downloadPayslip);
 // Draft payslips (specific path - MUST come before /:id)
 router.get('/draft', getDraftPayslips);
 
-// Approve all (specific path)
+// ===== BULK ACTIONS (specific paths - MUST come before /:id) =====
+// Approve all draft payslips
 router.post('/approve-all', approveAllPayslips);
+
+// ===== NEW: Reject all draft payslips =====
+router.post('/reject-all', rejectAllPayslips);
 
 // Bulk upload
 router.post('/bulk-upload', upload.single('file'), bulkCreatePayslips);
@@ -39,19 +44,25 @@ router.post('/bulk-upload', upload.single('file'), bulkCreatePayslips);
 // Get pay periods
 router.get('/pay-periods', getAvailablePayPeriods);
 
+// ===== SINGLE ACTION ROUTES =====
 // Approve single (specific pattern)
 router.post('/:id/approve', approvePayslip);
 
 // Reject single (specific pattern)
 router.post('/:id/reject', rejectPayslip);
 
-// CRUD routes (dynamic - these catch any :id)
+// ===== CRUD ROUTES (dynamic - these catch any :id) =====
+// IMPORTANT: These must come AFTER all specific routes
 router.get('/', getPayslips);
 router.get('/:id', getPayslipById);
 router.post('/', createPayslip);
 router.put('/:id', updatePayslip);
 router.delete('/:id', deletePayslip);
 
+// ===== TEMPLATE DOWNLOAD =====
+router.get('/template/download', downloadTemplate);
+
+// ===== HELPER FUNCTIONS =====
 // Download Excel template
 function downloadTemplate(req, res) {
   if (req.user.role !== 'admin') {

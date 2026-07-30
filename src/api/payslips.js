@@ -102,3 +102,9 @@ export const rejectPayslip = async (id, rejection_reason) => {
   const response = await api.post(`/payslips/${id}/reject`, { rejection_reason });
   return response.data;
 };
+
+// Reject all draft payslips (across all pages) 
+export const rejectAllPayslips = async (rejection_reason) => {
+  const response = await api.post('/payslips/reject-all', { rejection_reason });
+  return response.data;
+};

@@ -1159,6 +1159,54 @@ const rejectPayslip = async (req, res) => {
   }
 };
 
+// ===== NEW: Reject all draft payslips =====
+const rejectAllPayslips = async (req, res) => {
+  try {
+    const { rejection_reason } = req.body;
+    const adminId = req.user.id;
+    
+    console.log(`📝 Rejecting all draft payslips by admin ${adminId}`);
+    
+    // Update ALL draft payslips to 'rejected' status
+    const result = await pool.query(
+      `UPDATE payslips 
+       SET status = 'rejected', 
+           rejection_reason = $1,
+           approved_by = $2,
+           approved_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE status = 'draft'
+       RETURNING id, employee_id, pay_period_start, pay_period_end`,
+      [rejection_reason || 'Bulk rejection by admin', adminId]
+    );
+    
+    const rejectedCount = result.rowCount;
+    
+    if (rejectedCount === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No draft payslips found to reject' 
+      });
+    }
+    
+    console.log(`✅ Successfully rejected ${rejectedCount} draft payslips`);
+    
+    res.json({
+      success: true,
+      message: `Successfully rejected ${rejectedCount} draft payslips`,
+      rejected_count: rejectedCount,
+      payslips: result.rows
+    });
+  } catch (error) {
+    console.error('Error rejecting all payslips:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to reject all payslips: ' + error.message 
+    });
+  }
+};
+
+
 module.exports = {
   createPayslip,
   getPayslips,
@@ -1169,6 +1217,7 @@ module.exports = {
   bulkCreatePayslips,
   downloadPayslip,
   rejectPayslip,
+  rejectAllPayslips,
   getDraftPayslips,
   approvePayslip,
   approveAllPayslips

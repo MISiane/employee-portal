@@ -13,7 +13,7 @@ import {
   BanknotesIcon,
   IdentificationIcon
 } from '@heroicons/react/24/outline';
-import { getDraftPayslips, approvePayslip, approveAllPayslips, rejectPayslip } from '../api/payslips';
+import { getDraftPayslips, approvePayslip, approveAllPayslips, rejectPayslip, rejectAllPayslips } from '../api/payslips';
 import ViewPayslipModal from '../components/Payslips/ViewPayslipModal';
 
 const PendingPayslips = () => {
@@ -25,6 +25,8 @@ const PendingPayslips = () => {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
 
   useEffect(() => {
     fetchDraftPayslips();
@@ -36,6 +38,9 @@ const PendingPayslips = () => {
       const data = await getDraftPayslips({ page: pagination.page, limit: 20 });
       setPayslips(data.payslips);
       setPagination(data.pagination);
+      // Reset selection when page changes
+      setSelectedIds([]);
+      setSelectAll(false);
     } catch (error) {
       console.error('Error fetching draft payslips:', error);
     } finally {
@@ -57,19 +62,109 @@ const PendingPayslips = () => {
     }
   };
 
+  // ===== FIX: Approve all pending payslips (across all pages) =====
   const handleApproveAll = async () => {
-    if (!confirm(`Are you sure you want to approve all ${payslips.length} pending payslips?`)) return;
+    if (!confirm(`Are you sure you want to approve ALL ${pagination.total} pending payslips across all pages?`)) return;
     
     setProcessing(true);
     try {
       await approveAllPayslips();
       fetchDraftPayslips();
-      alert('All payslips approved successfully!');
+      alert(`All ${pagination.total} payslips approved successfully!`);
     } catch (error) {
       console.error('Error approving all payslips:', error);
       alert('Error approving all payslips');
     } finally {
       setProcessing(false);
+    }
+  };
+
+  // ===== NEW: Approve selected payslips (current page only) =====
+  const handleApproveSelected = async () => {
+    if (selectedIds.length === 0) {
+      alert('Please select at least one payslip to approve.');
+      return;
+    }
+    
+    if (!confirm(`Are you sure you want to approve ${selectedIds.length} selected payslip(s)?`)) return;
+    
+    setProcessing(true);
+    try {
+      // Approve each selected payslip
+      for (const id of selectedIds) {
+        await approvePayslip(id);
+      }
+      fetchDraftPayslips();
+      alert(`${selectedIds.length} payslip(s) approved successfully!`);
+    } catch (error) {
+      console.error('Error approving selected payslips:', error);
+      alert('Error approving selected payslips');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // ===== NEW: Reject selected payslips (current page only) =====
+  const handleRejectSelected = async () => {
+    if (selectedIds.length === 0) {
+      alert('Please select at least one payslip to reject.');
+      return;
+    }
+    
+    const reason = prompt(`Enter reason for rejecting ${selectedIds.length} payslip(s):`);
+    if (reason === null) return; // User cancelled
+    
+    setProcessing(true);
+    try {
+      for (const id of selectedIds) {
+        await rejectPayslip(id, reason);
+      }
+      fetchDraftPayslips();
+      alert(`${selectedIds.length} payslip(s) rejected successfully!`);
+    } catch (error) {
+      console.error('Error rejecting selected payslips:', error);
+      alert('Error rejecting selected payslips');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // ===== NEW: Reject all pending payslips =====
+  const handleRejectAll = async () => {
+    if (!confirm(`Are you sure you want to reject ALL ${pagination.total} pending payslips across all pages?`)) return;
+    
+    const reason = prompt('Enter reason for rejecting all payslips:');
+    if (reason === null) return; // User cancelled
+    
+    setProcessing(true);
+    try {
+      await rejectAllPayslips(reason);
+      fetchDraftPayslips();
+      alert(`All ${pagination.total} payslips rejected successfully!`);
+    } catch (error) {
+      console.error('Error rejecting all payslips:', error);
+      alert('Error rejecting all payslips');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  // ===== NEW: Handle select all on current page =====
+  const handleSelectAll = () => {
+    if (selectAll) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(payslips.map(p => p.id));
+    }
+    setSelectAll(!selectAll);
+  };
+
+  // ===== NEW: Handle individual selection =====
+  const handleSelect = (id) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter(selectedId => selectedId !== id));
+    } else {
+      setSelectedIds([...selectedIds, id]);
     }
   };
 
@@ -136,29 +231,79 @@ const PendingPayslips = () => {
               Review and approve bulk uploaded payslips before employees can see them
             </p>
           </div>
-          {pagination.total > 0 && (
-            <button
-              onClick={handleApproveAll}
-              disabled={processing}
-              className="px-4 py-2 bg-white text-orange-600 rounded-lg hover:bg-orange-50 transition font-medium"
-            >
-              Approve All ({pagination.total})
-            </button>
-          )}
+          <div className="flex space-x-2">
+            {pagination.total > 0 && (
+              <>
+                <button
+                  onClick={handleRejectAll}
+                  disabled={processing}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium disabled:opacity-50"
+                >
+                  Reject All ({pagination.total})
+                </button>
+                <button
+                  onClick={handleApproveAll}
+                  disabled={processing}
+                  className="px-4 py-2 bg-white text-orange-600 rounded-lg hover:bg-orange-50 transition font-medium disabled:opacity-50"
+                >
+                  Approve All ({pagination.total})
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
           <p className="text-sm text-yellow-600">Pending Review</p>
           <p className="text-2xl font-bold text-yellow-700">{pagination.total}</p>
         </div>
         <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-          <p className="text-sm text-blue-600">Awaiting Approval</p>
+          <p className="text-sm text-blue-600">Current Page</p>
           <p className="text-2xl font-bold text-blue-700">{payslips.length}</p>
         </div>
+        <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+          <p className="text-sm text-green-600">Selected</p>
+          <p className="text-2xl font-bold text-green-700">{selectedIds.length}</p>
+        </div>
       </div>
+
+      {/* Bulk Actions */}
+      {payslips.length > 0 && (
+        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              checked={selectAll}
+              onChange={handleSelectAll}
+              className="h-4 w-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500"
+            />
+            <span className="text-sm text-gray-600">
+              {selectedIds.length > 0 ? `${selectedIds.length} selected` : 'Select all on this page'}
+            </span>
+          </div>
+          {selectedIds.length > 0 && (
+            <div className="flex space-x-2">
+              <button
+                onClick={handleApproveSelected}
+                disabled={processing}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm disabled:opacity-50"
+              >
+                Approve Selected ({selectedIds.length})
+              </button>
+              <button
+                onClick={handleRejectSelected}
+                disabled={processing}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm disabled:opacity-50"
+              >
+                Reject Selected ({selectedIds.length})
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Payslips Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -166,6 +311,14 @@ const PendingPayslips = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase w-10">
+                  <input
+                    type="checkbox"
+                    checked={selectAll}
+                    onChange={handleSelectAll}
+                    className="h-4 w-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Employee</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Period</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gross</th>
@@ -177,7 +330,7 @@ const PendingPayslips = () => {
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                     <div className="flex justify-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600"></div>
                     </div>
@@ -186,7 +339,7 @@ const PendingPayslips = () => {
                 </tr>
               ) : payslips.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                     <ClipboardDocumentCheckIcon className="h-12 w-12 mx-auto mb-2 text-gray-300" />
                     <p>No pending payslips to review</p>
                   </td>
@@ -194,6 +347,14 @@ const PendingPayslips = () => {
               ) : (
                 payslips.map((payslip) => (
                   <tr key={payslip.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(payslip.id)}
+                        onChange={() => handleSelect(payslip.id)}
+                        className="h-4 w-4 text-orange-600 rounded border-gray-300 focus:ring-orange-500"
+                      />
+                    </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         <div className="h-9 w-9 rounded-full bg-orange-100 flex items-center justify-center">
@@ -233,7 +394,7 @@ const PendingPayslips = () => {
                       <button
                         onClick={() => handleApprove(payslip.id)}
                         disabled={processing}
-                        className="inline-flex items-center px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                        className="inline-flex items-center px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm disabled:opacity-50"
                         title="Approve"
                       >
                         <CheckCircleIcon className="h-4 w-4 mr-1" />
@@ -260,19 +421,22 @@ const PendingPayslips = () => {
 
         {/* Pagination */}
         {pagination.totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 flex justify-between">
+          <div className="px-6 py-4 border-t border-gray-200 flex justify-between items-center">
             <button
               onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
               disabled={pagination.page === 1}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-50"
             >
               Previous
             </button>
-            <span>Page {pagination.page} of {pagination.totalPages}</span>
+            <span className="text-sm text-gray-600">
+              Page {pagination.page} of {pagination.totalPages} 
+              ({pagination.total} total pending)
+            </span>
             <button
               onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
               disabled={pagination.page === pagination.totalPages}
-              className="px-3 py-1 border rounded disabled:opacity-50"
+              className="px-3 py-1 border rounded disabled:opacity-50 hover:bg-gray-50"
             >
               Next
             </button>
