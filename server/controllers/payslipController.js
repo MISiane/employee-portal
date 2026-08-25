@@ -1159,49 +1159,64 @@ const rejectPayslip = async (req, res) => {
   }
 };
 
-// ===== NEW: Reject all draft payslips =====
+// Reject all draft payslips
 const rejectAllPayslips = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  }
+  
+  const { rejection_reason } = req.body;
+  
   try {
-    const { rejection_reason } = req.body;
-    const adminId = req.user.id;
+    console.log(`📝 Rejecting all draft payslips by admin ${req.user.id}`);
+    console.log(`📝 Rejection reason: ${rejection_reason || 'No reason provided'}`);
     
-    console.log(`📝 Rejecting all draft payslips by admin ${adminId}`);
-    
-    // Update ALL draft payslips to 'rejected' status
     const result = await pool.query(
       `UPDATE payslips 
        SET status = 'rejected', 
-           rejection_reason = $1,
-           approved_by = $2,
-           approved_at = CURRENT_TIMESTAMP,
+           reviewed_by = $1, 
+           reviewed_at = CURRENT_TIMESTAMP,
+           rejection_reason = $2,
            updated_at = CURRENT_TIMESTAMP
        WHERE status = 'draft'
-       RETURNING id, employee_id, pay_period_start, pay_period_end`,
-      [rejection_reason || 'Bulk rejection by admin', adminId]
+       RETURNING *`,  // ← Using RETURNING * like approveAllPayslips
+      [req.user.id, rejection_reason || 'Bulk rejection by admin']
     );
     
     const rejectedCount = result.rowCount;
     
     if (rejectedCount === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'No draft payslips found to reject' 
+      return res.status(404).json({
+        success: false,
+        message: 'No draft payslips found to reject'
       });
     }
     
     console.log(`✅ Successfully rejected ${rejectedCount} draft payslips`);
     
+    // Optional: Send notifications for rejected payslips
+    // const { createNotification } = require('./notificationController');
+    // for (const payslip of result.rows) {
+    //   await createNotification(
+    //     payslip.user_id,
+    //     'payslip_rejected',
+    //     'Payslip Rejected',
+    //     `Your payslip for ${payslip.pay_period_start} to ${payslip.pay_period_end} was rejected. Reason: ${rejection_reason || 'Bulk rejection'}`,
+    //     `/my-payslips`
+    //   );
+    // }
+    
     res.json({
       success: true,
-      message: `Successfully rejected ${rejectedCount} draft payslips`,
-      rejected_count: rejectedCount,
-      payslips: result.rows
+      message: `${rejectedCount} payslips rejected successfully`,
+      count: rejectedCount,
+      rejection_reason: rejection_reason || 'No reason provided'
     });
   } catch (error) {
     console.error('Error rejecting all payslips:', error);
     res.status(500).json({ 
-      success: false, 
-      error: 'Failed to reject all payslips: ' + error.message 
+      success: false,
+      error: 'Server error: ' + error.message 
     });
   }
 };

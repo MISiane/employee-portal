@@ -427,29 +427,27 @@ const updateLeaveRequestStatus = async (req, res) => {
     const finalStartDate = start_date || leave.start_date;
     const finalEndDate = end_date || leave.end_date;
     
-    // ===== FIXED: Calculate days reliably =====
+    // Calculate days reliably
     const start = new Date(finalStartDate);
     const end = new Date(finalEndDate);
-    
-    // Reset to midnight UTC to avoid timezone issues
     const startUTC = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
     const endUTC = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
-    
-    // Calculate difference in days (inclusive of both start and end)
     const diffTime = endUTC - startUTC;
     const days = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    
-    // ===========================================
-    
     const year = new Date(finalStartDate).getFullYear();
     
     // Track if deduction happened
     let deductionHappened = false;
     let balanceField = '';
+    let currentBalance = 0;
 
-
-    // ONLY deduct balance for WITH PAY approvals
-    if (status === 'approved' && leave.status !== 'approved' && payType === 'with_pay') {
+    // ===== ===== ===== ===== ===== ===== ===== ===== =====
+    // ===== NEW: Business Rule Check =====
+    // ===== ===== ===== ===== ===== ===== ===== ===== =====
+    
+    // Only run this check when approving
+    if (status === 'approved' && leave.status !== 'approved') {
+      // Determine which balance field to check
       if (leave.leave_type === 'Vacation Leave') {
         balanceField = 'vacation_leave';
       } else if (leave.leave_type === 'Sick Leave') {
@@ -461,8 +459,8 @@ const updateLeaveRequestStatus = async (req, res) => {
       }
       
       if (balanceField) {
-        // Check if balance exists
-        let balanceCheck = await client.query(
+        // Check current balance
+        const balanceCheck = await client.query(
           `SELECT ${balanceField} FROM leave_balances 
            WHERE user_id = $1 AND year = $2`,
           [leave.user_id, year]
@@ -475,17 +473,36 @@ const updateLeaveRequestStatus = async (req, res) => {
              VALUES ($1, $2, 15, 10, 3, 3)`,
             [leave.user_id, year]
           );
-          
-          balanceCheck = await client.query(
-            `SELECT ${balanceField} FROM leave_balances 
-             WHERE user_id = $1 AND year = $2`,
-            [leave.user_id, year]
-          );
         }
         
-        const currentBalance = balanceCheck.rows[0]?.[balanceField] || 0;
+        // Re-query to get the balance
+        const updatedBalanceCheck = await client.query(
+          `SELECT ${balanceField} FROM leave_balances 
+           WHERE user_id = $1 AND year = $2`,
+          [leave.user_id, year]
+        );
         
-        if (currentBalance >= days) {
+        currentBalance = updatedBalanceCheck.rows[0]?.[balanceField] || 0;
+        const hasEnoughBalance = currentBalance >= days;
+        
+        // ===== THE BUSINESS RULE =====
+        // If trying to approve WITH PAY but has insufficient balance → BLOCK
+        if (payType === 'with_pay' && !hasEnoughBalance) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({
+            error: 'Cannot approve WITH PAY due to insufficient balance',
+            message: `Employee only has ${currentBalance} days available for ${leave.leave_type}. Please approve WITHOUT PAY instead.`,
+            details: {
+              available: currentBalance,
+              requested: days,
+              leave_type: leave.leave_type,
+              suggested_action: 'without_pay'
+            }
+          });
+        }
+        
+        // If has balance and approved with pay → deduct
+        if (payType === 'with_pay' && hasEnoughBalance) {
           await client.query(
             `UPDATE leave_balances 
              SET ${balanceField} = ${balanceField} - $1, updated_at = CURRENT_TIMESTAMP
@@ -493,14 +510,14 @@ const updateLeaveRequestStatus = async (req, res) => {
             [days, leave.user_id, year]
           );
           deductionHappened = true;
-        } else {
-          await client.query('ROLLBACK');
-          return res.status(400).json({ 
-            error: `Insufficient ${leave.leave_type} balance. Only ${currentBalance} days available.` 
-          });
+          console.log(`✅ Balance deducted: ${currentBalance} - ${days} = ${currentBalance - days}`);
         }
       }
     }
+    
+    // ===== ===== ===== ===== ===== ===== ===== ===== =====
+    // ===== Continue with existing update logic =====
+    // ===== ===== ===== ===== ===== ===== ===== ===== =====
     
     // Build update query
     const updateFields = [];
@@ -599,7 +616,7 @@ const updateLeaveRequestStatus = async (req, res) => {
         successMessage = `Leave request approved WITHOUT PAY - no leave balance deducted`;
       } else if (adminSelectedPayType === 'with_pay') {
         if (deductionHappened) {
-          successMessage = `Leave request approved WITH PAY - ${days} day(s) deducted from balance`;
+          successMessage = `Leave request approved WITH PAY - ${days} day(s) deducted from ${leave.leave_type}`;
         } else {
           successMessage = `Leave request approved WITH PAY - but no balance was deducted`;
         }
@@ -613,8 +630,15 @@ const updateLeaveRequestStatus = async (req, res) => {
     res.json({
       success: true,
       message: successMessage,
-      leaveRequest: result.rows[0]
+      leaveRequest: result.rows[0],
+      balanceInfo: {
+        available: currentBalance,
+        requested: days,
+        leave_type: leave.leave_type,
+        was_deducted: deductionHappened
+      }
     });
+    
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error updating leave request status:', error);
@@ -623,6 +647,8 @@ const updateLeaveRequestStatus = async (req, res) => {
     client.release();
   }
 };
+
+
 // Edit leave request (employee only for pending requests, admin can edit any)
 const editLeaveRequest = async (req, res) => {
   const { id } = req.params;
