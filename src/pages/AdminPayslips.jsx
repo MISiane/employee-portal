@@ -1055,12 +1055,6 @@ const getDeleteCount = (period, filter) => {
           <div className="text-xl font-bold text-blue-600">{period.payslips.length}</div>
           <div className="text-xs text-gray-500">Payslips</div>
         </div>
-        <div className="text-center">
-          <div className="text-xl font-bold text-green-600">
-            {formatCurrency(period.totalNet)}
-          </div>
-          <div className="text-xs text-gray-500">Total Net</div>
-        </div>
       </div>
 
       {/* Status Badges */}
