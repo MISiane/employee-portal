@@ -8,6 +8,7 @@ const {
   getLatestAnnouncements
 } = require('../controllers/announcementController');
 const authMiddleware = require('../middleware/auth');
+const announcementUpload = require('../middleware/announcementUpload');  // ← NEW
 
 const router = express.Router();
 
@@ -19,9 +20,20 @@ router.get('/', getAnnouncements);
 router.get('/latest', getLatestAnnouncements);
 router.get('/:id', getAnnouncementById);
 
-// Admin only routes
-router.post('/', createAnnouncement);
-router.put('/:id', updateAnnouncement);
+// ===== Admin only routes - WITH FILE UPLOAD =====
+// 'attachment' is the form field name that frontend will use
+router.post(
+  '/', 
+  announcementUpload.single('attachment'),  // ← NEW: Handle file upload
+  createAnnouncement
+);
+
+router.put(
+  '/:id', 
+  announcementUpload.single('attachment'),  // ← NEW: Handle file upload
+  updateAnnouncement
+);
+
 router.delete('/:id', deleteAnnouncement);
 
 module.exports = router;

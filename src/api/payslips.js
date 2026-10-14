@@ -108,3 +108,15 @@ export const rejectAllPayslips = async (rejection_reason) => {
   const response = await api.post('/payslips/reject-all', { rejection_reason });
   return response.data;
 };
+
+// Delete payslips by period with filter
+export const deletePayslipsByPeriod = async (periodStart, periodEnd, filter = 'all') => {
+  const response = await api.delete('/payslips/bulk-delete', {
+    data: {
+      period_start: periodStart,
+      period_end: periodEnd,
+      filter: filter  // 'all' | 'approved' | 'rejected' | 'draft'
+    }
+  });
+  return response.data;
+};

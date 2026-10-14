@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
-import { XMarkIcon, PlusIcon, TrashIcon, ChartBarIcon } from '@heroicons/react/24/outline';
+import { 
+  XMarkIcon, 
+  PlusIcon, 
+  TrashIcon, 
+  ChartBarIcon,
+  PaperClipIcon,        // ← NEW
+  DocumentTextIcon,     // ← NEW
+  PhotoIcon             // ← NEW
+} from '@heroicons/react/24/outline';
 import { createAnnouncement, updateAnnouncement } from '../../api/announcements';
 import { createPoll, getPollByAnnouncement, deletePoll, updatePoll } from '../../api/polls';
 import ReactQuill from 'react-quill';
@@ -14,6 +22,11 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, mode }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
+  // ===== ATTACHMENT STATE =====
+  const [attachment, setAttachment] = useState(null);          // File object
+  const [attachmentPreview, setAttachmentPreview] = useState(null);  // { url, type, filename }
+  const [removeExisting, setRemoveExisting] = useState(false); // Flag to remove old attachment
+  
   // Poll states
   const [includePoll, setIncludePoll] = useState(false);
   const [pollQuestion, setPollQuestion] = useState('');
@@ -23,23 +36,23 @@ const AnnouncementModal = ({ isOpen, onClose, announcement, mode }) => {
   const [fetchingPoll, setFetchingPoll] = useState(false);
 
   // Quill toolbar configuration
-const quillModules = {
-  toolbar: [
-    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ 'color': [] }, { 'background': [] }],
-    [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-    [{ 'align': [] }],
-    ['link', 'clean'],
-    ['blockquote', 'code-block']
-  ],
-};
+  const quillModules = {
+    toolbar: [
+      [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'color': [] }, { 'background': [] }],
+      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+      [{ 'align': [] }],
+      ['link', 'clean'],
+      ['blockquote', 'code-block']
+    ],
+  };
 
-const quillFormats = [
-  'header', 'bold', 'italic', 'underline', 'strike',
-  'color', 'background', 'list', 'bullet', 'align',
-  'link', 'blockquote', 'code-block'
-];
+  const quillFormats = [
+    'header', 'bold', 'italic', 'underline', 'strike',
+    'color', 'background', 'list', 'bullet', 'align',
+    'link', 'blockquote', 'code-block'
+  ];
 
   useEffect(() => {
     if (announcement && mode === 'edit') {
@@ -49,11 +62,23 @@ const quillFormats = [
         expires_at: announcement.expires_at ? announcement.expires_at.split('T')[0] : ''
       });
       
+      // ===== Load existing attachment if any =====
+      if (announcement.attachment_url) {
+        setAttachmentPreview({
+          url: announcement.attachment_url,
+          type: announcement.attachment_type,
+          filename: announcement.attachment_filename
+        });
+        setRemoveExisting(false);
+      } else {
+        setAttachmentPreview(null);
+      }
+      setAttachment(null); // Reset any previously selected file
+      
       // Check if announcement has a poll and fetch it
       if (announcement.has_poll) {
         fetchExistingPoll(announcement.id);
       } else {
-        // Reset poll states for announcements without poll
         setIncludePoll(false);
         setPollQuestion('');
         setPollOptions(['', '']);
@@ -62,11 +87,10 @@ const quillFormats = [
       }
     } else {
       // Reset for new announcement
-      setFormData({
-        title: '',
-        content: '',
-        expires_at: ''
-      });
+      setFormData({ title: '', content: '', expires_at: '' });
+      setAttachment(null);
+      setAttachmentPreview(null);
+      setRemoveExisting(false);
       setIncludePoll(false);
       setPollQuestion('');
       setPollOptions(['', '']);
@@ -98,6 +122,63 @@ const quillFormats = [
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // ===== ATTACHMENT HANDLERS =====
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate size (5MB to match backend)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File too large. Maximum size is 5MB.');
+      return;
+    }
+
+    // Validate type
+    const validTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 
+      'image/gif', 'image/webp', 'application/pdf'
+    ];
+    if (!validTypes.includes(file.type)) {
+      setError('Invalid file type. Only images (JPEG, PNG, GIF, WEBP) and PDFs are allowed.');
+      return;
+    }
+
+    setError('');
+    setAttachment(file);
+    setRemoveExisting(false);
+
+    // Create preview
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAttachmentPreview({
+          url: reader.result,
+          type: 'image',
+          filename: file.name
+        });
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // PDF
+      setAttachmentPreview({
+        url: null,
+        type: 'pdf',
+        filename: file.name
+      });
+    }
+  };
+
+  const handleRemoveAttachment = () => {
+    setAttachment(null);
+    setAttachmentPreview(null);
+    setRemoveExisting(true);
+    
+    // Reset file input
+    const fileInput = document.getElementById('announcement-attachment');
+    if (fileInput) fileInput.value = '';
+  };
+
+  // ===== POLL HANDLERS =====
   const handleAddPollOption = () => {
     if (pollOptions.length < 10) {
       setPollOptions([...pollOptions, '']);
@@ -155,8 +236,18 @@ const quillFormats = [
       let announcementId;
       
       if (mode === 'add') {
-        // Create new announcement
-        const response = await createAnnouncement(formData);
+        // ===== Build payload with attachment =====
+        const payload = {
+          title: formData.title,
+          content: formData.content,
+          expires_at: formData.expires_at || null,
+        };
+        
+        if (attachment) {
+          payload.attachment = attachment;
+        }
+        
+        const response = await createAnnouncement(payload);
         announcementId = response.id || response.announcement?.id;
         
         if (!announcementId) {
@@ -175,45 +266,55 @@ const quillFormats = [
         
         alert('Announcement created successfully!');
       } else {
-  // Update existing announcement
-  await updateAnnouncement(announcement.id, formData);
-  
-  // Handle poll updates
-  if (includePoll) {
-    const validOptions = pollOptions.filter(opt => opt.trim());
-    
-    if (existingPollId) {
-      // UPDATE existing poll - preserves votes
-      await updatePoll(existingPollId, {
-        question: pollQuestion.trim(),
-        options: validOptions,
-        expires_at: pollExpiresAt || null
-      });
-    } else {
-      // Create new poll for existing announcement
-      await createPoll(announcement.id, {
-        question: pollQuestion.trim(),
-        options: validOptions,
-        expires_at: pollExpiresAt || null
-      });
-    }
-  } else if (existingPollId) {
-    // Poll was removed, delete it (this WILL delete votes)
-    const confirmDelete = window.confirm(
-      'Removing this poll will delete all existing votes. Are you sure?'
-    );
-    if (confirmDelete) {
-      await deletePoll(existingPollId);
-    } else {
-      // User cancelled, keep the poll
-      setIncludePoll(true);
-      setLoading(false);
-      return;
-    }
-  }
-  
-  alert('Announcement updated successfully!');
-}
+        // ===== Update existing announcement =====
+        const payload = {
+          title: formData.title,
+          content: formData.content,
+          expires_at: formData.expires_at || null,
+        };
+        
+        if (attachment) {
+          payload.attachment = attachment;
+        }
+        
+        if (removeExisting) {
+          payload.remove_attachment = true;
+        }
+        
+        await updateAnnouncement(announcement.id, payload);
+        
+        // Handle poll updates
+        if (includePoll) {
+          const validOptions = pollOptions.filter(opt => opt.trim());
+          
+          if (existingPollId) {
+            await updatePoll(existingPollId, {
+              question: pollQuestion.trim(),
+              options: validOptions,
+              expires_at: pollExpiresAt || null
+            });
+          } else {
+            await createPoll(announcement.id, {
+              question: pollQuestion.trim(),
+              options: validOptions,
+              expires_at: pollExpiresAt || null
+            });
+          }
+        } else if (existingPollId) {
+          const confirmDelete = window.confirm(
+            'Removing this poll will delete all existing votes. Are you sure?'
+          );
+          if (confirmDelete) {
+            await deletePoll(existingPollId);
+          } else {
+            setIncludePoll(true);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        alert('Announcement updated successfully!');
+      }
       
       onClose();
     } catch (err) {
@@ -272,24 +373,24 @@ const quillFormats = [
             </div>
 
             <div>
-  <label className="block text-sm font-medium text-gray-700 mb-2">
-    Content *
-  </label>
-  <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
-    <ReactQuill
-      theme="snow"
-      value={formData.content}
-      onChange={(value) => setFormData(prev => ({ ...prev, content: value }))}
-      modules={quillModules}
-      formats={quillFormats}
-      placeholder="Write your announcement content here..."
-      className="h-64"
-    />
-  </div>
-  <p className="text-xs text-gray-500 mt-2">
-    You can format text with bold, italic, lists, colors, and more.
-  </p>
-</div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Content *
+              </label>
+              <div className="border border-gray-300 rounded-lg overflow-hidden bg-white">
+                <ReactQuill
+                  theme="snow"
+                  value={formData.content}
+                  onChange={(value) => setFormData(prev => ({ ...prev, content: value }))}
+                  modules={quillModules}
+                  formats={quillFormats}
+                  placeholder="Write your announcement content here..."
+                  className="h-64"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                You can format text with bold, italic, lists, colors, and more.
+              </p>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -307,35 +408,113 @@ const quillFormats = [
               </p>
             </div>
 
+            {/* ===== ATTACHMENT UPLOAD ===== */}
+            <div className="border-t border-gray-200 pt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <PaperClipIcon className="h-4 w-4 text-gray-500" />
+                Attachment (Optional)
+              </label>
+              <p className="text-xs text-gray-500 mb-2">
+                Images (JPG, PNG, GIF, WEBP) or PDF. Max 5MB.
+              </p>
+
+              {!attachmentPreview ? (
+                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <PaperClipIcon className="h-8 w-8 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600">
+                      <span className="font-semibold">Click to upload</span> or drag and drop
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      PNG, JPG, GIF, WEBP, or PDF (max 5MB)
+                    </p>
+                  </div>
+                  <input
+                    id="announcement-attachment"
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+              ) : (
+                <div className="rounded-lg border border-purple-200 bg-purple-50 p-3">
+                  {/* Image Preview */}
+                  {attachmentPreview.type === 'image' && attachmentPreview.url && (
+                    <img
+                      src={attachmentPreview.url}
+                      alt="Preview"
+                      className="mb-3 max-h-48 w-full rounded-lg object-contain bg-white"
+                    />
+                  )}
+
+                  {/* PDF Preview */}
+                  {attachmentPreview.type === 'pdf' && (
+                    <div className="mb-3 flex items-center gap-3 rounded-lg bg-white p-3 border border-gray-200">
+                      <DocumentTextIcon className="h-10 w-10 text-red-600 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-gray-700 truncate">
+                          {attachmentPreview.filename}
+                        </p>
+                        <p className="text-xs text-gray-500">PDF Document</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* File Info + Remove Button */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {attachmentPreview.type === 'image' ? (
+                        <PhotoIcon className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                      ) : (
+                        <DocumentTextIcon className="h-4 w-4 text-red-600 flex-shrink-0" />
+                      )}
+                      <span className="text-xs text-gray-600 truncate">
+                        {attachmentPreview.filename}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRemoveAttachment}
+                      className="rounded-lg p-1.5 text-red-600 hover:bg-red-100 transition flex-shrink-0"
+                      title="Remove attachment"
+                    >
+                      <XMarkIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Toggle Poll Option */}
-<div className="border-t border-gray-200 pt-4">
-  <label className="flex items-center gap-2 cursor-pointer">
-    <input
-      type="checkbox"
-      checked={includePoll}
-      onChange={(e) => {
-        if (!e.target.checked && existingPollId) {
-          const confirm = window.confirm(
-            '⚠️ WARNING: Removing this poll will delete ALL existing votes. This cannot be undone. Are you sure?'
-          );
-          if (!confirm) return;
-        }
-        setIncludePoll(e.target.checked);
-      }}
-      className="h-4 w-4 text-purple-600 focus:ring-purple-500 rounded"
-    />
-    <span className="text-sm font-medium text-gray-700">
-      {existingPollId ? 'Edit poll' : 'Add a poll to this announcement'}
-    </span>
-    <ChartBarIcon className="h-4 w-4 text-gray-400" />
-  </label>
-  
-  {existingPollId && (
-    <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
-      ⚠️ Editing options will preserve existing votes. Removing an option will delete its votes.
-    </div>
-  )}
-</div>
+            <div className="border-t border-gray-200 pt-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includePoll}
+                  onChange={(e) => {
+                    if (!e.target.checked && existingPollId) {
+                      const confirm = window.confirm(
+                        '⚠️ WARNING: Removing this poll will delete ALL existing votes. This cannot be undone. Are you sure?'
+                      );
+                      if (!confirm) return;
+                    }
+                    setIncludePoll(e.target.checked);
+                  }}
+                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 rounded"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  {existingPollId ? 'Edit poll' : 'Add a poll to this announcement'}
+                </span>
+                <ChartBarIcon className="h-4 w-4 text-gray-400" />
+              </label>
+              
+              {existingPollId && (
+                <div className="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+                  ⚠️ Editing options will preserve existing votes. Removing an option will delete its votes.
+                </div>
+              )}
+            </div>
 
             {/* Poll Fields (conditional) */}
             {includePoll && (

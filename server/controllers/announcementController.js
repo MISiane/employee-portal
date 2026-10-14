@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const cloudinary = require('cloudinary').v2;
 
 // Helper function to sanitize date values
 const sanitizeDate = (value) => {
@@ -6,7 +7,39 @@ const sanitizeDate = (value) => {
   return value;
 };
 
-// Get all announcements (with optional filters)
+// Helper: Determine attachment type from mimetype
+const getAttachmentType = (mimetype) => {
+  if (!mimetype) return null;
+  if (mimetype.startsWith('image/')) return 'image';
+  if (mimetype === 'application/pdf') return 'pdf';
+  return null;
+};
+
+// Helper: Delete attachment from Cloudinary
+const deleteFromCloudinary = async (url, type) => {
+  try {
+    if (!url) return;
+    
+    // Extract public_id from Cloudinary URL
+    // Example: https://res.cloudinary.com/xxx/image/upload/v123/announcements/announcement-1-123.jpg
+    const urlParts = url.split('/');
+    const filename = urlParts[urlParts.length - 1];
+    const publicId = filename.split('.')[0];
+    
+    const resourceType = type === 'pdf' ? 'raw' : 'image';
+    const fullPublicId = `announcements/${publicId}`;
+    
+    await cloudinary.uploader.destroy(fullPublicId, {
+      resource_type: resourceType,
+    });
+    
+  } catch (error) {
+    // Don't fail the request if Cloudinary delete fails
+    console.error('⚠️ Error deleting from Cloudinary:', error.message);
+  }
+};
+
+// ===== Get all announcements =====
 const getAnnouncements = async (req, res) => {
   const { limit = 10, page = 1, active_only = 'true' } = req.query;
   const offset = (page - 1) * limit;
@@ -57,7 +90,7 @@ const getAnnouncements = async (req, res) => {
   }
 };
 
-// Get single announcement by ID
+// ===== Get single announcement by ID =====
 const getAnnouncementById = async (req, res) => {
   const { id } = req.params;
   
@@ -83,7 +116,7 @@ const getAnnouncementById = async (req, res) => {
   }
 };
 
-// Create announcement (Admin only)
+// ===== Create announcement (Admin only) - WITH ATTACHMENT =====
 const createAnnouncement = async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied. Admin only.' });
@@ -96,37 +129,81 @@ const createAnnouncement = async (req, res) => {
     return res.status(400).json({ error: 'Title and content are required' });
   }
   
+  // ===== Handle Cloudinary attachment =====
+  let attachmentUrl = null;
+  let attachmentFilename = null;
+  let attachmentType = null;
+  let attachmentSize = null;
+  
+  if (req.file) {
+    attachmentUrl = req.file.path;  // Cloudinary URL
+    attachmentFilename = req.file.originalname;
+    attachmentType = getAttachmentType(req.file.mimetype);
+    attachmentSize = req.file.size;
+  }
+  
   try {
     const result = await pool.query(
-      `INSERT INTO announcements (title, content, user_id, expires_at, is_active)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, title, content, expires_at, created_at, user_id, is_active`,
-      [title, content, userId, sanitizeDate(expires_at), true]
+      `INSERT INTO announcements 
+        (title, content, user_id, expires_at, is_active,
+         attachment_url, attachment_filename, attachment_type, attachment_size)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, title, content, expires_at, created_at, user_id, is_active,
+                 attachment_url, attachment_filename, attachment_type, attachment_size`,
+      [
+        title, 
+        content, 
+        userId, 
+        sanitizeDate(expires_at), 
+        true,
+        attachmentUrl,
+        attachmentFilename,
+        attachmentType,
+        attachmentSize
+      ]
     );
     
     res.status(201).json({
       success: true,
       message: 'Announcement created successfully',
       announcement: result.rows[0],
-      id: result.rows[0].id  // Explicitly include ID for poll creation
+      id: result.rows[0].id
     });
   } catch (error) {
     console.error('Error creating announcement:', error);
+    
+    // If DB insert fails, clean up the uploaded file
+    if (attachmentUrl) {
+      await deleteFromCloudinary(attachmentUrl, attachmentType);
+    }
+    
     res.status(500).json({ error: 'Server error' });
   }
 };
 
-// Update announcement (Admin only)
+// ===== Update announcement (Admin only) - WITH ATTACHMENT =====
 const updateAnnouncement = async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied. Admin only.' });
   }
   
   const { id } = req.params;
-  const { title, content, expires_at, is_active } = req.body;
+  const { title, content, expires_at, is_active, remove_attachment } = req.body;
   
   try {
-    // Build update query dynamically to handle optional fields
+    // Get existing announcement first (need attachment info)
+    const existing = await pool.query(
+      'SELECT attachment_url, attachment_type FROM announcements WHERE id = $1',
+      [id]
+    );
+    
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Announcement not found' });
+    }
+    
+    const oldAttachment = existing.rows[0];
+    
+    // Build update query dynamically
     const updateFields = [];
     const values = [];
     let paramCount = 1;
@@ -144,7 +221,6 @@ const updateAnnouncement = async (req, res) => {
     }
     
     if (expires_at !== undefined) {
-      // Convert empty string to null
       const sanitizedExpiry = sanitizeDate(expires_at);
       updateFields.push(`expires_at = $${paramCount}`);
       values.push(sanitizedExpiry);
@@ -155,6 +231,41 @@ const updateAnnouncement = async (req, res) => {
       updateFields.push(`is_active = $${paramCount}`);
       values.push(is_active);
       paramCount++;
+    }
+    
+    // ===== Handle attachment changes =====
+    const shouldRemove = remove_attachment === 'true' || remove_attachment === true;
+    
+    if (req.file) {
+      // New file uploaded → replace old attachment
+      const newUrl = req.file.path;
+      const newType = getAttachmentType(req.file.mimetype);
+      
+      updateFields.push(`attachment_url = $${paramCount}`);
+      values.push(newUrl);
+      paramCount++;
+      
+      updateFields.push(`attachment_filename = $${paramCount}`);
+      values.push(req.file.originalname);
+      paramCount++;
+      
+      updateFields.push(`attachment_type = $${paramCount}`);
+      values.push(newType);
+      paramCount++;
+      
+      updateFields.push(`attachment_size = $${paramCount}`);
+      values.push(req.file.size);
+      paramCount++;
+      
+      // Delete old attachment AFTER successful update (or do it now)
+      // We'll delete after the DB update to be safe
+      
+    } else if (shouldRemove && oldAttachment.attachment_url) {
+      // Explicitly remove attachment
+      updateFields.push(`attachment_url = NULL`);
+      updateFields.push(`attachment_filename = NULL`);
+      updateFields.push(`attachment_type = NULL`);
+      updateFields.push(`attachment_size = NULL`);
     }
     
     if (updateFields.length === 0) {
@@ -168,13 +279,18 @@ const updateAnnouncement = async (req, res) => {
       UPDATE announcements 
       SET ${updateFields.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, title, content, expires_at, created_at, updated_at, user_id, is_active
+      RETURNING id, title, content, expires_at, created_at, updated_at, user_id, is_active,
+                attachment_url, attachment_filename, attachment_type, attachment_size
     `;
     
     const result = await pool.query(query, values);
     
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Announcement not found' });
+    // ===== Clean up old Cloudinary file =====
+    // Delete old file if:
+    // 1. New file was uploaded (replace), OR
+    // 2. remove_attachment was requested
+    if (oldAttachment.attachment_url && (req.file || shouldRemove)) {
+      await deleteFromCloudinary(oldAttachment.attachment_url, oldAttachment.attachment_type);
     }
     
     res.json({
@@ -188,7 +304,7 @@ const updateAnnouncement = async (req, res) => {
   }
 };
 
-// Delete announcement (Admin only)
+// ===== Delete announcement (Admin only) - WITH ATTACHMENT CLEANUP =====
 const deleteAnnouncement = async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied. Admin only.' });
@@ -198,12 +314,20 @@ const deleteAnnouncement = async (req, res) => {
   
   try {
     const result = await pool.query(
-      'DELETE FROM announcements WHERE id = $1 RETURNING id',
+      `DELETE FROM announcements 
+       WHERE id = $1 
+       RETURNING id, attachment_url, attachment_type`,
       [id]
     );
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Announcement not found' });
+    }
+    
+    // Clean up Cloudinary file
+    const deleted = result.rows[0];
+    if (deleted.attachment_url) {
+      await deleteFromCloudinary(deleted.attachment_url, deleted.attachment_type);
     }
     
     res.json({
@@ -216,7 +340,7 @@ const deleteAnnouncement = async (req, res) => {
   }
 };
 
-// Get latest announcements for dashboard
+// ===== Get latest announcements for dashboard =====
 const getLatestAnnouncements = async (req, res) => {
   const { limit = 3 } = req.query;
   

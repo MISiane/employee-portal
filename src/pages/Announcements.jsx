@@ -9,6 +9,7 @@ import {
   XMarkIcon,
   EyeIcon,
   ChartBarIcon,
+  DocumentTextIcon  
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../context/AuthContext";
 import { getAnnouncements, deleteAnnouncement } from "../api/announcements";
@@ -244,6 +245,34 @@ const Announcements = () => {
                         />
                       </div>
 
+                      {/* ===== ATTACHMENT PREVIEW ===== */}
+{announcement.attachment_url && (
+  <div className="mt-3">
+    {announcement.attachment_type === 'image' ? (
+      <img
+        src={announcement.attachment_url}
+        alt="Announcement attachment"
+        className="max-h-64 w-full rounded-lg border border-[#e6cce6] object-cover cursor-pointer hover:opacity-90 transition"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleView(announcement);
+        }}
+      />
+    ) : (
+      <a
+        href={announcement.attachment_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 rounded-lg border border-[#e6cce6] bg-[#faf0fa] px-3 py-2 text-sm text-[#800080] hover:bg-[#f5e6f7] transition"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <DocumentTextIcon className="h-5 w-5" />
+        📄 {announcement.attachment_filename || 'View PDF'}
+      </a>
+    )}
+  </div>
+)}
+
                       {/* Poll Widget */}
                       <PollWidget
                         announcementId={announcement.id}
@@ -372,6 +401,33 @@ const Announcements = () => {
                   }}
                 />
               </div>
+
+              {/* ===== ATTACHMENT IN VIEW MODAL ===== */}
+{viewingAnnouncement.attachment_url && (
+  <div className="mt-4 sm:mt-6 rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-white p-4">
+    <p className="mb-3 text-sm font-semibold text-gray-700 flex items-center gap-2">
+      <DocumentTextIcon className="h-4 w-4 text-[#800080]" />
+      Attachment
+    </p>
+    {viewingAnnouncement.attachment_type === 'image' ? (
+      <img
+        src={viewingAnnouncement.attachment_url}
+        alt="Announcement attachment"
+        className="max-h-96 w-full rounded-lg object-contain"
+      />
+    ) : (
+      <a
+        href={viewingAnnouncement.attachment_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 rounded-lg bg-[#800080] px-4 py-2 text-white hover:bg-[#660066] transition"
+      >
+        <DocumentTextIcon className="h-5 w-5" />
+        Open PDF in new tab
+      </a>
+    )}
+  </div>
+)}
 
               {/* Add Poll Widget Here */}
               <div className="mt-4 sm:mt-6">

@@ -14,6 +14,7 @@ const {
   rejectPayslip,
   rejectAllPayslips,      
   downloadPayslip,
+  deletePayslipsByPeriod,
   getAvailablePayPeriods
  
 } = require('../controllers/payslipController');
@@ -37,6 +38,9 @@ router.post('/approve-all', approveAllPayslips);
 
 // ===== NEW: Reject all draft payslips =====
 router.post('/reject-all', rejectAllPayslips);
+
+// ===== BULK DELETE by period (MUST come before /:id routes) =====
+router.delete('/bulk-delete', deletePayslipsByPeriod);
 
 // Bulk upload
 router.post('/bulk-upload', upload.single('file'), bulkCreatePayslips);

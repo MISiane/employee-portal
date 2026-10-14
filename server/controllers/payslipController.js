@@ -1221,6 +1221,87 @@ const rejectAllPayslips = async (req, res) => {
   }
 };
 
+// ===== Delete payslips by period with filter =====
+const deletePayslipsByPeriod = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  }
+
+  const { period_start, period_end, filter } = req.body;
+  // filter can be: 'all', 'approved', 'rejected', 'draft'
+
+  if (!period_start || !period_end) {
+    return res.status(400).json({ 
+      error: 'period_start and period_end are required' 
+    });
+  }
+
+  // Validate filter
+  const validFilters = ['all', 'approved', 'rejected', 'draft'];
+  const deleteFilter = validFilters.includes(filter) ? filter : 'all';
+
+  try {
+    // Build the WHERE clause based on filter
+    let statusCondition = '';
+    const queryParams = [period_start, period_end];
+    
+    if (deleteFilter !== 'all') {
+      statusCondition = ` AND status = $3`;
+      queryParams.push(deleteFilter);
+    }
+
+    // First, check what will be deleted
+    const checkResult = await pool.query(
+      `SELECT status, COUNT(*) as count 
+       FROM payslips 
+       WHERE pay_period_start = $1 AND pay_period_end = $2${statusCondition}
+       GROUP BY status`,
+      queryParams
+    );
+
+    const totalToDelete = checkResult.rows.reduce(
+      (sum, row) => sum + parseInt(row.count), 0
+    );
+
+    if (totalToDelete === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: `No ${deleteFilter === 'all' ? '' : deleteFilter + ' '}payslips found for this period` 
+      });
+    }
+
+    // Perform the delete
+    const deleteResult = await pool.query(
+      `DELETE FROM payslips 
+       WHERE pay_period_start = $1 AND pay_period_end = $2${statusCondition}
+       RETURNING id`,
+      queryParams
+    );
+
+    const deletedCount = deleteResult.rowCount;
+
+    console.log(
+      `📝 Deleted ${deletedCount} (${deleteFilter}) payslips for period ` +
+      `${period_start} to ${period_end} by admin ${req.user.id}`
+    );
+
+    res.json({
+      success: true,
+      message: `Deleted ${deletedCount} ${deleteFilter === 'all' ? '' : deleteFilter + ' '}payslip(s)`,
+      count: deletedCount,
+      filter: deleteFilter,
+      breakdown: checkResult.rows
+    });
+
+  } catch (error) {
+    console.error('Error deleting payslips by period:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Server error: ' + error.message 
+    });
+  }
+};
+
 
 module.exports = {
   createPayslip,
@@ -1235,5 +1316,6 @@ module.exports = {
   rejectAllPayslips,
   getDraftPayslips,
   approvePayslip,
+  deletePayslipsByPeriod,
   approveAllPayslips
 };
