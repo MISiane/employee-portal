@@ -260,15 +260,16 @@ const Announcements = () => {
       />
     ) : (
       <a
-        href={announcement.attachment_url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 rounded-lg border border-[#e6cce6] bg-[#faf0fa] px-3 py-2 text-sm text-[#800080] hover:bg-[#f5e6f7] transition"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <DocumentTextIcon className="h-5 w-5" />
-        📄 {announcement.attachment_filename || 'View PDF'}
-      </a>
+  href={announcement.attachment_url}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="inline-flex items-center gap-2 rounded-lg border border-[#e6cce6] bg-[#faf0fa] px-3 py-2 text-sm text-[#800080] hover:bg-[#f5e6f7] transition"
+  onClick={(e) => e.stopPropagation()}
+  download={false}  // ← Optional: hint that it's not a download
+>
+  <DocumentTextIcon className="h-5 w-5" />
+  📄 {announcement.attachment_filename || 'View PDF'}
+</a>
     )}
   </div>
 )}

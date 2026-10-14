@@ -26,15 +26,15 @@ const deleteFromCloudinary = async (url, type) => {
     const filename = urlParts[urlParts.length - 1];
     const publicId = filename.split('.')[0];
     
-    const resourceType = type === 'pdf' ? 'raw' : 'image';
+    // ✅ Always use 'image' now (Cloudinary treats PDFs as images)
     const fullPublicId = `announcements/${publicId}`;
     
     await cloudinary.uploader.destroy(fullPublicId, {
-      resource_type: resourceType,
+      resource_type: 'image',
     });
     
+    console.log(`✅ Deleted from Cloudinary: ${fullPublicId}`);
   } catch (error) {
-    // Don't fail the request if Cloudinary delete fails
     console.error('⚠️ Error deleting from Cloudinary:', error.message);
   }
 };

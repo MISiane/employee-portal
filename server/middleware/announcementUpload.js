@@ -2,37 +2,28 @@ const multer = require('multer');
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const cloudinary = require('cloudinary').v2;
 
-// Configure Cloudinary 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Configure storage for announcement attachments
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
     const isPDF = file.mimetype === 'application/pdf';
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     
-    // Base config
-    const params = {
+    return {
       folder: 'announcements',
       allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'],
-      public_id: `announcement-${req.user.id}-${uniqueSuffix}`
+      public_id: `announcement-${req.user.id}-${uniqueSuffix}`,
+      // ✅ KEY FIX: Always use 'image' — Cloudinary serves PDFs correctly with this
+      resource_type: 'image'
     };
-    
-    // PDFs use 'raw' resource type in Cloudinary
-    if (isPDF) {
-      params.resource_type = 'raw';
-    }
-    
-    return params;
   }
 });
 
-// File filter - images and PDFs only
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
     'image/jpeg', 
@@ -53,7 +44,7 @@ const fileFilter = (req, file, cb) => {
 const announcementUpload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit (same as your medcert)
+    fileSize: 4 * 1024 * 1024 // 4MB for Vercel
   },
   fileFilter: fileFilter
 });
