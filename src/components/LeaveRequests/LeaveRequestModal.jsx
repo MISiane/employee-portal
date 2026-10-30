@@ -301,8 +301,6 @@ const LeaveRequestModal = ({ isOpen, onClose, onSuccess }) => {
                 <option value="">Select leave type</option>
                 <option value="Vacation Leave">Vacation Leave</option>
                 <option value="Sick Leave">Sick Leave</option>
-                <option value="Emergency Leave">Emergency Leave</option>
-                <option value="Special Leave">Special Leave</option>
               </select>
             </div>
 
