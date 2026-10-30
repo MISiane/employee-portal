@@ -17,6 +17,7 @@ import { createPoll } from "../api/polls";
 import AnnouncementModal from "../components/Announcements/AnnouncementModal";
 import PollWidget from "../components/Announcements/PollWidget";
 import PollModal from "../components/Announcements/PollModal";
+import { sanitizeHtml, previewHtml } from "../utils/sanitize";
 
 const Announcements = () => {
   const { user } = useAuth();
@@ -236,11 +237,9 @@ const Announcements = () => {
                         <div
                           className="text-sm leading-6 text-gray-700 line-clamp-3 sm:line-clamp-none"
                           dangerouslySetInnerHTML={{
-                            __html:
-                              announcement.content.length > 150 &&
-                              !showViewModal
-                                ? `${announcement.content.substring(0, 150)}...`
-                                : announcement.content,
+                            __html: showViewModal
+                              ? sanitizeHtml(announcement.content)
+                              : previewHtml(announcement.content, 150),
                           }}
                         />
                       </div>
@@ -398,7 +397,7 @@ const Announcements = () => {
                 <div
                   className="prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{
-                    __html: viewingAnnouncement.content,
+                    __html: sanitizeHtml(viewingAnnouncement.content),
                   }}
                 />
               </div>

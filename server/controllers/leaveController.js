@@ -319,13 +319,40 @@ const getAllLeaveRequests = async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Access denied' });
   }
-  
+
   const { page = 1, limit = 20, status, department, search } = req.query;
   const offset = (page - 1) * limit;
-  
+
   try {
-    let query = `
-      SELECT lr.*, 
+    // Build the filters once so the list query and the count query always agree
+    let filters = '';
+    const filterValues = [];
+
+    if (status) {
+      filterValues.push(status);
+      filters += ` AND lr.status = $${filterValues.length}`;
+    }
+
+    if (department) {
+      filterValues.push(department);
+      filters += ` AND ep.department = $${filterValues.length}`;
+    }
+
+    if (search) {
+      filterValues.push(`%${search}%`);
+      const p = filterValues.length;
+      filters += ` AND (ep.first_name ILIKE $${p} OR ep.last_name ILIKE $${p} OR ep.employee_code ILIKE $${p})`;
+    }
+
+    const fromClause = `
+      FROM leave_requests lr
+      LEFT JOIN users u ON lr.user_id = u.id
+      LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+      WHERE 1=1${filters}
+    `;
+
+    const result = await pool.query(
+      `SELECT lr.*,
        lr.regular_days_off,
        u.email,
              ep.first_name, ep.last_name, ep.employee_code, ep.department,
@@ -335,47 +362,21 @@ const getAllLeaveRequests = async (req, res) => {
              TO_CHAR(lr.original_end_date, 'YYYY-MM-DD') as original_end_date,
              TO_CHAR(lr.created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at,
              TO_CHAR(lr.updated_at, 'YYYY-MM-DD HH24:MI:SS') as updated_at
-      FROM leave_requests lr
-      LEFT JOIN users u ON lr.user_id = u.id
-      LEFT JOIN employee_profiles ep ON u.id = ep.user_id
-      WHERE 1=1
-    `;
-    
-    const values = [];
-    let paramCount = 1;
-    
-    if (status) {
-      query += ` AND lr.status = $${paramCount}`;
-      values.push(status);
-      paramCount++;
-    }
-    
-    if (department) {
-      query += ` AND ep.department = $${paramCount}`;
-      values.push(department);
-      paramCount++;
-    }
-    
-    if (search) {
-      query += ` AND (ep.first_name ILIKE $${paramCount} OR ep.last_name ILIKE $${paramCount} OR ep.employee_code ILIKE $${paramCount})`;
-      values.push(`%${search}%`);
-      paramCount++;
-    }
-    
-    query += ` ORDER BY lr.created_at DESC LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
-    values.push(limit, offset);
-    
-    const result = await pool.query(query, values);
-    
-    const countResult = await pool.query(`SELECT COUNT(*) FROM leave_requests`);
-    
+      ${fromClause}
+      ORDER BY lr.created_at DESC LIMIT $${filterValues.length + 1} OFFSET $${filterValues.length + 2}`,
+      [...filterValues, limit, offset]
+    );
+
+    const countResult = await pool.query(`SELECT COUNT(*) ${fromClause}`, filterValues);
+    const total = parseInt(countResult.rows[0].count);
+
     res.json({
       leaveRequests: result.rows,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
-        total: parseInt(countResult.rows[0].count),
-        totalPages: Math.ceil(parseInt(countResult.rows[0].count) / limit)
+        total,
+        totalPages: Math.ceil(total / limit)
       }
     });
   } catch (error) {

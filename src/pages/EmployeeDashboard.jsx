@@ -18,6 +18,7 @@ import { getMyLeaveRequests, getLeaveBalances } from "../api/leave";
 import { getLatestAnnouncements } from "../api/announcements";
 import { getTodayBirthdays, getTodayAnniversaries } from "../api/employees";
 import BirthdayComments from "../components/BirthdayComments";
+import { previewHtml } from "../utils/sanitize";
 
 const EmployeeDashboard = () => {
   const { user } = useAuth();
@@ -804,10 +805,7 @@ const EmployeeDashboard = () => {
                     <div
                       className="mt-1 text-xs text-gray-500 line-clamp-2"
                       dangerouslySetInnerHTML={{
-                        __html:
-                          announcement.content.length > 80
-                            ? `${announcement.content.substring(0, 80)}...`
-                            : announcement.content,
+                        __html: previewHtml(announcement.content, 80),
                       }}
                     />
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
