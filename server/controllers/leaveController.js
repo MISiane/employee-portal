@@ -1,4 +1,16 @@
 const pool = require('../config/database');
+const { countDays, applyLeaveBalanceChange } = require('../utils/leaveBalance');
+
+// 400 response when approving WITH PAY would take more days than the employee has.
+// Same shape the approval flow has always returned.
+const respondInsufficientBalance = (res, error) => {
+  const d = error.details;
+  return res.status(400).json({
+    error: 'Cannot approve WITH PAY due to insufficient balance',
+    message: `Employee only has ${d.available} days available for ${d.leave_type}. Please approve WITHOUT PAY instead.`,
+    details: d
+  });
+};
 
 // Helper function to get file URL (for Render)
 const getFileUrl = (filename) => {
@@ -78,7 +90,7 @@ const getUserLeaveBalances = async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error getting user leave balances:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -308,7 +320,7 @@ const result = await client.query(
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating leave request:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
   }
@@ -410,10 +422,10 @@ const updateLeaveRequestStatus = async (req, res) => {
     await client.query('BEGIN');
     
     const leaveRequest = await client.query(
-      'SELECT * FROM leave_requests WHERE id = $1',
+      'SELECT * FROM leave_requests WHERE id = $1 FOR UPDATE',
       [id]
     );
-    
+
     if (leaveRequest.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Leave request not found' });
@@ -421,100 +433,15 @@ const updateLeaveRequestStatus = async (req, res) => {
     
     const leave = leaveRequest.rows[0];
     
-    // Determine pay type
-    const payType = leave_pay_type || leave.leave_pay_type || 'without_pay';
-    
-    // Use adjusted dates if provided, otherwise use original dates
+    // Dates used for the day count shown in the response message
     const finalStartDate = start_date || leave.start_date;
     const finalEndDate = end_date || leave.end_date;
+    const days = countDays(finalStartDate, finalEndDate);
     
-    // Calculate days reliably
-    const start = new Date(finalStartDate);
-    const end = new Date(finalEndDate);
-    const startUTC = Date.UTC(start.getFullYear(), start.getMonth(), start.getDate());
-    const endUTC = Date.UTC(end.getFullYear(), end.getMonth(), end.getDate());
-    const diffTime = endUTC - startUTC;
-    const days = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-    const year = new Date(finalStartDate).getFullYear();
-    
-    // Track if deduction happened
+    // Filled in after the update: whether days were deducted and what the
+    // balance was when it was checked
     let deductionHappened = false;
-    let balanceField = '';
     let currentBalance = 0;
-
-    // ===== ===== ===== ===== ===== ===== ===== ===== =====
-    // ===== NEW: Business Rule Check =====
-    // ===== ===== ===== ===== ===== ===== ===== ===== =====
-    
-    // Only run this check when approving
-    if (status === 'approved' && leave.status !== 'approved') {
-      // Determine which balance field to check
-      if (leave.leave_type === 'Vacation Leave') {
-        balanceField = 'vacation_leave';
-      } else if (leave.leave_type === 'Sick Leave') {
-        balanceField = 'sick_leave';
-      } else if (leave.leave_type === 'Emergency Leave') {
-        balanceField = 'emergency_leave';
-      } else if (leave.leave_type === 'Special Leave') {
-        balanceField = 'special_leave';
-      }
-      
-      if (balanceField) {
-        // Check current balance
-        const balanceCheck = await client.query(
-          `SELECT ${balanceField} FROM leave_balances 
-           WHERE user_id = $1 AND year = $2`,
-          [leave.user_id, year]
-        );
-        
-        // Create balance record if it doesn't exist
-        if (balanceCheck.rows.length === 0) {
-          await client.query(
-            `INSERT INTO leave_balances (user_id, year, vacation_leave, sick_leave, emergency_leave, special_leave)
-             VALUES ($1, $2, 15, 10, 3, 3)`,
-            [leave.user_id, year]
-          );
-        }
-        
-        // Re-query to get the balance
-        const updatedBalanceCheck = await client.query(
-          `SELECT ${balanceField} FROM leave_balances 
-           WHERE user_id = $1 AND year = $2`,
-          [leave.user_id, year]
-        );
-        
-        currentBalance = updatedBalanceCheck.rows[0]?.[balanceField] || 0;
-        const hasEnoughBalance = currentBalance >= days;
-        
-        // ===== THE BUSINESS RULE =====
-        // If trying to approve WITH PAY but has insufficient balance → BLOCK
-        if (payType === 'with_pay' && !hasEnoughBalance) {
-          await client.query('ROLLBACK');
-          return res.status(400).json({
-            error: 'Cannot approve WITH PAY due to insufficient balance',
-            message: `Employee only has ${currentBalance} days available for ${leave.leave_type}. Please approve WITHOUT PAY instead.`,
-            details: {
-              available: currentBalance,
-              requested: days,
-              leave_type: leave.leave_type,
-              suggested_action: 'without_pay'
-            }
-          });
-        }
-        
-        // If has balance and approved with pay → deduct
-        if (payType === 'with_pay' && hasEnoughBalance) {
-          await client.query(
-            `UPDATE leave_balances 
-             SET ${balanceField} = ${balanceField} - $1, updated_at = CURRENT_TIMESTAMP
-             WHERE user_id = $2 AND year = $3`,
-            [days, leave.user_id, year]
-          );
-          deductionHappened = true;
-          console.log(`✅ Balance deducted: ${currentBalance} - ${days} = ${currentBalance - days}`);
-        }
-      }
-    }
     
     // ===== ===== ===== ===== ===== ===== ===== ===== =====
     // ===== Continue with existing update logic =====
@@ -606,8 +533,15 @@ const updateLeaveRequestStatus = async (req, res) => {
       updateValues
     );
     
+    // Bring the leave balance in line with what this change did to the request:
+    // days deducted for the old state are returned, days for the new state are
+    // deducted. Same transaction, so an insufficient balance undoes the update.
+    const balanceChange = await applyLeaveBalanceChange(client, leave, result.rows[0]);
+    deductionHappened = !!balanceChange.deducted;
+    currentBalance = balanceChange.available ?? 0;
+
     await client.query('COMMIT');
-    
+
     // Custom success message
     let successMessage = `Leave request ${status} successfully`;
     const adminSelectedPayType = leave_pay_type || result.rows[0].leave_pay_type;
@@ -627,7 +561,11 @@ const updateLeaveRequestStatus = async (req, res) => {
     if (start_date || end_date) {
       successMessage += ` Dates have been adjusted.`;
     }
-    
+
+    if (balanceChange.refunded) {
+      successMessage += ` ${balanceChange.refunded.days} day(s) returned to the ${balanceChange.refunded.leaveType} balance.`;
+    }
+
     res.json({
       success: true,
       message: successMessage,
@@ -642,8 +580,11 @@ const updateLeaveRequestStatus = async (req, res) => {
     
   } catch (error) {
     await client.query('ROLLBACK');
+    if (error.code === 'INSUFFICIENT_BALANCE') {
+      return respondInsufficientBalance(res, error);
+    }
     console.error('Error updating leave request status:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
   }
@@ -784,27 +725,63 @@ if (req.file) {
     updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
     values.push(id);
     
-    const result = await pool.query(
-      `UPDATE leave_requests 
-       SET ${updateFields.join(', ')}
-       WHERE id = $${paramCount}
-       RETURNING *`,
-      values
-    );
-    
+    // Update and balance adjustment happen in one transaction: if the new state
+    // is WITH PAY without enough days, nothing is saved.
+    const client = await pool.connect();
+    let result;
+    let balanceChange;
+    try {
+      await client.query('BEGIN');
+
+      const locked = await client.query(
+        'SELECT * FROM leave_requests WHERE id = $1 FOR UPDATE',
+        [id]
+      );
+      if (locked.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Leave request not found' });
+      }
+
+      result = await client.query(
+        `UPDATE leave_requests
+         SET ${updateFields.join(', ')}
+         WHERE id = $${paramCount}
+         RETURNING *`,
+        values
+      );
+
+      balanceChange = await applyLeaveBalanceChange(client, locked.rows[0], result.rows[0]);
+
+      await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
+    }
+
     let successMessage = 'Leave request updated successfully';
     if (isAdmin && request.status === 'approved') {
       successMessage = 'Leave request updated successfully (admin override)';
     }
-    
+    if (balanceChange.refunded) {
+      successMessage += `. ${balanceChange.refunded.days} day(s) returned to the ${balanceChange.refunded.leaveType} balance`;
+    }
+    if (balanceChange.deducted) {
+      successMessage += `. ${balanceChange.deducted.days} day(s) deducted from the ${balanceChange.deducted.leaveType} balance`;
+    }
+
     res.json({
       success: true,
       message: successMessage,
       leaveRequest: result.rows[0]
     });
   } catch (error) {
+    if (error.code === 'INSUFFICIENT_BALANCE') {
+      return respondInsufficientBalance(res, error);
+    }
     console.error('Error editing leave request:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -827,9 +804,24 @@ const adminEditLeaveRequest = async (req, res) => {
   } = req.body;
 
   
+  // Update and balance adjustment happen in one transaction: if the new state
+  // is WITH PAY without enough days, nothing is saved.
+  const client = await pool.connect();
+
   try {
-    const result = await pool.query(
-      `UPDATE leave_requests 
+    await client.query('BEGIN');
+
+    const locked = await client.query(
+      'SELECT * FROM leave_requests WHERE id = $1 FOR UPDATE',
+      [id]
+    );
+    if (locked.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Leave request not found' });
+    }
+
+    const result = await client.query(
+      `UPDATE leave_requests
        SET leave_type = $1,
            start_date = $2,
            end_date = $3,
@@ -844,28 +836,46 @@ const adminEditLeaveRequest = async (req, res) => {
        WHERE id = $11
        RETURNING *`,
       [
-        leave_type, 
-        start_date, 
-        end_date, 
-        reason, 
+        leave_type,
+        start_date,
+        end_date,
+        reason,
         leave_pay_type,  // This should be "with_pay"
-        status, 
-        medical_certificate, 
-        approval_notes, 
+        status,
+        medical_certificate,
+        approval_notes,
         regular_days_off || null,
         `\n[Admin edited on ${new Date().toLocaleString()}]: Leave details updated`,
         id
       ]
     );
-    
+
+    const balanceChange = await applyLeaveBalanceChange(client, locked.rows[0], result.rows[0]);
+
+    await client.query('COMMIT');
+
+    let message = 'Leave request updated successfully';
+    if (balanceChange.refunded) {
+      message += `. ${balanceChange.refunded.days} day(s) returned to the ${balanceChange.refunded.leaveType} balance`;
+    }
+    if (balanceChange.deducted) {
+      message += `. ${balanceChange.deducted.days} day(s) deducted from the ${balanceChange.deducted.leaveType} balance`;
+    }
+
     res.json({
       success: true,
-      message: 'Leave request updated successfully',
+      message,
       leaveRequest: result.rows[0]
     });
   } catch (error) {
+    await client.query('ROLLBACK');
+    if (error.code === 'INSUFFICIENT_BALANCE') {
+      return respondInsufficientBalance(res, error);
+    }
     console.error('Error in admin edit leave request:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
   }
 };
 
