@@ -268,7 +268,7 @@ const createPayslip = async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating payslip:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
   }
@@ -667,7 +667,7 @@ const updatePayslip = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating payslip:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -960,7 +960,7 @@ const bulkCreatePayslips = async (req, res) => {
       fs.unlinkSync(req.file.path);
     }
     console.error('Error in bulkCreatePayslips:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -1004,7 +1004,7 @@ const downloadPayslip = async (req, res) => {
     res.send(pdfBuffer);
   } catch (error) {
     console.error('Error generating payslip PDF:', error);
-    res.status(500).json({ error: 'Error generating PDF: ' + error.message });
+    res.status(500).json({ error: 'Error generating PDF' });
   }
 };
 
@@ -1229,7 +1229,7 @@ const rejectAllPayslips = async (req, res) => {
     console.error('Error rejecting all payslips:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Server error: ' + error.message 
+      error: 'Server error' 
     });
   }
 };
@@ -1310,7 +1310,7 @@ const deletePayslipsByPeriod = async (req, res) => {
     console.error('Error deleting payslips by period:', error);
     res.status(500).json({ 
       success: false, 
-      error: 'Server error: ' + error.message 
+      error: 'Server error' 
     });
   }
 };

@@ -10,6 +10,8 @@ const announcementRoutes = require('./routes/announcements');
 const feedbackRoutes = require('./routes/feedback');
 const pollRoutes = require('./routes/polls');
 const errorHandler = require('./middleware/errorHandler');
+const authMiddleware = require('./middleware/auth');
+const { isOriginAllowed } = require('./utils/cors');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const logger = require('./utils/logger');
@@ -26,29 +28,14 @@ const app = express();
 app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
 
 // ============ CORS CONFIGURATION ============
-// Allow all vercel domains and localhost
+// Allowed: localhost, https *.vercel.app, and FRONTEND_URL / ALLOWED_ORIGINS.
+// See utils/cors.js (set CORS_STRICT=true to drop the *.vercel.app wildcard).
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin
-    if (!origin) {
+    if (isOriginAllowed(origin)) {
       return callback(null, true);
     }
-    
-    // Allow localhost for development
-    if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      return callback(null, true);
-    }
-    
-    // Allow any vercel.app domain (production)
-    if (origin.includes('vercel.app')) {
-      return callback(null, true);
-    }
-    
-    // Also check environment variable
-    if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
-      return callback(null, true);
-    }
-    
+
     console.log(`CORS blocked origin: ${origin}`);
     callback(null, false);
   },
@@ -115,7 +102,8 @@ app.get('/health/db', async (req, res) => {
     await pool.query('SELECT 1');
     res.json({ status: 'healthy', database: 'connected' });
   } catch (error) {
-    res.status(500).json({ status: 'unhealthy', database: 'disconnected', error: error.message });
+    console.error('Health check database error:', error.message);
+    res.status(500).json({ status: 'unhealthy', database: 'disconnected' });
   }
 });
 
@@ -125,11 +113,13 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/payslips', payslipRoutes);
 app.use('/api/leave', leaveRoutes);
 app.use('/api/announcements', announcementRoutes);
+// Polls and notifications authenticate here, explicitly. They used to rely on
+// the feedback router's blanket router.use(authMiddleware) running first.
+app.use('/api/polls', authMiddleware, pollRoutes);
+app.use('/api/notifications', authMiddleware, notificationsRouter);
 app.use('/api', feedbackRoutes);
-app.use('/api/polls', pollRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api', uploadRoutes);
-app.use('/api/notifications', notificationsRouter);
 
 app.get('/', (req, res) => {
   res.json({ message: 'Employee Portal API is running' });

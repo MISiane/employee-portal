@@ -1,5 +1,6 @@
 const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
+const { generateTempPassword } = require('../utils/password');
 
 // Helper function to convert empty strings to null
 const sanitizeValue = (value) => {
@@ -30,6 +31,16 @@ const sanitizeNumber = (value) => {
   return isNaN(num) ? null : num;
 };
 
+
+// Postgres unique-violation (23505) -> a clear 409 instead of a bare 500, now
+// that raw error messages are no longer returned to the client.
+const duplicateMessage = (error) => {
+  if (error.code !== '23505') return null;
+  const detail = String(error.constraint || error.detail || '');
+  if (/employee_code/i.test(detail)) return 'Employee code already exists';
+  if (/email/i.test(detail)) return 'Email already exists';
+  return 'A record with the same unique value already exists';
+};
 
 // Get all employees with filters
 const getEmployees = async (req, res) => {
@@ -306,7 +317,7 @@ const createEmployee = async (req, res) => {
       return res.status(400).json({ error: 'Email already exists' });
     }
     
-    const tempPassword = Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-4);
+    const tempPassword = generateTempPassword();
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
     
     const userResult = await client.query(
@@ -369,7 +380,9 @@ const createEmployee = async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error in createEmployee:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    const dup = duplicateMessage(error);
+    if (dup) return res.status(409).json({ error: dup });
+    res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
   }
@@ -509,7 +522,9 @@ profileParamCount++;
     }
   } catch (error) {
     console.error('Error in updateEmployee:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    const dup = duplicateMessage(error);
+    if (dup) return res.status(409).json({ error: dup });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -772,7 +787,7 @@ const updateProfile = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in updateProfile:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -907,14 +922,8 @@ const resetEmployeePassword = async (req, res) => {
     
     const employee = employeeCheck.rows[0];
     
-    // Generate a new temporary password
-    // Format: Word + Number + Symbol (more user-friendly)
-    const adjectives = ['Happy', 'Sunny', 'Bright', 'Clear', 'Smart', 'Quick', 'Brave', 'Calm'];
-    const nouns = ['Sky', 'Star', 'Moon', 'Cloud', 'Tree', 'Bird', 'Fish', 'Lion'];
-    const randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
-    const randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
-    const randomNum = Math.floor(Math.random() * 900 + 100);
-    const tempPassword = `${randomAdj}${randomNoun}${randomNum}!`;
+    // Generate a new temporary password (cryptographically random, 12 characters)
+    const tempPassword = generateTempPassword();
     
     // Hash the new password
     const hashedPassword = await bcrypt.hash(tempPassword, 10);
@@ -934,7 +943,7 @@ const resetEmployeePassword = async (req, res) => {
     });
   } catch (error) {
     console.error('Error in resetEmployeePassword:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -1055,10 +1064,7 @@ const result = await pool.query(
     });
   } catch (error) {
     console.error('Error adding birthday comment:', error);
-    res.status(500).json({ 
-      error: 'Server error', 
-      details: error.message 
-    });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 

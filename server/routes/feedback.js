@@ -13,8 +13,10 @@ const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(authMiddleware);
+// All feedback and FAQ routes require authentication. This router is mounted
+// at /api, so the check is limited to its own paths instead of gating every
+// /api request that reaches it.
+router.use(['/feedback', '/faqs'], authMiddleware);
 
 // Feedback routes
 router.post('/feedback', submitFeedback);

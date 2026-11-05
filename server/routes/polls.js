@@ -124,7 +124,7 @@ router.post('/announcement/:announcementId', isAdmin, async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error creating poll:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
   }
@@ -216,7 +216,7 @@ router.post('/:pollId/vote', async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error voting:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
   }
@@ -301,7 +301,7 @@ router.put('/:pollId', isAdmin, async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error updating poll:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
   }
