@@ -32,6 +32,16 @@ const sanitizeNumber = (value) => {
 };
 
 
+// Postgres unique-violation (23505) -> a clear 409 instead of a bare 500, now
+// that raw error messages are no longer returned to the client.
+const duplicateMessage = (error) => {
+  if (error.code !== '23505') return null;
+  const detail = String(error.constraint || error.detail || '');
+  if (/employee_code/i.test(detail)) return 'Employee code already exists';
+  if (/email/i.test(detail)) return 'Email already exists';
+  return 'A record with the same unique value already exists';
+};
+
 // Get all employees with filters
 const getEmployees = async (req, res) => {
   if (req.user.role !== 'admin') {
@@ -370,6 +380,8 @@ const createEmployee = async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Error in createEmployee:', error);
+    const dup = duplicateMessage(error);
+    if (dup) return res.status(409).json({ error: dup });
     res.status(500).json({ error: 'Server error' });
   } finally {
     client.release();
@@ -510,6 +522,8 @@ profileParamCount++;
     }
   } catch (error) {
     console.error('Error in updateEmployee:', error);
+    const dup = duplicateMessage(error);
+    if (dup) return res.status(409).json({ error: dup });
     res.status(500).json({ error: 'Server error' });
   }
 };
