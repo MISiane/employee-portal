@@ -20,6 +20,11 @@ const notificationsRouter = require('./routes/notifications');
 
 const app = express();
 
+// The API runs behind Render's proxy. Without this, req.ip is the proxy's
+// address, so every user shares one rate-limit bucket. Override with
+// TRUST_PROXY (a hop count) if the hosting setup changes.
+app.set('trust proxy', Number(process.env.TRUST_PROXY) || 1);
+
 // ============ CORS CONFIGURATION ============
 // Allow all vercel domains and localhost
 const corsOptions = {
@@ -71,7 +76,7 @@ const apiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 500,
+  max: 20, // failed attempts per IP per 15 minutes (successful logins are not counted)
   skipSuccessfulRequests: true,
   message: { error: 'Too many login attempts, please try again later.' },
 });
