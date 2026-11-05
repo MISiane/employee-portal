@@ -25,6 +25,7 @@ import { ArrowPathIcon } from '@heroicons/react/24/solid';
 import api from '../api/config';
 import { getLatestAnnouncements } from '../api/announcements';
 import { getUpcomingBirthdays } from '../api/employees';
+import { previewHtml } from '../utils/sanitize';
 
 const Dashboard = () => {
   const { user } = useAuth();
@@ -481,9 +482,7 @@ const Dashboard = () => {
                     <div 
   className="mt-1 text-xs text-gray-500 line-clamp-2"
   dangerouslySetInnerHTML={{ 
-    __html: announcement.content.length > 80
-      ? `${announcement.content.substring(0, 80)}...`
-      : announcement.content
+    __html: previewHtml(announcement.content, 80)
   }}
 />
                     <p className="mt-2 text-xs text-gray-400">

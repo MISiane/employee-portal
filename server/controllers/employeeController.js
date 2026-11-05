@@ -38,6 +38,8 @@ const getEmployees = async (req, res) => {
   }
   
   const { search, department, status, page = 1, limit = 10, sort = 'created_at', order = 'DESC'} = req.query;
+  // `order` is interpolated into ORDER BY below, so only ever allow ASC or DESC
+  const sortOrder = String(order).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
   const offset = (page - 1) * limit;
   
   try {
@@ -79,28 +81,28 @@ const getEmployees = async (req, res) => {
     let orderByClause = '';
     switch(sort) {
       case 'first_name':
-        orderByClause = `ORDER BY ep.first_name ${order}, ep.last_name ${order}`;
+        orderByClause = `ORDER BY ep.first_name ${sortOrder}, ep.last_name ${sortOrder}`;
         break;
       case 'last_name':
-        orderByClause = `ORDER BY ep.last_name ${order}, ep.first_name ${order}`;
+        orderByClause = `ORDER BY ep.last_name ${sortOrder}, ep.first_name ${sortOrder}`;
         break;
       case 'employee_code':
-        orderByClause = `ORDER BY ep.employee_code ${order}`;
+        orderByClause = `ORDER BY ep.employee_code ${sortOrder}`;
         break;
       case 'department':
-        orderByClause = `ORDER BY ep.department ${order}`;
+        orderByClause = `ORDER BY ep.department ${sortOrder}`;
         break;
       case 'position':
-        orderByClause = `ORDER BY ep.position ${order}`;
+        orderByClause = `ORDER BY ep.position ${sortOrder}`;
         break;
       case 'is_active':
-        orderByClause = `ORDER BY u.is_active ${order}`;
+        orderByClause = `ORDER BY u.is_active ${sortOrder}`;
         break;
       case 'hire_date':
-        orderByClause = `ORDER BY ep.hire_date ${order}`;
+        orderByClause = `ORDER BY ep.hire_date ${sortOrder}`;
         break;
       case 'email':
-        orderByClause = `ORDER BY u.email ${order}`;
+        orderByClause = `ORDER BY u.email ${sortOrder}`;
         break;
       default:
         orderByClause = `ORDER BY ep.created_at DESC, ep.employee_code ASC`;
@@ -127,6 +129,13 @@ const getEmployees = async (req, res) => {
     if (department) {
       countQuery += ` AND ep.department = $${countParamCount}`;
       countValues.push(department);
+    }
+
+    // Keep the count consistent with the list query's status filter
+    if (status === 'active') {
+      countQuery += ` AND u.is_active = true`;
+    } else if (status === 'inactive') {
+      countQuery += ` AND u.is_active = false`;
     }
     
     const countResult = await pool.query(countQuery, countValues);
@@ -434,7 +443,20 @@ const updateEmployee = async (req, res) => {
       'date_of_birth'  // ← ADD THIS
     ];
     
-    for (const field of profileFields) {
+    // Employees may only change contact/ID details on their own record.
+    // Job and pay fields (salary, department, position, employment status,
+    // employee code, hire date, ...) stay admin-only.
+    const selfEditableFields = [
+      'phone', 'address', 'city', 'state', 'zip_code',
+      'emergency_contact_name', 'emergency_contact_phone',
+      'sss_number', 'philhealth_number', 'pagibig_number', 'tin_number',
+      'date_of_birth'
+    ];
+    const allowedProfileFields = req.user.role === 'admin'
+      ? profileFields
+      : profileFields.filter((field) => selfEditableFields.includes(field));
+
+    for (const field of allowedProfileFields) {
   if (updates[field] !== undefined) {
     let value = updates[field];
     

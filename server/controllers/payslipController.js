@@ -381,7 +381,8 @@ const getPayslips = async (req, res) => {
     let countParamCount = 1;
     
     if (req.user.role !== 'admin') {
-      countQuery += ` AND p.user_id = $${countParamCount}`;
+      // Match the list query: employees only see (and count) approved payslips
+      countQuery += ` AND p.status = 'approved' AND p.user_id = $${countParamCount}`;
       countValues.push(req.user.id);
       countParamCount++;
     } else if (user_id && user_id !== '') {
