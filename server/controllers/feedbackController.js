@@ -20,7 +20,7 @@ const submitFeedback = async (req, res) => {
     });
   } catch (error) {
     console.error('Error submitting feedback:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -35,7 +35,7 @@ const getFAQs = async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error getting FAQs:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
@@ -167,7 +167,7 @@ const updateFeedbackStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('Error updating feedback:', error);
-    res.status(500).json({ error: 'Server error: ' + error.message });
+    res.status(500).json({ error: 'Server error' });
   }
 };
 
