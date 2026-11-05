@@ -486,11 +486,17 @@ const getPayslipById = async (req, res) => {
     }
     
     const payslip = result.rows[0];
-    
-    if (req.user.role !== 'admin' && payslip.user_id !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied' });
+
+    if (req.user.role !== 'admin') {
+      if (payslip.user_id !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      // Employees only see approved payslips; drafts and rejected ones stay hidden
+      if (payslip.status !== 'approved') {
+        return res.status(404).json({ error: 'Payslip not found' });
+      }
     }
-    
+
     res.json(payslip);
   } catch (error) {
     console.error('Error getting payslip:', error);
@@ -978,11 +984,17 @@ const downloadPayslip = async (req, res) => {
     }
     
     const payslip = result.rows[0];
-    
-    if (req.user.role !== 'admin' && payslip.user_id !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied' });
+
+    if (req.user.role !== 'admin') {
+      if (payslip.user_id !== req.user.id) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      // Employees can only download approved payslips
+      if (payslip.status !== 'approved') {
+        return res.status(404).json({ error: 'Payslip not found' });
+      }
     }
-    
+
     const pdfBuffer = await PDFGenerator.generatePayslip(payslip, payslip);
     
     res.setHeader('Content-Type', 'application/pdf');

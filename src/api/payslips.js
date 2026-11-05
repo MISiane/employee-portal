@@ -34,7 +34,7 @@ export const deletePayslip = async (id) => {
 };
 
 export const getPayPeriods = async () => {
-  const response = await api.get('/payslips/periods');
+  const response = await api.get('/payslips/pay-periods');
   return response.data;
 };
 
