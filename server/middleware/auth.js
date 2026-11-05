@@ -8,14 +8,14 @@ const authMiddleware = async (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
 
   if (!token) {
-    return res.status(401).json({ error: 'No token, authorization denied' });
+    return res.status(401).json({ error: 'No token, authorization denied', code: 'AUTH_REQUIRED' });
   }
 
   let decoded;
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
   } catch (error) {
-    return res.status(401).json({ error: 'Token is not valid' });
+    return res.status(401).json({ error: 'Token is not valid', code: 'AUTH_REQUIRED' });
   }
 
   try {
@@ -26,7 +26,7 @@ const authMiddleware = async (req, res, next) => {
     const user = result.rows[0];
 
     if (!user || !user.is_active) {
-      return res.status(401).json({ error: 'Account is disabled or no longer exists' });
+      return res.status(401).json({ error: 'Account is disabled or no longer exists', code: 'AUTH_REQUIRED' });
     }
 
     // Use the current role from the database, not the one baked into the token
