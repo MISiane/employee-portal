@@ -26,6 +26,12 @@ const upload = multer({ dest: 'uploads/' });
 // All routes require authentication
 router.use(authMiddleware);
 
+// ===== TEMPLATE DOWNLOAD (MUST come before /:id/download and /:id) =====
+// Both paths are served: the frontend calls /template, older code used
+// /template/download. Registered first so they are not swallowed by /:id routes.
+router.get('/template', downloadTemplate);
+router.get('/template/download', downloadTemplate);
+
 // Download PDF (specific path)
 router.get('/:id/download', downloadPayslip);
 
@@ -62,9 +68,6 @@ router.get('/:id', getPayslipById);
 router.post('/', createPayslip);
 router.put('/:id', updatePayslip);
 router.delete('/:id', deletePayslip);
-
-// ===== TEMPLATE DOWNLOAD =====
-router.get('/template/download', downloadTemplate);
 
 // ===== HELPER FUNCTIONS =====
 // Download Excel template
