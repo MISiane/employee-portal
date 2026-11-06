@@ -1,0 +1,38 @@
+/* Christmas mode (see utils/festive.js). Everything is scoped to html[data-festive='on'],
+   so with it off the portal looks exactly as before. */
+
+/* Icy background so white snow can be seen */
+html[data-festive='on'] .portal-root {
+  background-image: linear-gradient(135deg, #d3e2f4 0%, #c4d4ec 50%, #d6cdec 100%);
+}
+
+/* Snow drift hanging along the bottom edge of the header */
+html[data-festive='on'] .festive-header {
+  position: sticky;
+  overflow: visible;
+}
+html[data-festive='on'] .festive-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -9px;
+  height: 10px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 9px 0, #fff 8px, transparent 8.5px) 0 0 / 18px 10px repeat-x,
+    radial-gradient(circle at 21px 0, #fff 5px, transparent 5.5px) 0 0 / 30px 7px repeat-x;
+  filter: drop-shadow(0 1px 1px rgba(70, 90, 150, 0.25));
+}
+
+/* Twinkling bulbs */
+html[data-festive='on'] .festive-bulb {
+  filter: drop-shadow(0 0 3px currentColor);
+}
+html[data-festive='on'][data-festive-motion='full'] .festive-bulb {
+  animation: festive-twinkle 1.8s ease-in-out infinite;
+}
+@keyframes festive-twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
