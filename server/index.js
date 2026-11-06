@@ -138,16 +138,30 @@ app.use(errorHandler);
 // ============ START SERVER ============
 const PORT = process.env.PORT || 5000;
 
-// Apply the schema migrations first. If that fails (for example the database user
-// may not alter tables) the server still starts and leave requests keep going
-// straight to the admin; the supervisor endpoints answer 503 until it is fixed.
-ensureSchema()
-  .then((files) => logger.info(`Schema up to date (${files.join(', ')})`))
-  .catch((error) => logger.error(`Schema setup failed, supervisor approval disabled: ${error.message}`))
-  .finally(() => {
-    app.listen(PORT, () => {
-      logger.info(`🚀 Server is running on port ${PORT}`);
-      logger.info(`📡 API URL: http://localhost:${PORT}/api`);
-      logger.info(`🌐 CORS enabled for localhost and vercel.app domains`);
-    });
-  });
+// Apply the schema migrations in the background, retrying: the database is often
+// slow to wake up right after a deploy (connection timeouts), and a single failed
+// attempt must not leave supervisor approval switched off until the next restart.
+// The server listens straight away. While the migration has not succeeded, leave
+// requests go to the admin as before and the supervisor endpoints answer 503.
+// console.* is used (not logger) because the production logger only writes to files.
+const applySchemaWithRetry = async (attempt = 1) => {
+  const MAX_ATTEMPTS = 12;
+  try {
+    const files = await ensureSchema();
+    console.log(`✅ Schema up to date (${files.join(', ')}) - supervisor approval enabled`);
+  } catch (error) {
+    if (attempt >= MAX_ATTEMPTS) {
+      console.error(`❌ Schema setup failed after ${attempt} attempts, supervisor approval stays disabled: ${error.message}`);
+      return;
+    }
+    console.error(`Schema setup attempt ${attempt} failed (${error.message}); retrying in 10s`);
+    setTimeout(() => applySchemaWithRetry(attempt + 1), 10000);
+  }
+};
+
+app.listen(PORT, () => {
+  logger.info(`🚀 Server is running on port ${PORT}`);
+  logger.info(`📡 API URL: http://localhost:${PORT}/api`);
+  logger.info(`🌐 CORS enabled for localhost and vercel.app domains`);
+  applySchemaWithRetry();
+});
