@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import SantaHat from './SantaHat';
 import { 
   CurrencyDollarIcon,
   HomeIcon,
@@ -93,7 +94,8 @@ const employeeNavigation = [
     <>
       {/* Header */}
       <div className="flex h-16 items-center justify-start gap-3 border-b border-[#993399] bg-[#800080] px-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm">
+        <div className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm">
+          <SantaHat />
           <img
             src="https://lemonethotel.ph/wp-content/uploads/2025/12/le-monet-logo-1024x909.png"
             alt="Lemonet Logo"

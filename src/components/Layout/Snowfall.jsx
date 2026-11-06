@@ -1,63 +1,34 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
+import { useFestive, setFestive, festiveAvailable, prefersReducedMotion } from '../../utils/festive';
 
-// Christmas snow. Gentle, never blocks clicks, and easy to switch off.
-//
-// - Shows automatically from 1 November to 6 January.
-// - Anyone can turn it off with the snowflake button (remembered in this browser).
-// - Add ?snow=on to any page address to preview it out of season, ?snow=off to hide it.
-// - Devices set to "reduce motion" (some Windows/Android power or accessibility
-//   settings) start with snow off and slower flakes, but the button still lets them opt in.
+// Falling snow plus the on/off button for all Christmas decorations
+// (see utils/festive.js for when it is on).
 
-const STORAGE_KEY = 'portal_snow';
-
-// The portal background is pale lilac, so pure white snow disappears. Flakes are
-// soft violet/blue with a white rim, and the snowflake symbols are drawn in the same tints.
-const TINTS = ['rgba(139,92,246,0.75)', 'rgba(99,102,241,0.7)', 'rgba(168,85,247,0.7)', 'rgba(96,165,250,0.8)'];
-
-const inSeason = (now = new Date()) => {
-  const month = now.getMonth(); // 0 = January
-  return month === 10 || month === 11 || (month === 0 && now.getDate() <= 6);
-};
-
-const read = () => {
-  try {
-    return localStorage.getItem(STORAGE_KEY);
-  } catch (e) {
-    return null;
+// Six-armed crystal with small side branches, drawn as lines
+const drawCrystal = (ctx, x, y, size, rotation) => {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rotation);
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    ctx.save();
+    ctx.rotate((i * Math.PI) / 3);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, -size);
+    ctx.moveTo(0, -size * 0.55);
+    ctx.lineTo(size * 0.28, -size * 0.8);
+    ctx.moveTo(0, -size * 0.55);
+    ctx.lineTo(-size * 0.28, -size * 0.8);
+    ctx.restore();
   }
-};
-const write = (value) => {
-  try {
-    localStorage.setItem(STORAGE_KEY, value);
-  } catch (e) {
-    /* storage unavailable: the choice just lasts until reload */
-  }
+  ctx.stroke();
+  ctx.restore();
 };
 
 const Snowfall = () => {
   const canvasRef = useRef(null);
-  const reducedMotion =
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  const [enabled, setEnabled] = useState(() => {
-    const param = new URLSearchParams(window.location.search).get('snow');
-    if (param === 'on') {
-      write('on');
-      return true;
-    }
-    if (param === 'off') {
-      write('off');
-      return false;
-    }
-    const saved = read();
-    if (saved === 'on') return true;
-    if (saved === 'off') return false;
-    return inSeason() && !reducedMotion;
-  });
-
-  // Out of season and never switched on: show nothing, not even the button
-  const available = enabled || inSeason() || read() === 'on';
+  const enabled = useFestive();
+  const reducedMotion = prefersReducedMotion();
 
   useEffect(() => {
     if (!enabled) return undefined;
@@ -69,17 +40,21 @@ const Snowfall = () => {
     let frame = null;
     let flakes = [];
 
-    const makeFlake = (anywhere) => ({
-      x: Math.random() * width,
-      y: anywhere ? Math.random() * height : -10,
-      r: 1.8 + Math.random() * 2.6,
-      // About a third are little snowflake symbols, the rest round flakes
-      glyph: Math.random() < 0.33,
-      tint: TINTS[Math.floor(Math.random() * TINTS.length)],
-      speed: (0.4 + Math.random() * 0.9) * (reducedMotion ? 0.4 : 1),
-      drift: Math.random() * Math.PI * 2,
-      sway: 0.3 + Math.random() * 0.6,
-    });
+    const makeFlake = (anywhere) => {
+      const crystal = Math.random() < 0.4;
+      return {
+        crystal,
+        x: Math.random() * width,
+        y: anywhere ? Math.random() * height : -12,
+        // Crystals are bigger; dots vary so there is a sense of depth
+        r: crystal ? 4 + Math.random() * 6 : 1.5 + Math.random() * 3.2,
+        speed: (0.35 + Math.random() * 0.9) * (reducedMotion ? 0.4 : 1),
+        drift: Math.random() * Math.PI * 2,
+        sway: 0.25 + Math.random() * 0.55,
+        angle: Math.random() * Math.PI,
+        spin: (Math.random() - 0.5) * 0.02,
+      };
+    };
 
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -90,40 +65,42 @@ const Snowfall = () => {
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // Fewer flakes on small screens
-      const count = Math.round(Math.min(140, Math.max(40, (width * height) / 11000)));
+      const count = Math.round(Math.min(130, Math.max(40, (width * height) / 12000)));
       flakes = Array.from({ length: count }, () => makeFlake(true));
     };
 
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
+      ctx.lineCap = 'round';
       for (const f of flakes) {
         f.y += f.speed;
         f.drift += 0.012;
         f.x += Math.sin(f.drift) * f.sway;
-        if (f.y > height + 10) Object.assign(f, makeFlake(false));
-        if (f.x > width + 10) f.x = -10;
-        if (f.x < -10) f.x = width + 10;
-        if (f.glyph) {
-          ctx.font = `${Math.round(f.r * 4.5)}px sans-serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = f.tint;
-          ctx.fillText('\u2744\uFE0E', f.x, f.y);
+        f.angle += f.spin;
+        if (f.y > height + 14) Object.assign(f, makeFlake(false));
+        if (f.x > width + 14) f.x = -14;
+        if (f.x < -14) f.x = width + 14;
+
+        // A faint blue-grey shadow makes white readable on the pale icy background
+        ctx.shadowColor = 'rgba(70,90,150,0.45)';
+        ctx.shadowBlur = 3;
+        if (f.crystal) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.97)';
+          ctx.lineWidth = f.r > 7 ? 1.6 : 1.2;
+          drawCrystal(ctx, f.x, f.y, f.r, f.angle);
         } else {
+          // Soft round flake: opaque centre fading to the edge, so it reads as snow
+          const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r);
+          g.addColorStop(0, 'rgba(255,255,255,1)');
+          g.addColorStop(0.65, 'rgba(255,255,255,0.95)');
+          g.addColorStop(1, 'rgba(255,255,255,0.35)');
+          ctx.fillStyle = g;
           ctx.beginPath();
           ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-          // Soft tinted dot with a white rim: reads as snow on both the lilac
-          // background and white cards
-          ctx.fillStyle = f.tint;
-          ctx.globalAlpha = 0.55;
           ctx.fill();
-          ctx.globalAlpha = 1;
-          ctx.lineWidth = 1;
-          ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-          ctx.stroke();
         }
       }
+      ctx.shadowBlur = 0;
       frame = requestAnimationFrame(draw);
     };
 
@@ -148,13 +125,13 @@ const Snowfall = () => {
     };
   }, [enabled, reducedMotion]);
 
-  if (!available) return null;
+  if (!festiveAvailable()) return null;
 
-  const toggle = () => {
-    const next = !enabled;
-    setEnabled(next);
-    write(next ? 'on' : 'off');
-  };
+  const label = enabled
+    ? 'Turn Christmas decorations off'
+    : reducedMotion
+      ? 'Turn Christmas decorations on (your device is set to reduce motion)'
+      : 'Turn Christmas decorations on';
 
   return (
     <>
@@ -166,9 +143,9 @@ const Snowfall = () => {
         />
       )}
       <button
-        onClick={toggle}
-        title={enabled ? 'Turn snow off' : reducedMotion ? 'Turn snow on (your device is set to reduce motion)' : 'Turn snow on'}
-        aria-label={enabled ? 'Turn snow off' : 'Turn snow on'}
+        onClick={() => setFestive(!enabled)}
+        title={label}
+        aria-label={label}
         aria-pressed={enabled}
         className={`fixed bottom-6 right-24 z-40 flex h-10 w-10 items-center justify-center rounded-full border text-lg shadow transition ${
           enabled
