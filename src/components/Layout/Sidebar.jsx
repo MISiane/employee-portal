@@ -76,7 +76,17 @@ const employeeNavigation = [
     { name: 'Support', href: '/support', icon: ChatBubbleLeftIcon },
      
 ];
-  const navigation = isAdmin ? adminNavigation : employeeNavigation;
+  // Employees who supervise a department also get the team approval page
+  const isSupervisor = !isAdmin && (user?.supervised_departments?.length || 0) > 0;
+  const supervisorItem = { name: 'Team Leave Requests', href: '/team-leave-requests', icon: CalendarIcon };
+  const employeeItems = isSupervisor
+    ? [
+        ...employeeNavigation.slice(0, 4),
+        supervisorItem,
+        ...employeeNavigation.slice(4),
+      ]
+    : employeeNavigation;
+  const navigation = isAdmin ? adminNavigation : employeeItems;
 
   // Sidebar content component
   const SidebarContent = () => (
