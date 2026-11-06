@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 // - Shows automatically from 1 November to 6 January.
 // - Anyone can turn it off with the snowflake button (remembered in this browser).
 // - Add ?snow=on to any page address to preview it out of season, ?snow=off to hide it.
-// - Not shown at all when the device asks for reduced motion.
+// - Devices set to "reduce motion" (some Windows/Android power or accessibility
+//   settings) start with snow off and slower flakes, but the button still lets them opt in.
 
 const STORAGE_KEY = 'portal_snow';
 
@@ -31,6 +32,10 @@ const write = (value) => {
 
 const Snowfall = () => {
   const canvasRef = useRef(null);
+  const reducedMotion =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
   const [enabled, setEnabled] = useState(() => {
     const param = new URLSearchParams(window.location.search).get('snow');
     if (param === 'on') {
@@ -44,17 +49,14 @@ const Snowfall = () => {
     const saved = read();
     if (saved === 'on') return true;
     if (saved === 'off') return false;
-    return inSeason();
+    return inSeason() && !reducedMotion;
   });
 
-  const reducedMotion =
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   // Out of season and never switched on: show nothing, not even the button
   const available = enabled || inSeason() || read() === 'on';
 
   useEffect(() => {
-    if (!enabled || reducedMotion) return undefined;
+    if (!enabled) return undefined;
     const canvas = canvasRef.current;
     if (!canvas) return undefined;
     const ctx = canvas.getContext('2d');
@@ -67,7 +69,7 @@ const Snowfall = () => {
       x: Math.random() * width,
       y: anywhere ? Math.random() * height : -10,
       r: 1 + Math.random() * 2.6,
-      speed: 0.4 + Math.random() * 0.9,
+      speed: (0.4 + Math.random() * 0.9) * (reducedMotion ? 0.4 : 1),
       drift: Math.random() * Math.PI * 2,
       sway: 0.3 + Math.random() * 0.6,
     });
@@ -127,7 +129,7 @@ const Snowfall = () => {
     };
   }, [enabled, reducedMotion]);
 
-  if (!available || reducedMotion) return null;
+  if (!available) return null;
 
   const toggle = () => {
     const next = !enabled;
@@ -146,7 +148,7 @@ const Snowfall = () => {
       )}
       <button
         onClick={toggle}
-        title={enabled ? 'Turn snow off' : 'Turn snow on'}
+        title={enabled ? 'Turn snow off' : reducedMotion ? 'Turn snow on (your device is set to reduce motion)' : 'Turn snow on'}
         aria-label={enabled ? 'Turn snow off' : 'Turn snow on'}
         aria-pressed={enabled}
         className={`fixed bottom-6 right-24 z-40 flex h-10 w-10 items-center justify-center rounded-full border text-lg shadow transition ${
