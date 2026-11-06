@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 // Christmas snow. Gentle, never blocks clicks, and easy to switch off.
 //
-// - Shows automatically from 1 December to 6 January.
+// - Shows automatically from 1 November to 6 January.
 // - Anyone can turn it off with the snowflake button (remembered in this browser).
 // - Add ?snow=on to any page address to preview it out of season, ?snow=off to hide it.
 // - Not shown at all when the device asks for reduced motion.
@@ -11,7 +11,7 @@ const STORAGE_KEY = 'portal_snow';
 
 const inSeason = (now = new Date()) => {
   const month = now.getMonth(); // 0 = January
-  return month === 11 || (month === 0 && now.getDate() <= 6);
+  return month === 10 || month === 11 || (month === 0 && now.getDate() <= 6);
 };
 
 const read = () => {
