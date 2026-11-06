@@ -23,6 +23,7 @@ import AdminFeedback from './pages/AdminFeedback';
 import PendingPayslips from './pages/PendingPayslips';
 import EmployeeDirectory from './pages/EmployeeDirectory';
 import MobileAppPage from './pages/MobileAppPage';
+import TeamLeaveRequests from './pages/TeamLeaveRequests';
 
 // Private Route Component
 const PrivateRoute = ({ children }) => {
@@ -85,6 +86,7 @@ function App() {
               <Route path="my-attendance" element={<MyAttendance />} />
               <Route path="my-leave-requests" element={<MyLeaveRequests />} />
               <Route path="my-payslips" element={<MyPayslips />} />
+              <Route path="team-leave-requests" element={<TeamLeaveRequests />} />
               
               {/* Shared Routes */}
               <Route path="announcements" element={<Announcements />} />

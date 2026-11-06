@@ -75,6 +75,8 @@ const fetchNotifications = async () => {
       time: new Date(n.created_at).toLocaleString(),
       read: n.is_read,
       link: n.type === 'leave_status' ? '/my-leave-requests' : 
+            n.type === 'leave_supervisor' ? '/team-leave-requests' :
+            n.type === 'leave_admin' ? '/leave-requests' :
             n.type === 'payslip' ? '/my-payslips' : '/announcements',
     }));
     

@@ -45,7 +45,14 @@ export const AuthProvider = ({ children }) => {
       const data = await apiLogin(email, password);
       localStorage.setItem('token', data.token);
       setToken(data.token);
-      setUser(data.user);
+      // The login response does not carry supervised_departments; load the full profile
+      let fullUser = data.user;
+      try {
+        fullUser = await getCurrentUser();
+      } catch (profileError) {
+        console.error('Could not load full profile after login:', profileError);
+      }
+      setUser(fullUser);
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
