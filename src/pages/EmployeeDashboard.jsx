@@ -110,7 +110,7 @@ const EmployeeDashboard = () => {
       setAnnouncements(allAnnouncements.slice(0, 3));
 
       const pendingCount = (leaveRequestsData.leaveRequests || []).filter(
-        (l) => l.status === "pending",
+        (l) => l.status === "pending" || l.status === "pending_supervisor",
       ).length;
 
       const today = new Date();
@@ -758,7 +758,11 @@ const EmployeeDashboard = () => {
                               : "bg-yellow-100 text-yellow-800"
                         }`}
                       >
-                        {leave.status.toUpperCase()}
+                        {leave.status === "pending_supervisor"
+                          ? "WAITING FOR SUPERVISOR"
+                          : leave.status === "pending" && leave.supervisor_decision === "approved"
+                            ? "WAITING FOR ADMIN"
+                            : leave.status.toUpperCase()}
                       </span>
                     </div>
                   </div>

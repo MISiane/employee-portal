@@ -401,25 +401,51 @@ const handleSaveEdit = async () => {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
-  const getStatusBadge = (status) => {
+  // The admin can act on a request that is waiting for the admin ("pending") and,
+  // as an override, on one still waiting for the supervisor.
+  const isActionable = (status) => status === "pending" || status === "pending_supervisor";
+
+  const overrideTag = (request) =>
+    request?.admin_override ? (
+      <span
+        className="ml-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-800"
+        title="The admin decided this before the department supervisor did"
+      >
+        Admin override
+      </span>
+    ) : null;
+
+  const getStatusBadge = (status, request) => {
     switch (status) {
+      case "pending_supervisor":
+        return (
+          <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800">
+            Waiting for supervisor
+          </span>
+        );
       case "approved":
         return (
-          <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
-            Approved
-          </span>
+          <>
+            <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+              Approved
+            </span>
+            {overrideTag(request)}
+          </>
         );
       case "pending":
         return (
           <span className="rounded-full bg-[#f3e8a7] px-2.5 py-1 text-xs font-medium text-[#7a5d00]">
-            Pending
+            {request?.supervisor_decision === "approved" ? "Pending (supervisor approved)" : "Pending"}
           </span>
         );
       case "rejected":
         return (
-          <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-800">
-            Rejected
-          </span>
+          <>
+            <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-800">
+              {request?.supervisor_decision === "rejected" ? "Rejected by supervisor" : "Rejected"}
+            </span>
+            {overrideTag(request)}
+          </>
         );
       default:
         return (
@@ -559,7 +585,8 @@ const handleSaveEdit = async () => {
               className="w-full rounded-xl border border-[#e6cce6] bg-white px-3 py-2 text-gray-700 focus:border-[#800080] focus:outline-none focus:ring-2 focus:ring-[#800080]/20"
             >
               <option value="">All Status</option>
-              <option value="pending">Pending</option>
+              <option value="pending_supervisor">Waiting for supervisor</option>
+              <option value="pending">Pending (for admin)</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
@@ -638,7 +665,7 @@ const handleSaveEdit = async () => {
                         </p>
                       </div>
                     </div>
-                    {getStatusBadge(request.status)}
+                    {getStatusBadge(request.status, request)}
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-sm mb-3">
@@ -755,14 +782,14 @@ const handleSaveEdit = async () => {
                       }}
                       className="p-2 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition"
                       title={
-                        request.status !== "pending"
+                        !isActionable(request.status)
                           ? "Admin override edit"
                           : "Edit"
                       }
                     >
                       <PencilIcon className="h-4 w-4" />
                     </button>
-                    {request.status === "pending" && (
+                    {isActionable(request.status) && (
                       <>
                         <button
                           onClick={(e) => {
@@ -953,7 +980,7 @@ const handleSaveEdit = async () => {
                         </div>
                       </td>
                       <td className="px-4 lg:px-6 py-4">
-                        {getStatusBadge(request.status)}
+                        {getStatusBadge(request.status, request)}
                         {getPayTypeBadge(request.leave_pay_type)}
                       </td>
                       <td className="px-4 lg:px-6 py-4 text-right">
@@ -968,14 +995,14 @@ const handleSaveEdit = async () => {
                           onClick={() => handleEditRequest(request)}
                           className="p-1.5 mr-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition"
                           title={
-                            request.status !== "pending"
+                            !isActionable(request.status)
                               ? "Admin override edit"
                               : "Edit"
                           }
                         >
                           <PencilIcon className="h-4 w-4" />
                         </button>
-                        {request.status === "pending" && (
+                        {isActionable(request.status) && (
                           <>
                             <button
                               onClick={() => handleApproveClick(request)}
@@ -1096,8 +1123,24 @@ const handleSaveEdit = async () => {
 
                 <div className="text-sm text-gray-500">Status:</div>
                 <div className="text-sm font-medium">
-                  {getStatusBadge(selectedRequest.status)}
+                  {getStatusBadge(selectedRequest.status, selectedRequest)}
                 </div>
+
+                {selectedRequest.supervisor_decision && (
+                  <>
+                    <div className="text-sm text-gray-500">Supervisor:</div>
+                    <div className="text-sm font-medium text-gray-800">
+                      {selectedRequest.supervisor_decision === "approved" ? "Approved" : "Rejected"}
+                      {selectedRequest.supervisor_first_name &&
+                        ` by ${selectedRequest.supervisor_first_name} ${selectedRequest.supervisor_last_name || ""}`}
+                      {selectedRequest.supervisor_notes && (
+                        <span className="mt-1 block text-xs font-normal text-gray-600">
+                          "{selectedRequest.supervisor_notes}"
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 <div className="text-sm text-gray-500">Date Filed:</div>
                 <div className="text-sm font-medium text-gray-800">
@@ -1231,7 +1274,7 @@ const handleSaveEdit = async () => {
                               <p className="text-xs text-yellow-700">
                                 No medical certificate has been uploaded for
                                 this sick leave request.
-                                {selectedRequest.status === "pending" && (
+                                {isActionable(selectedRequest.status) && (
                                   <span className="block mt-1">
                                     The employee can still upload one by editing
                                     this request.
@@ -1282,7 +1325,7 @@ const handleSaveEdit = async () => {
             </div>
 
             <div className="mt-6 flex justify-end space-x-3">
-              {selectedRequest.status === "pending" && (
+              {isActionable(selectedRequest.status) && (
                 <>
                   <button
                     onClick={() => {
@@ -1342,6 +1385,12 @@ const handleSaveEdit = async () => {
               </div>
             ) : (
               <>
+                {selectedRequest.status === "pending_supervisor" && (
+                  <div className="mb-4 rounded-lg border-l-4 border-purple-500 bg-purple-50 p-3 text-sm text-purple-900">
+                    This request is still waiting for the department supervisor. Approving it
+                    now is an admin override and will be recorded.
+                  </div>
+                )}
                 <div className="mb-4 space-y-3">
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="text-gray-500">Employee:</div>
@@ -1629,7 +1678,7 @@ const handleSaveEdit = async () => {
           <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-[24px] border border-[#e6cce6] bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-800">
-                {selectedRequest.status !== "pending"
+                {!isActionable(selectedRequest.status)
                   ? "Admin Override: Edit Leave Request"
                   : "Edit Leave Request"}
               </h3>
@@ -1642,7 +1691,7 @@ const handleSaveEdit = async () => {
             </div>
 
             {/* Warning for approved/rejected requests */}
-            {selectedRequest.status !== "pending" && (
+            {!isActionable(selectedRequest.status) && (
               <div className="mb-4 rounded-lg bg-yellow-50 border-l-4 border-yellow-500 p-3">
                 <div className="flex items-start gap-2">
                   <XCircleIcon className="h-5 w-5 text-yellow-600 mt-0.5" />
@@ -1806,11 +1855,12 @@ const handleSaveEdit = async () => {
                   }
                   className="w-full rounded-lg border border-[#e6cce6] px-3 py-2 focus:border-[#800080] focus:outline-none focus:ring-2 focus:ring-[#800080]/20"
                 >
-                  <option value="pending">Pending</option>
+                  <option value="pending_supervisor">Waiting for supervisor</option>
+                  <option value="pending">Pending (for admin)</option>
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>
                 </select>
-                {selectedRequest.status !== "pending" &&
+                {!isActionable(selectedRequest.status) &&
                   editFormData.status === "pending" && (
                     <p className="mt-1 text-xs text-amber-600">
                       Setting back to pending will clear approval fields and

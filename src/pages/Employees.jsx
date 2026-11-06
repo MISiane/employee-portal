@@ -15,13 +15,16 @@ import {
   ArrowsUpDownIcon,
   KeyIcon,
   ClipboardDocumentIcon,
-  CheckIcon
+  CheckIcon,
+  UserGroupIcon
 } from '@heroicons/react/24/outline';
 import { getEmployees, deleteEmployee, getDepartments, updateEmployee, resetEmployeePassword } from '../api/employees';
 import { useAuth } from '../context/AuthContext';
 import EmployeeModal from '../components/Employees/EmployeeModal';
 import DeleteConfirmModal from '../components/Employees/DeleteConfirmModal';
 import ReactivateConfirmModal from '../components/Employees/ReactivateConfirmModal';
+import SupervisorModal from '../components/Employees/SupervisorModal';
+import { getSupervisorAssignments } from '../api/leave';
 import { getDepartmentStyle } from '../utils/departments';
 
 const Employees = () => {
@@ -53,6 +56,10 @@ const Employees = () => {
     employeeEmail: ''
   });
   const [copied, setCopied] = useState(false);
+  // user id -> departments that person supervises
+  const [supervisorMap, setSupervisorMap] = useState({});
+  const [showSupervisorModal, setShowSupervisorModal] = useState(false);
+  const [supervisorNotice, setSupervisorNotice] = useState('');
 
   const isAdmin = user?.role === 'admin';
 
@@ -60,6 +67,7 @@ const Employees = () => {
     if (isAdmin) {
       fetchEmployees();
       fetchDepartments();
+      fetchSupervisors();
     }
   }, [currentPage, selectedDepartment, selectedStatus, sortField, sortDirection, isAdmin]);
 
@@ -84,6 +92,37 @@ const Employees = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchSupervisors = async () => {
+    try {
+      const data = await getSupervisorAssignments();
+      const map = {};
+      (data.supervisors || []).forEach((s) => {
+        map[s.user_id] = s.departments || [];
+      });
+      setSupervisorMap(map);
+    } catch (error) {
+      // Not available (e.g. migration not applied): the page works without it
+      setSupervisorMap({});
+    }
+  };
+
+  const handleSupervisorClick = (emp) => {
+    setSelectedEmployee(emp);
+    setShowSupervisorModal(true);
+  };
+
+  const handleSupervisorSaved = (result) => {
+    setShowSupervisorModal(false);
+    setSelectedEmployee(null);
+    const count = result.departments?.length || 0;
+    setSupervisorNotice(
+      (count > 0 ? `Supervisor updated (${result.departments.join(', ')}).` : 'Supervisor role removed.') +
+        (result.requeued ? ` ${result.requeued} waiting request(s) moved to the admin.` : '')
+    );
+    setTimeout(() => setSupervisorNotice(''), 8000);
+    fetchSupervisors();
   };
 
   const fetchDepartments = async () => {
@@ -407,6 +446,15 @@ const Employees = () => {
                     </button>
                     {emp.is_active && (
                       <button 
+                        onClick={() => handleSupervisorClick(emp)} 
+                        className={`p-1.5 transition rounded-lg hover:bg-teal-50 ${supervisorMap[emp.id]?.length ? 'text-teal-700' : 'text-teal-400 hover:text-teal-700'}`}
+                        title={supervisorMap[emp.id]?.length ? `Supervisor of ${supervisorMap[emp.id].join(', ')}` : 'Set as department supervisor'}
+                      >
+                        <UserGroupIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                    {emp.is_active && (
+                      <button 
                         onClick={() => handleResetPassword(emp)} 
                         className="p-1.5 text-yellow-600 hover:text-yellow-800 transition rounded-lg hover:bg-yellow-50"
                         title="Reset Password"
@@ -557,6 +605,14 @@ const Employees = () => {
                           {emp.department}
                         </span>
                       ) : '-'}
+                      {supervisorMap[emp.id]?.length > 0 && (
+                        <span
+                          className="ml-2 rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-800"
+                          title={`Supervisor of ${supervisorMap[emp.id].join(', ')}`}
+                        >
+                          Supervisor
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {emp.position || '-'}
@@ -579,6 +635,15 @@ const Employees = () => {
                       >
                         <PencilIcon className="h-4 w-4 lg:h-5 lg:w-5" />
                       </button>
+                      {emp.is_active && (
+                        <button 
+                          onClick={() => handleSupervisorClick(emp)} 
+                          className={`p-1.5 lg:p-2 transition rounded-lg hover:bg-teal-50 ${supervisorMap[emp.id]?.length ? 'text-teal-700' : 'text-teal-400 hover:text-teal-700'}`}
+                          title={supervisorMap[emp.id]?.length ? `Supervisor of ${supervisorMap[emp.id].join(', ')}` : 'Set as department supervisor'}
+                        >
+                          <UserGroupIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                        </button>
+                      )}
                       {emp.is_active && (
                         <button 
                           onClick={() => handleResetPassword(emp)} 
@@ -707,6 +772,24 @@ const Employees = () => {
           </div>
         </div>
       )}
+
+      {supervisorNotice && (
+        <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-900 shadow-lg">
+          {supervisorNotice}
+        </div>
+      )}
+
+      <SupervisorModal
+        isOpen={showSupervisorModal}
+        onClose={() => {
+          setShowSupervisorModal(false);
+          setSelectedEmployee(null);
+        }}
+        onSaved={handleSupervisorSaved}
+        employee={selectedEmployee}
+        departments={departments}
+        current={selectedEmployee ? supervisorMap[selectedEmployee.id] || [] : []}
+      />
 
       {/* Modals */}
       <EmployeeModal
