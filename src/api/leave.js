@@ -31,3 +31,14 @@ export const decideAsSupervisor = async (id, decision, notes) => {
   const response = await api.put(`/leave/requests/${id}/supervisor`, { decision, notes });
   return response.data;
 };
+
+// Admin: who supervises which departments
+export const getSupervisorAssignments = async () => {
+  const response = await api.get('/leave/supervisors');
+  return response.data;
+};
+
+export const setSupervisorDepartments = async (userId, departments) => {
+  const response = await api.put(`/leave/supervisors/${userId}`, { departments });
+  return response.data;
+};

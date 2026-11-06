@@ -77,7 +77,9 @@ const MyLeaveRequests = () => {
 
       const requests = response.data.leaveRequests;
       setStats({
-        pending: requests.filter((r) => r.status === "pending").length,
+        pending: requests.filter(
+          (r) => r.status === "pending" || r.status === "pending_supervisor"
+        ).length,
         approved: requests.filter((r) => r.status === "approved").length,
         rejected: requests.filter((r) => r.status === "rejected").length,
         total: requests.length,
@@ -101,8 +103,17 @@ const MyLeaveRequests = () => {
     alert("Leave request updated successfully!");
   };
 
-  const getStatusBadge = (status) => {
+  // A request can still be edited while it is waiting for the supervisor or the admin
+  const isEditable = (status) => status === "pending" || status === "pending_supervisor";
+
+  const getStatusBadge = (status, request) => {
     switch (status) {
+      case "pending_supervisor":
+        return (
+          <span className="rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800">
+            Waiting for supervisor
+          </span>
+        );
       case "approved":
         return (
           <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">
@@ -112,13 +123,13 @@ const MyLeaveRequests = () => {
       case "pending":
         return (
           <span className="rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800">
-            Pending
+            {request?.supervisor_decision === "approved" ? "Waiting for admin" : "Pending"}
           </span>
         );
       case "rejected":
         return (
           <span className="rounded-full bg-red-100 px-2 py-1 text-xs font-medium text-red-800">
-            Rejected
+            {request?.supervisor_decision === "rejected" ? "Rejected by supervisor" : "Rejected"}
           </span>
         );
       default:
@@ -314,7 +325,7 @@ const MyLeaveRequests = () => {
                           request.status,
                         )}
                       </div>
-                      {getStatusBadge(request.status)}
+                      {getStatusBadge(request.status, request)}
                     </div>
 
                     {/* Leave Details Grid */}
@@ -398,7 +409,7 @@ const MyLeaveRequests = () => {
                     >
                       <EyeIcon className="h-4 w-4" />
                     </button>
-                    {request.status === "pending" && (
+                    {isEditable(request.status) && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -511,7 +522,7 @@ const MyLeaveRequests = () => {
 
                       {/* Status + Pay Type */}
                       <td className="px-4 py-4">
-                        <div>{getStatusBadge(request.status)}</div>
+                        <div>{getStatusBadge(request.status, request)}</div>
                         {request.status === "approved" &&
                           request.leave_pay_type &&
                           request.leave_pay_type !== "pending" && (
@@ -563,7 +574,7 @@ const MyLeaveRequests = () => {
                         >
                           <EyeIcon className="h-4 w-4" />
                         </button>
-                        {request.status === "pending" && (
+                        {isEditable(request.status) && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -630,7 +641,7 @@ const MyLeaveRequests = () => {
                 </div>
 
                 <div className="text-gray-500">Status:</div>
-                <div>{getStatusBadge(selectedRequest.status)}</div>
+                <div>{getStatusBadge(selectedRequest.status, selectedRequest)}</div>
 
                 {selectedRequest.status === "approved" && (
                   <>
@@ -822,7 +833,7 @@ const MyLeaveRequests = () => {
                             ⚠️ No medical certificate uploaded for this sick
                             leave.
                           </p>
-                          {selectedRequest.status === "pending" && (
+                          {isEditable(selectedRequest.status) && (
                             <p className="text-xs text-amber-600 mt-1">
                               You can edit this request to upload a medical
                               certificate.
@@ -835,19 +846,36 @@ const MyLeaveRequests = () => {
                 </div>
               )}
 
-              {selectedRequest.status === "pending" && (
+              {selectedRequest.supervisor_decision && (
+                <div className="mt-4 rounded-lg bg-blue-50 p-3">
+                  <p className="text-xs font-medium text-blue-700 mb-1">
+                    Supervisor{" "}
+                    {selectedRequest.supervisor_decision === "approved" ? "approved" : "rejected"}
+                    {selectedRequest.supervisor_first_name &&
+                      ` (${selectedRequest.supervisor_first_name} ${selectedRequest.supervisor_last_name || ""})`}
+                  </p>
+                  {selectedRequest.supervisor_notes && (
+                    <p className="text-sm text-blue-800">{selectedRequest.supervisor_notes}</p>
+                  )}
+                </div>
+              )}
+
+              {isEditable(selectedRequest.status) && (
                 <div className="mt-4 rounded-lg bg-yellow-50 p-3 text-center">
                   <ClockIcon className="mx-auto mb-1 h-5 w-5 text-yellow-500" />
                   <p className="text-sm text-yellow-700">
-                    Your request is pending approval. You will be notified once
-                    processed.
+                    {selectedRequest.status === "pending_supervisor"
+                      ? "Your request is waiting for your department supervisor, then the admin. You will be notified at each step."
+                      : selectedRequest.supervisor_decision === "approved"
+                      ? "Your supervisor approved this. It is now waiting for the admin. You will be notified once processed."
+                      : "Your request is pending approval. You will be notified once processed."}
                   </p>
                 </div>
               )}
             </div>
 
             <div className="mt-6 flex justify-end space-x-3">
-              {selectedRequest.status === "pending" && (
+              {isEditable(selectedRequest.status) && (
                 <button
                   onClick={() => {
                     setShowDetailsModal(false);
