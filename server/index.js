@@ -16,6 +16,7 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const logger = require('./utils/logger');
 const pool = require('./config/database');
+const { ensureSchema } = require('./utils/schema');
 const path = require('path');
 const uploadRoutes = require('./routes/upload');
 const notificationsRouter = require('./routes/notifications');
@@ -137,8 +138,16 @@ app.use(errorHandler);
 // ============ START SERVER ============
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  logger.info(`🚀 Server is running on port ${PORT}`);
-  logger.info(`📡 API URL: http://localhost:${PORT}/api`);
-  logger.info(`🌐 CORS enabled for localhost and vercel.app domains`);
-});
+// Apply the schema migrations first. If that fails (for example the database user
+// may not alter tables) the server still starts and leave requests keep going
+// straight to the admin; the supervisor endpoints answer 503 until it is fixed.
+ensureSchema()
+  .then((files) => logger.info(`Schema up to date (${files.join(', ')})`))
+  .catch((error) => logger.error(`Schema setup failed, supervisor approval disabled: ${error.message}`))
+  .finally(() => {
+    app.listen(PORT, () => {
+      logger.info(`🚀 Server is running on port ${PORT}`);
+      logger.info(`📡 API URL: http://localhost:${PORT}/api`);
+      logger.info(`🌐 CORS enabled for localhost and vercel.app domains`);
+    });
+  });

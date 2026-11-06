@@ -1,5 +1,44 @@
 const pool = require('../config/database');
 const { countDays, applyLeaveBalanceChange } = require('../utils/leaveBalance');
+const { isSupervisorReady } = require('../utils/schema');
+const { supervisorsOfDepartment, isSupervisor } = require('../utils/supervisors');
+const { notify, notifyMany } = require('../utils/notify');
+
+// Supervisors who must approve a request from `userId` (in `department`) before the
+// admin sees it. Empty means it goes straight to the admin: nobody supervises the
+// department, or the requester is a supervisor themselves. Never throws; on any
+// problem the old behaviour (straight to admin) applies.
+const findApprovingSupervisors = async (userId, department) => {
+  if (!isSupervisorReady()) return [];
+  try {
+    if (await isSupervisor(pool, userId)) return [];
+    return await supervisorsOfDepartment(pool, department, userId);
+  } catch (error) {
+    console.error('Could not look up supervisors, sending request to admin:', error.message);
+    return [];
+  }
+};
+
+const employeeName = async (userId) => {
+  try {
+    const r = await pool.query(
+      `SELECT first_name, last_name FROM employee_profiles WHERE user_id = $1`,
+      [userId]
+    );
+    const row = r.rows[0];
+    return row ? `${row.first_name || ''} ${row.last_name || ''}`.trim() || 'An employee' : 'An employee';
+  } catch (error) {
+    return 'An employee';
+  }
+};
+
+// Joins that add the deciding supervisor's name to list queries (only once the column exists).
+const supervisorSelect = () =>
+  isSupervisorReady()
+    ? `, sp.first_name AS supervisor_first_name, sp.last_name AS supervisor_last_name`
+    : '';
+const supervisorJoin = () =>
+  isSupervisorReady() ? ` LEFT JOIN employee_profiles sp ON sp.user_id = lr.supervisor_id` : '';
 
 // 400 response when approving WITH PAY would take more days than the employee has.
 // Same shape the approval flow has always returned.
@@ -155,7 +194,9 @@ const getMyLeaveRequests = async (req, res) => {
              TO_CHAR(lr.original_end_date, 'YYYY-MM-DD') as original_end_date,
              TO_CHAR(lr.created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at,
              TO_CHAR(lr.updated_at, 'YYYY-MM-DD HH24:MI:SS') as updated_at
+             ${supervisorSelect()}
       FROM leave_requests lr
+      ${supervisorJoin()}
       WHERE lr.user_id = $1
     `;
     const values = [userId];
@@ -237,7 +278,7 @@ const createLeaveRequest = async (req, res) => {
     await client.query('BEGIN');
     
     const employee = await client.query(
-      `SELECT ep.hire_date, ep.employment_status, ep.probationary_end_date, u.is_active
+      `SELECT ep.hire_date, ep.employment_status, ep.probationary_end_date, ep.department, u.is_active
        FROM employee_profiles ep
        JOIN users u ON ep.user_id = u.id
        WHERE ep.user_id = $1`,
@@ -250,6 +291,8 @@ const createLeaveRequest = async (req, res) => {
     }
     
     const emp = employee.rows[0];
+    const supervisors = await findApprovingSupervisors(userId, emp.department);
+    const initialStatus = supervisors.length > 0 ? 'pending_supervisor' : 'pending';
     const isProbationary = emp.employment_status === 'probationary';
     
     const finalPayType = 'without_pay';
@@ -289,11 +332,21 @@ const result = await client.query(
     medical_certificate_size, medical_certificate_type, regular_days_off
   ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
   RETURNING *`,
-  [userId, leave_type, start_date, end_date, reason, 'pending', finalPayType, 
+  [userId, leave_type, start_date, end_date, reason, initialStatus, finalPayType, 
    medicalCertUrl, medicalCertFilename, medicalCertSize, medicalCertType, req.body.regular_days_off || null]
 );
     
     await client.query('COMMIT');
+
+    if (supervisors.length > 0) {
+      const name = await employeeName(userId);
+      await notifyMany(
+        supervisors,
+        'leave_supervisor',
+        'Leave request needs your approval',
+        `${name} requested ${leave_type} from ${start_date} to ${end_date}.`
+      );
+    }
     
     let successMessage = 'Leave request submitted successfully!';
     let warningMessage = null;
@@ -306,6 +359,9 @@ const result = await client.query(
     } else {
       successMessage = 'Leave request submitted successfully! Admin will determine pay type upon approval.';
     }
+    if (supervisors.length > 0) {
+      successMessage = 'Leave request submitted! Your department supervisor will review it first, then the admin.';
+    }
     
     res.status(201).json({
       success: true,
@@ -313,6 +369,7 @@ const result = await client.query(
       warning: warningMessage,
       leaveRequest: result.rows[0],
       isProbationary,
+      awaitingSupervisor: supervisors.length > 0,
       hasSufficientBalance,
       currentBalance: hasSufficientBalance ? currentBalance : null,
       daysRequested: days
@@ -360,6 +417,7 @@ const getAllLeaveRequests = async (req, res) => {
       FROM leave_requests lr
       LEFT JOIN users u ON lr.user_id = u.id
       LEFT JOIN employee_profiles ep ON u.id = ep.user_id
+      ${supervisorJoin()}
       WHERE 1=1${filters}
     `;
 
@@ -374,6 +432,7 @@ const getAllLeaveRequests = async (req, res) => {
              TO_CHAR(lr.original_end_date, 'YYYY-MM-DD') as original_end_date,
              TO_CHAR(lr.created_at, 'YYYY-MM-DD HH24:MI:SS') as created_at,
              TO_CHAR(lr.updated_at, 'YYYY-MM-DD HH24:MI:SS') as updated_at
+             ${supervisorSelect()}
       ${fromClause}
       ORDER BY lr.created_at DESC LIMIT $${filterValues.length + 1} OFFSET $${filterValues.length + 2}`,
       [...filterValues, limit, offset]
@@ -465,6 +524,11 @@ const updateLeaveRequestStatus = async (req, res) => {
     updateFields.push(`approved_by = $${paramCount}`);
     updateValues.push(req.user.id);
     paramCount++;
+
+    // Admin decided before the supervisor did: keep a record of the override
+    if (isSupervisorReady() && leave.status === 'pending_supervisor' && status !== 'pending_supervisor') {
+      updateFields.push(`admin_override = true`);
+    }
     
     // If dates are being adjusted, store original dates first
     if (start_date || end_date) {
@@ -542,6 +606,15 @@ const updateLeaveRequestStatus = async (req, res) => {
 
     await client.query('COMMIT');
 
+    if (status === 'approved' || status === 'rejected') {
+      await notify(
+        leave.user_id,
+        'leave_status',
+        `Leave request ${status}`,
+        `Your ${leave.leave_type} request has been ${status} by the admin.`
+      );
+    }
+
     // Custom success message
     let successMessage = `Leave request ${status} successfully`;
     const adminSelectedPayType = leave_pay_type || result.rows[0].leave_pay_type;
@@ -618,9 +691,27 @@ const editLeaveRequest = async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     
-    // For employees: only allow editing of pending requests
-    if (!isAdmin && request.status !== 'pending') {
+    // For employees: only allow editing of requests still waiting for a decision
+    // (with the supervisor, or with the admin)
+    const EMPLOYEE_EDITABLE = ['pending', 'pending_supervisor'];
+    if (!isAdmin && !EMPLOYEE_EDITABLE.includes(request.status)) {
       return res.status(400).json({ error: 'Cannot edit approved or rejected requests' });
+    }
+
+    // A change to dates or leave type after the supervisor already approved means
+    // the supervisor approved something different, so it goes back to them
+    // (when the department still has one).
+    const materialChange =
+      (leave_type && leave_type !== request.leave_type) ||
+      (start_date && countDays(request.start_date, start_date) !== 1) ||
+      (end_date && countDays(request.end_date, end_date) !== 1);
+    let resetToSupervisors = [];
+    if (!isAdmin && request.status === 'pending' && request.supervisor_decision === 'approved' && materialChange) {
+      const dept = await pool.query(
+        `SELECT department FROM employee_profiles WHERE user_id = $1`,
+        [request.user_id]
+      );
+      resetToSupervisors = await findApprovingSupervisors(request.user_id, dept.rows[0]?.department);
     }
     
     // Validate dates if provided
@@ -704,15 +795,27 @@ if (req.file) {
         paramCount++;
       }
       
-      if (status && ['pending', 'approved', 'rejected'].includes(status)) {
+      const allowedStatuses = isSupervisorReady()
+        ? ['pending', 'approved', 'rejected', 'pending_supervisor']
+        : ['pending', 'approved', 'rejected'];
+      if (status && allowedStatuses.includes(status)) {
         updateFields.push(`status = $${paramCount}`);
         values.push(status);
         paramCount++;
         
         // If setting back to pending, clear approval fields
-        if (status === 'pending') {
+        if (status === 'pending' || status === 'pending_supervisor') {
           updateFields.push(`approved_by = NULL`);
           updateFields.push(`approval_notes = NULL`);
+        }
+        if (isSupervisorReady()) {
+          if (status === 'pending_supervisor') {
+            // Back to the supervisor: forget the earlier supervisor decision and override
+            updateFields.push(`supervisor_id = NULL`, `supervisor_decision = NULL`,
+              `supervisor_notes = NULL`, `supervisor_decided_at = NULL`, `admin_override = false`);
+          } else if (request.status === 'pending_supervisor' && (status === 'approved' || status === 'rejected')) {
+            updateFields.push(`admin_override = true`);
+          }
         }
       }
       
@@ -742,6 +845,18 @@ if (req.file) {
         return res.status(404).json({ error: 'Leave request not found' });
       }
 
+      // Employees can only edit while it is still waiting; re-check on the locked row
+      if (!isAdmin && !EMPLOYEE_EDITABLE.includes(locked.rows[0].status)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Cannot edit approved or rejected requests' });
+      }
+      if (resetToSupervisors.length > 0 && locked.rows[0].status === 'pending') {
+        updateFields.push(`status = 'pending_supervisor'`, `supervisor_id = NULL`,
+          `supervisor_decision = NULL`, `supervisor_notes = NULL`, `supervisor_decided_at = NULL`);
+      } else {
+        resetToSupervisors = [];
+      }
+
       result = await client.query(
         `UPDATE leave_requests
          SET ${updateFields.join(', ')}
@@ -760,8 +875,20 @@ if (req.file) {
       client.release();
     }
 
+    if (resetToSupervisors.length > 0) {
+      const name = await employeeName(request.user_id);
+      await notifyMany(
+        resetToSupervisors,
+        'leave_supervisor',
+        'Leave request changed - needs your approval again',
+        `${name} changed their ${result.rows[0].leave_type} request after you approved it.`
+      );
+    }
+
     let successMessage = 'Leave request updated successfully';
-    if (isAdmin && request.status === 'approved') {
+    if (resetToSupervisors.length > 0) {
+      successMessage = 'Leave request updated. Because the dates or type changed, your supervisor needs to approve it again';
+    } else if (isAdmin && request.status === 'approved') {
       successMessage = 'Leave request updated successfully (admin override)';
     }
     if (balanceChange.refunded) {
@@ -820,9 +947,17 @@ const adminEditLeaveRequest = async (req, res) => {
       return res.status(404).json({ error: 'Leave request not found' });
     }
 
+    // Admin decided before the supervisor did: keep a record of the override
+    const overrideClause =
+      isSupervisorReady() && locked.rows[0].status === 'pending_supervisor' &&
+      (status === 'approved' || status === 'rejected')
+        ? `admin_override = true,`
+        : '';
+
     const result = await client.query(
       `UPDATE leave_requests
-       SET leave_type = $1,
+       SET ${overrideClause}
+           leave_type = $1,
            start_date = $2,
            end_date = $3,
            reason = $4,
