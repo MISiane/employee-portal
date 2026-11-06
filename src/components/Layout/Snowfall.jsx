@@ -10,6 +10,10 @@ import { useEffect, useRef, useState } from 'react';
 
 const STORAGE_KEY = 'portal_snow';
 
+// The portal background is pale lilac, so pure white snow disappears. Flakes are
+// soft violet/blue with a white rim, and the snowflake symbols are drawn in the same tints.
+const TINTS = ['rgba(139,92,246,0.75)', 'rgba(99,102,241,0.7)', 'rgba(168,85,247,0.7)', 'rgba(96,165,250,0.8)'];
+
 const inSeason = (now = new Date()) => {
   const month = now.getMonth(); // 0 = January
   return month === 10 || month === 11 || (month === 0 && now.getDate() <= 6);
@@ -68,7 +72,10 @@ const Snowfall = () => {
     const makeFlake = (anywhere) => ({
       x: Math.random() * width,
       y: anywhere ? Math.random() * height : -10,
-      r: 1 + Math.random() * 2.6,
+      r: 1.8 + Math.random() * 2.6,
+      // About a third are little snowflake symbols, the rest round flakes
+      glyph: Math.random() < 0.33,
+      tint: TINTS[Math.floor(Math.random() * TINTS.length)],
       speed: (0.4 + Math.random() * 0.9) * (reducedMotion ? 0.4 : 1),
       drift: Math.random() * Math.PI * 2,
       sway: 0.3 + Math.random() * 0.6,
@@ -84,7 +91,7 @@ const Snowfall = () => {
       canvas.style.height = `${height}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       // Fewer flakes on small screens
-      const count = Math.round(Math.min(110, Math.max(35, (width * height) / 14000)));
+      const count = Math.round(Math.min(140, Math.max(40, (width * height) / 11000)));
       flakes = Array.from({ length: count }, () => makeFlake(true));
     };
 
@@ -97,13 +104,25 @@ const Snowfall = () => {
         if (f.y > height + 10) Object.assign(f, makeFlake(false));
         if (f.x > width + 10) f.x = -10;
         if (f.x < -10) f.x = width + 10;
-        ctx.beginPath();
-        ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
-        // White with a faint outline so flakes stay visible on the light background
-        ctx.fillStyle = 'rgba(255,255,255,0.95)';
-        ctx.shadowColor = 'rgba(128,0,128,0.35)';
-        ctx.shadowBlur = 3;
-        ctx.fill();
+        if (f.glyph) {
+          ctx.font = `${Math.round(f.r * 4.5)}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = f.tint;
+          ctx.fillText('\u2744\uFE0E', f.x, f.y);
+        } else {
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2);
+          // Soft tinted dot with a white rim: reads as snow on both the lilac
+          // background and white cards
+          ctx.fillStyle = f.tint;
+          ctx.globalAlpha = 0.55;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.lineWidth = 1;
+          ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+          ctx.stroke();
+        }
       }
       frame = requestAnimationFrame(draw);
     };
