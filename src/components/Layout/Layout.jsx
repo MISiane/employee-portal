@@ -2,6 +2,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import FeedbackButton from '../Feedback/FeedbackButton';
+import Snowfall from './Snowfall';
 
 const Layout = () => {
   return (
@@ -24,6 +25,7 @@ const Layout = () => {
         </main>
       </div>
       <FeedbackButton />
+      <Snowfall />
     </div>
   );
 };
