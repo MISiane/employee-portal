@@ -39,6 +39,8 @@ Thumbs.db
 *.sql
 *.sql.gz
 backup_*.sql
+# ...but keep the schema migrations that the server runs at startup
+!server/migrations/*.sql
 
 # Uploads
 server/uploads/

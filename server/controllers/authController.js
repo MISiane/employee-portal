@@ -138,7 +138,23 @@ const getCurrentUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    res.json(result.rows[0]);
+    // Departments this person supervises. Never allowed to break login/session
+    // loading: if the supervisor tables are not there, they simply supervise nothing.
+    let supervisedDepartments = [];
+    try {
+      const sup = await pool.query(
+        `SELECT ds.department
+         FROM department_supervisors ds
+         WHERE ds.user_id = $1
+         ORDER BY ds.department`,
+        [req.user.id]
+      );
+      supervisedDepartments = sup.rows.map((r) => r.department);
+    } catch (supError) {
+      supervisedDepartments = [];
+    }
+    
+    res.json({ ...result.rows[0], supervised_departments: supervisedDepartments });
   } catch (error) {
     console.error('Error fetching current user:', error);
     res.status(500).json({ error: 'Server error' });

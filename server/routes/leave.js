@@ -10,6 +10,13 @@ const {
   editLeaveRequest,
   adminEditLeaveRequest
 } = require('../controllers/leaveController');
+const {
+  getMySupervisorInfo,
+  getSupervisorRequests,
+  decideAsSupervisor,
+  getSupervisorAssignments,
+  setSupervisorDepartments
+} = require('../controllers/supervisorController');
 const authMiddleware = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
@@ -24,6 +31,13 @@ router.put('/requests/:id/status', updateLeaveRequestStatus);  // Approve/reject
 router.get('/all-requests', getAllLeaveRequests);
 router.get('/balances/:userId', getUserLeaveBalances);
 router.put('/balances/:userId', updateLeaveBalances);
+router.get('/supervisors', getSupervisorAssignments);  // Who supervises what
+router.put('/supervisors/:userId', setSupervisorDepartments);  // Assign departments
+
+// ============ SUPERVISOR ROUTES ============
+router.get('/supervisor/me', getMySupervisorInfo);
+router.get('/supervisor/requests', getSupervisorRequests);
+router.put('/requests/:id/supervisor', decideAsSupervisor);
 
 // ============ EMPLOYEE ROUTES (put these LAST) ============
 router.get('/balances', getMyLeaveBalances);
