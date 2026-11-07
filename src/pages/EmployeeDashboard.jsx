@@ -772,8 +772,8 @@ const EmployeeDashboard = () => {
           </div>
         </div>
 
-        {/* Right Column */}
-        <div className="lg:col-span-1">
+        {/* Right Column. On phones (single column) announcements come first, on desktop they stay in the right-hand column */}
+        <div className="order-first lg:order-none lg:col-span-1">
           <div className="h-full rounded-xl sm:rounded-[24px] border border-[#e6cce6] bg-[#f5e6f7] p-4 sm:p-6 shadow-sm">
             <div className="mb-3 sm:mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <h2 className="flex items-center text-base sm:text-lg font-semibold text-gray-800">
