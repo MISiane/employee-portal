@@ -8,7 +8,9 @@ const {
   getAllLeaveRequests,
   updateLeaveRequestStatus,
   editLeaveRequest,
-  adminEditLeaveRequest
+  adminEditLeaveRequest,
+  deleteLeaveRequest,
+  restoreLeaveRequest
 } = require('../controllers/leaveController');
 const {
   getMySupervisorInfo,
@@ -27,6 +29,8 @@ router.use(authMiddleware);
 
 // ============ ADMIN ROUTES (put these FIRST) ============
 router.put('/requests/:id/admin', adminEditLeaveRequest);  // Full admin edit
+router.delete('/requests/:id', deleteLeaveRequest);  // Admin: hide a request
+router.post('/requests/:id/restore', restoreLeaveRequest);  // Admin: bring it back
 router.put('/requests/:id/status', updateLeaveRequestStatus);  // Approve/reject only
 router.get('/all-requests', getAllLeaveRequests);
 router.get('/balances/:userId', getUserLeaveBalances);

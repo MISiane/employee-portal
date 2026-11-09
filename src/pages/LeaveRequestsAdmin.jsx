@@ -11,6 +11,8 @@ import {
   UserCircleIcon,
   DocumentTextIcon,
   PencilIcon,
+  TrashIcon,
+  ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
 import api from "../api/config";
 
@@ -309,6 +311,40 @@ const handleApprove = async () => {
     }
   };
 
+  // Delete hides the request (the days it used are returned); it can be restored
+  // from the "Deleted" filter. The employee is not told.
+  const handleDelete = async (request) => {
+    const name = `${request.first_name || ""} ${request.last_name || ""}`.trim() || "this employee";
+    const usesBalance = request.status === "approved" && request.leave_pay_type === "with_pay";
+    const ok = window.confirm(
+      `Delete ${name}'s ${request.leave_type} request (${request.start_date} to ${request.end_date})?\n\n` +
+        `It will disappear from the lists, and the employee is not notified.` +
+        (usesBalance ? `\nThe leave days it used will be returned to their balance.` : ``) +
+        `\nYou can restore it later from the "Deleted" filter.`
+    );
+    if (!ok) return;
+    try {
+      const response = await api.delete(`/leave/requests/${request.id}`);
+      if (showViewModal) setShowViewModal(false);
+      fetchRequests();
+      alert(response.data.message || "Leave request deleted.");
+    } catch (error) {
+      console.error("Error deleting leave request:", error);
+      alert(error.response?.data?.message || error.response?.data?.error || "Error deleting leave request");
+    }
+  };
+
+  const handleRestore = async (request) => {
+    try {
+      const response = await api.post(`/leave/requests/${request.id}/restore`);
+      fetchRequests();
+      alert(response.data.message || "Leave request restored.");
+    } catch (error) {
+      console.error("Error restoring leave request:", error);
+      alert(error.response?.data?.message || error.response?.data?.error || "Error restoring leave request");
+    }
+  };
+
   const handleView = (request) => {
     setSelectedRequest(request);
     setShowViewModal(true);
@@ -416,6 +452,13 @@ const handleSaveEdit = async () => {
     ) : null;
 
   const getStatusBadge = (status, request) => {
+    if (request?.deleted_at) {
+      return (
+        <span className="rounded-full bg-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700">
+          Deleted
+        </span>
+      );
+    }
     switch (status) {
       case "pending_supervisor":
         return (
@@ -589,6 +632,7 @@ const handleSaveEdit = async () => {
               <option value="pending">Pending (for admin)</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
+              <option value="deleted">Deleted</option>
             </select>
           </div>
 
@@ -775,7 +819,20 @@ const handleSaveEdit = async () => {
                     >
                       <EyeIcon className="h-4 w-4" />
                     </button>
-                    <button
+                    {request.deleted_at ? (
+<button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRestore(request);
+                        }}
+                        className="flex items-center gap-1 p-2 text-sm text-[#800080] hover:bg-[#faf5fb] rounded-lg transition"
+                        title="Restore"
+                      >
+                        <ArrowUturnLeftIcon className="h-4 w-4" /> Restore
+                      </button>
+) : (
+<>
+<button
                       onClick={(e) => {
                         e.stopPropagation();
                         handleEditRequest(request);
@@ -813,6 +870,18 @@ const handleSaveEdit = async () => {
                         </button>
                       </>
                     )}
+<button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(request);
+                        }}
+                        className="p-2 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+                        title="Delete"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+</>
+)}
                   </div>
                 </div>
               );
@@ -991,7 +1060,17 @@ const handleSaveEdit = async () => {
                         >
                           <EyeIcon className="h-4 w-4" />
                         </button>
-                        <button
+                        {request.deleted_at ? (
+<button
+                          onClick={() => handleRestore(request)}
+                          className="inline-flex items-center gap-1 p-1.5 text-sm text-[#800080] hover:bg-[#faf5fb] rounded-lg transition"
+                          title="Restore"
+                        >
+                          <ArrowUturnLeftIcon className="h-4 w-4" /> Restore
+                        </button>
+) : (
+<>
+<button
                           onClick={() => handleEditRequest(request)}
                           className="p-1.5 mr-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition"
                           title={
@@ -1020,6 +1099,15 @@ const handleSaveEdit = async () => {
                             </button>
                           </>
                         )}
+<button
+                          onClick={() => handleDelete(request)}
+                          className="p-1.5 ml-1 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+                          title="Delete"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+</>
+)}
                       </td>
                     </tr>
                   );

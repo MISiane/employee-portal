@@ -57,6 +57,7 @@ const requeueOrphanedRequests = async (db) => {
      FROM employee_profiles ep
      WHERE ep.user_id = lr.user_id
        AND lr.status = 'pending_supervisor'
+       AND lr.deleted_at IS NULL
        AND NOT EXISTS (
          SELECT 1
          FROM department_supervisors ds

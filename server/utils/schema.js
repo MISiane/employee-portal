@@ -30,4 +30,10 @@ const ensureSchema = async (db = require('../config/database')) => {
   return files;
 };
 
-module.exports = { ensureSchema, isSupervisorReady, state };
+// SQL fragment that hides admin-deleted leave requests. Empty until the migration
+// that adds the column has run, so queries never reference a column that is missing.
+// `alias` is the table alias, e.g. 'lr' -> " AND lr.deleted_at IS NULL".
+const notDeleted = (alias) =>
+  state.supervisorReady ? ` AND ${alias ? `${alias}.` : ''}deleted_at IS NULL` : '';
+
+module.exports = { ensureSchema, isSupervisorReady, notDeleted, state };
