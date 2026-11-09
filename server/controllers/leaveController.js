@@ -2,6 +2,7 @@ const pool = require('../config/database');
 const { countDays, applyLeaveBalanceChange } = require('../utils/leaveBalance');
 const { isSupervisorReady, notDeleted } = require('../utils/schema');
 const { supervisorsOfDepartment, isSupervisor } = require('../utils/supervisors');
+const { rangeOfPeriod } = require('../utils/cutoff');
 const { notify, notifyMany } = require('../utils/notify');
 
 // Supervisors who must approve a request from `userId` (in `department`) before the
@@ -389,8 +390,17 @@ const getAllLeaveRequests = async (req, res) => {
     return res.status(403).json({ error: 'Access denied' });
   }
 
-  const { page = 1, limit = 20, status, department, search } = req.query;
+  const { page = 1, limit = 20, status, department, search, period, sort } = req.query;
   const offset = (page - 1) * limit;
+
+  // Cutoff period filter (by leave start date), e.g. period=2026-11-A
+  let periodRange = null;
+  if (period) {
+    periodRange = rangeOfPeriod(period);
+    if (!periodRange) {
+      return res.status(400).json({ error: 'Invalid cutoff period' });
+    }
+  }
 
   try {
     // Build the filters once so the list query and the count query always agree
@@ -411,6 +421,11 @@ const getAllLeaveRequests = async (req, res) => {
     if (department) {
       filterValues.push(department);
       filters += ` AND ep.department = $${filterValues.length}`;
+    }
+
+    if (periodRange) {
+      filterValues.push(periodRange.start, periodRange.end);
+      filters += ` AND lr.start_date BETWEEN $${filterValues.length - 1}::date AND $${filterValues.length}::date`;
     }
 
     if (search) {
@@ -440,7 +455,7 @@ const getAllLeaveRequests = async (req, res) => {
              TO_CHAR(lr.updated_at, 'YYYY-MM-DD HH24:MI:SS') as updated_at
              ${supervisorSelect()}
       ${fromClause}
-      ORDER BY lr.created_at DESC LIMIT $${filterValues.length + 1} OFFSET $${filterValues.length + 2}`,
+      ORDER BY ${sort === 'start_date' ? 'lr.start_date DESC, lr.created_at DESC' : 'lr.created_at DESC'} LIMIT $${filterValues.length + 1} OFFSET $${filterValues.length + 2}`,
       [...filterValues, limit, offset]
     );
 

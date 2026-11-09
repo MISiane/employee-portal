@@ -15,6 +15,7 @@ import {
   ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
 import api from "../api/config";
+import { periodOfDate, periodLabel, periodOptions } from "../utils/cutoff";
 
 const getFileUrl = (fileUrl) => {
   if (!fileUrl) return null;
@@ -33,6 +34,10 @@ const LeaveRequestsAdmin = () => {
   const [filterStatus, setFilterStatus] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  // Payroll cutoff period (11th-25th, 26th-10th), by leave start date
+  const [filterPeriod, setFilterPeriod] = useState("");
+  const [groupByCutoff, setGroupByCutoff] = useState(true);
+  const cutoffOptions = periodOptions();
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showApproveModal, setShowApproveModal] = useState(false);
@@ -74,7 +79,7 @@ const LeaveRequestsAdmin = () => {
   useEffect(() => {
     fetchRequests();
     fetchDepartments();
-  }, [filterStatus, filterDepartment, searchTerm, pagination.page]);
+  }, [filterStatus, filterDepartment, searchTerm, filterPeriod, groupByCutoff, pagination.page]);
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -87,6 +92,9 @@ const LeaveRequestsAdmin = () => {
       if (filterStatus) params.status = filterStatus;
       if (filterDepartment) params.department = filterDepartment;
       if (searchTerm) params.search = searchTerm;
+      if (filterPeriod) params.period = filterPeriod;
+      // Grouped lists are ordered by leave start date so each cutoff group is together
+      if (groupByCutoff && !filterPeriod) params.sort = "start_date";
 
       const response = await api.get("/leave/all-requests", { params });
       setRequests(response.data.leaveRequests);
@@ -531,10 +539,29 @@ const handleSaveEdit = async () => {
     setFilterStatus("");
     setFilterDepartment("");
     setSearchTerm("");
+    setFilterPeriod("");
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
-  const hasActiveFilters = filterStatus || filterDepartment || searchTerm;
+  const hasActiveFilters = filterStatus || filterDepartment || searchTerm || filterPeriod;
+
+  // Splits the list under a heading per cutoff period (only when not filtered to one period)
+  const showGroups = groupByCutoff && !filterPeriod;
+  const withGroupHeadings = (list) => {
+    if (!showGroups) return list.map((request) => ({ request }));
+    const items = [];
+    let last = null;
+    list.forEach((request) => {
+      const key = periodOfDate(request.start_date);
+      if (key !== last) {
+        const count = list.filter((r) => periodOfDate(r.start_date) === key).length;
+        items.push({ header: key, label: periodLabel(key), count });
+        last = key;
+      }
+      items.push({ request });
+    });
+    return items;
+  };
 
   return (
     <div className="space-y-6">
@@ -601,7 +628,7 @@ const handleSaveEdit = async () => {
 
       {/* Filters */}
       <div className="rounded-[24px] border border-[#e6cce6] bg-white p-4 shadow-sm">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700">
               Search
@@ -654,6 +681,28 @@ const handleSaveEdit = async () => {
             </select>
           </div>
 
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700">
+              Cutoff period
+            </label>
+            <select
+              value={filterPeriod}
+              onChange={(e) => {
+                setFilterPeriod(e.target.value);
+                setPagination((prev) => ({ ...prev, page: 1 }));
+              }}
+              className="w-full rounded-xl border border-[#e6cce6] bg-white px-3 py-2 text-gray-700 focus:border-[#800080] focus:outline-none focus:ring-2 focus:ring-[#800080]/20"
+            >
+              <option value="">All periods</option>
+              {cutoffOptions.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.label}
+                  {o.isCurrent ? " (current)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex items-end">
             {hasActiveFilters && (
               <button
@@ -665,6 +714,19 @@ const handleSaveEdit = async () => {
             )}
           </div>
         </div>
+
+        <label className="mt-4 flex w-fit cursor-pointer items-center gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={groupByCutoff}
+            onChange={(e) => {
+              setGroupByCutoff(e.target.checked);
+              setPagination((prev) => ({ ...prev, page: 1 }));
+            }}
+            className="h-4 w-4 accent-[#800080]"
+          />
+          Group by cutoff period (by leave start date; 11th–25th and 26th–10th)
+        </label>
       </div>
 
       {/* Leave Requests Table */}
@@ -683,7 +745,21 @@ const handleSaveEdit = async () => {
               No leave requests found
             </div>
           ) : (
-            requests.map((request) => {
+            withGroupHeadings(requests).map((item) => {
+              if (item.header) {
+                return (
+                  <div
+                    key={`h-${item.header}`}
+                    className="bg-[#f5e6f7] px-4 py-2 text-sm font-semibold text-[#5c005c]"
+                  >
+                    Cutoff {item.label}
+                    <span className="ml-2 text-xs font-normal text-[#80608a]">
+                      {item.count} request{item.count === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                );
+              }
+              const request = item.request;
               const days = calculateDays(request.start_date, request.end_date);
 
               return (
@@ -934,7 +1010,23 @@ const handleSaveEdit = async () => {
                   </td>
                 </tr>
               ) : (
-                requests.map((request) => {
+                withGroupHeadings(requests).map((item) => {
+                  if (item.header) {
+                    return (
+                      <tr key={`h-${item.header}`}>
+                        <td
+                          colSpan="5"
+                          className="bg-[#f5e6f7] px-4 lg:px-6 py-2 text-sm font-semibold text-[#5c005c]"
+                        >
+                          Cutoff {item.label}
+                          <span className="ml-2 text-xs font-normal text-[#80608a]">
+                            {item.count} request{item.count === 1 ? "" : "s"}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  }
+                  const request = item.request;
                   const days = calculateDays(
                     request.start_date,
                     request.end_date,
