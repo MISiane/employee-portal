@@ -47,6 +47,7 @@ const getMySupervisorInfo = async (req, res) => {
        FROM leave_requests lr
        JOIN employee_profiles ep ON ep.user_id = lr.user_id
        WHERE lr.status = 'pending_supervisor'
+         AND lr.deleted_at IS NULL
          AND lr.user_id <> $1
          AND LOWER(TRIM(ep.department)) IN (
            SELECT LOWER(TRIM(ds.department)) FROM department_supervisors ds WHERE ds.user_id = $1)`,
@@ -86,6 +87,7 @@ const getSupervisorRequests = async (req, res) => {
     const values = [req.user.id];
     let where = `
       WHERE lr.user_id <> $1
+        AND lr.deleted_at IS NULL
         AND LOWER(TRIM(ep.department)) IN (
           SELECT LOWER(TRIM(ds.department)) FROM department_supervisors ds WHERE ds.user_id = $1)`;
 
@@ -159,7 +161,7 @@ const decideAsSupervisor = async (req, res) => {
     await client.query('BEGIN');
 
     const found = await client.query(
-      'SELECT * FROM leave_requests WHERE id = $1 FOR UPDATE',
+      'SELECT * FROM leave_requests WHERE id = $1 AND deleted_at IS NULL FOR UPDATE',
       [id]
     );
     if (found.rows.length === 0) {

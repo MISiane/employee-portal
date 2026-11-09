@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 const { countDays, applyLeaveBalanceChange } = require('../utils/leaveBalance');
-const { isSupervisorReady } = require('../utils/schema');
+const { isSupervisorReady, notDeleted } = require('../utils/schema');
 const { supervisorsOfDepartment, isSupervisor } = require('../utils/supervisors');
 const { notify, notifyMany } = require('../utils/notify');
 
@@ -197,7 +197,7 @@ const getMyLeaveRequests = async (req, res) => {
              ${supervisorSelect()}
       FROM leave_requests lr
       ${supervisorJoin()}
-      WHERE lr.user_id = $1
+      WHERE lr.user_id = $1${notDeleted('lr')}
     `;
     const values = [userId];
     let paramCount = 2;
@@ -219,7 +219,7 @@ const getMyLeaveRequests = async (req, res) => {
     
     const result = await pool.query(query, values);
     
-    let countQuery = `SELECT COUNT(*) FROM leave_requests lr WHERE lr.user_id = $1`;
+    let countQuery = `SELECT COUNT(*) FROM leave_requests lr WHERE lr.user_id = $1${notDeleted('lr')}`;
     const countValues = [userId];
     let countParamCount = 2;
     
@@ -397,9 +397,15 @@ const getAllLeaveRequests = async (req, res) => {
     let filters = '';
     const filterValues = [];
 
-    if (status) {
-      filterValues.push(status);
-      filters += ` AND lr.status = $${filterValues.length}`;
+    if (status === 'deleted') {
+      // The admin's "Deleted" filter: only hidden requests, whatever their status was
+      filters += isSupervisorReady() ? ' AND lr.deleted_at IS NOT NULL' : ' AND 1=0';
+    } else {
+      filters += notDeleted('lr');
+      if (status) {
+        filterValues.push(status);
+        filters += ` AND lr.status = $${filterValues.length}`;
+      }
     }
 
     if (department) {
@@ -456,6 +462,121 @@ const getAllLeaveRequests = async (req, res) => {
   }
 };
 
+// Delete a leave request (admin). It is hidden, not erased, so it can be restored:
+// it disappears from every list and count and the leave days it used are returned.
+// Deleting is quiet: the employee is not notified.
+const deleteLeaveRequest = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  }
+  if (!isSupervisorReady()) {
+    return res.status(503).json({ error: 'Deleting leave requests is not available yet. Please try again in a few minutes.' });
+  }
+
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const found = await client.query(
+      `SELECT * FROM leave_requests WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+      [id]
+    );
+    if (found.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Leave request not found' });
+    }
+    const before = found.rows[0];
+
+    await client.query(
+      `UPDATE leave_requests
+       SET deleted_at = CURRENT_TIMESTAMP, deleted_by = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [id, req.user.id]
+    );
+
+    // A deleted request costs nothing: return the days an approved with-pay request used
+    const balanceChange = await applyLeaveBalanceChange(client, before, { ...before, status: 'deleted' });
+
+    await client.query('COMMIT');
+
+    let message = 'Leave request deleted. You can restore it from the Deleted filter.';
+    if (balanceChange.refunded) {
+      message += ` ${balanceChange.refunded.days} day(s) returned to the ${balanceChange.refunded.leaveType} balance.`;
+    }
+    res.json({ success: true, message, refunded: balanceChange.refunded });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error deleting leave request:', error);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+};
+
+// Restore a deleted leave request (admin). If it was approved with pay, the days
+// are taken from the balance again; when the balance no longer covers them the
+// restore is refused and nothing changes.
+const restoreLeaveRequest = async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
+  }
+  if (!isSupervisorReady()) {
+    return res.status(503).json({ error: 'Restoring leave requests is not available yet. Please try again in a few minutes.' });
+  }
+
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const found = await client.query(
+      `SELECT * FROM leave_requests WHERE id = $1 AND deleted_at IS NOT NULL FOR UPDATE`,
+      [id]
+    );
+    if (found.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Deleted leave request not found' });
+    }
+
+    const result = await client.query(
+      `UPDATE leave_requests
+       SET deleted_at = NULL, deleted_by = NULL, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [id]
+    );
+
+    const balanceChange = await applyLeaveBalanceChange(
+      client,
+      { ...found.rows[0], status: 'deleted' },
+      result.rows[0]
+    );
+
+    await client.query('COMMIT');
+
+    let message = 'Leave request restored.';
+    if (balanceChange.deducted) {
+      message += ` ${balanceChange.deducted.days} day(s) deducted from the ${balanceChange.deducted.leaveType} balance again.`;
+    }
+    res.json({ success: true, message, leaveRequest: result.rows[0] });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    if (error.code === 'INSUFFICIENT_BALANCE') {
+      const d = error.details;
+      return res.status(400).json({
+        error: 'Cannot restore: not enough leave balance',
+        message: `The employee now has only ${d.available} day(s) of ${d.leave_type}, but this request needs ${d.requested} day(s) with pay. Add days to their leave balance first, then restore it.`,
+        details: d
+      });
+    }
+    console.error('Error restoring leave request:', error);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+};
+
 // Update leave request status (admin approve/reject)
 const updateLeaveRequestStatus = async (req, res) => {
   if (req.user.role !== 'admin') {
@@ -481,7 +602,7 @@ const updateLeaveRequestStatus = async (req, res) => {
     await client.query('BEGIN');
     
     const leaveRequest = await client.query(
-      'SELECT * FROM leave_requests WHERE id = $1 FOR UPDATE',
+      `SELECT * FROM leave_requests WHERE id = $1${notDeleted()} FOR UPDATE`,
       [id]
     );
 
@@ -675,7 +796,7 @@ const editLeaveRequest = async (req, res) => {
   try {
     // Check if leave request exists
     const leaveRequest = await pool.query(
-      `SELECT * FROM leave_requests WHERE id = $1`,
+      `SELECT * FROM leave_requests WHERE id = $1${notDeleted()}`,
       [id]
     );
     
@@ -837,7 +958,7 @@ if (req.file) {
       await client.query('BEGIN');
 
       const locked = await client.query(
-        'SELECT * FROM leave_requests WHERE id = $1 FOR UPDATE',
+        `SELECT * FROM leave_requests WHERE id = $1${notDeleted()} FOR UPDATE`,
         [id]
       );
       if (locked.rows.length === 0) {
@@ -939,7 +1060,7 @@ const adminEditLeaveRequest = async (req, res) => {
     await client.query('BEGIN');
 
     const locked = await client.query(
-      'SELECT * FROM leave_requests WHERE id = $1 FOR UPDATE',
+      `SELECT * FROM leave_requests WHERE id = $1${notDeleted()} FOR UPDATE`,
       [id]
     );
     if (locked.rows.length === 0) {
@@ -1038,5 +1159,7 @@ module.exports = {
   getAllLeaveRequests,
   updateLeaveRequestStatus,
   editLeaveRequest,
-  adminEditLeaveRequest
+  adminEditLeaveRequest,
+  deleteLeaveRequest,
+  restoreLeaveRequest
 };
