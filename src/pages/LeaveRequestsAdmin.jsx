@@ -468,7 +468,7 @@ const handleSaveEdit = async () => {
   const overrideTag = (request) =>
     request?.admin_override ? (
       <span
-        className="ml-1 rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-800"
+        className="ml-1 inline-block whitespace-nowrap rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-800"
         title="The admin decided this before the department supervisor did"
       >
         Admin override
@@ -526,11 +526,11 @@ const handleSaveEdit = async () => {
   const getPayTypeBadge = (payType) => {
     if (!payType) return null;
     return payType === "with_pay" ? (
-      <span className="ml-2 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+      <span className="ml-2 inline-block whitespace-nowrap rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
         With Pay
       </span>
     ) : (
-      <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+      <span className="ml-2 inline-block whitespace-nowrap rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
         Without Pay
       </span>
     );
