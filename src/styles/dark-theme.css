@@ -1,0 +1,59 @@
+/* Dark theme: everything that is not a plain colour class.
+   The colour classes themselves are in dark-theme.generated.css
+   (node scripts/generate-dark-theme.mjs). Switched by <html data-theme="dark">. */
+
+html[data-theme='dark'] {
+  color-scheme: dark; /* native inputs, dropdowns and scrollbars follow */
+}
+html[data-theme='dark'] body {
+  background-color: #0f0c14;
+  color: #e6e0ea;
+}
+
+/* Scrollbars (index.css hard-codes light ones) */
+html[data-theme='dark'] ::-webkit-scrollbar-track { background: #1a1520; }
+html[data-theme='dark'] ::-webkit-scrollbar-thumb { background: #4a3f52; }
+html[data-theme='dark'] ::-webkit-scrollbar-thumb:hover { background: #6a5d74; }
+
+/* Form fields that have no background class of their own */
+html[data-theme='dark'] input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([class*='bg-']),
+html[data-theme='dark'] select:not([class*='bg-']),
+html[data-theme='dark'] textarea:not([class*='bg-']) {
+  background-color: #2a2230;
+  border-color: #4a3f52;
+}
+html[data-theme='dark'] input,
+html[data-theme='dark'] select,
+html[data-theme='dark'] textarea {
+  color: #e6e0ea;
+}
+html[data-theme='dark'] input::placeholder,
+html[data-theme='dark'] textarea::placeholder {
+  color: #8f8398;
+}
+
+/* Rich text written in the announcement editor often carries its own dark text
+   colour; follow the theme instead so it stays readable. */
+html[data-theme='dark'] .rich-content,
+html[data-theme='dark'] .rich-content * {
+  color: inherit !important;
+  background-color: transparent !important;
+}
+
+/* Announcement editor (Quill) */
+html[data-theme='dark'] .ql-toolbar.ql-snow,
+html[data-theme='dark'] .ql-container.ql-snow {
+  border-color: #4a3f52;
+  background-color: #231d26;
+}
+html[data-theme='dark'] .ql-editor { color: #e6e0ea; }
+html[data-theme='dark'] .ql-editor.ql-blank::before { color: #8f8398; }
+html[data-theme='dark'] .ql-snow .ql-stroke { stroke: #cfc5d6; }
+html[data-theme='dark'] .ql-snow .ql-fill { fill: #cfc5d6; }
+html[data-theme='dark'] .ql-snow .ql-picker { color: #cfc5d6; }
+html[data-theme='dark'] .ql-snow .ql-picker-options { background-color: #2a2230; border-color: #4a3f52; }
+
+/* Christmas mode at night: dark blue-violet sky instead of the icy background */
+html[data-theme='dark'][data-festive='on'] .portal-root {
+  background-image: linear-gradient(135deg, #14112a 0%, #1a1633 55%, #221a3a 100%);
+}

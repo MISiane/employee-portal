@@ -15,6 +15,7 @@ import {
   ArrowUturnLeftIcon,
 } from "@heroicons/react/24/outline";
 import api from "../api/config";
+import RowActionsMenu from "../components/LeaveRequests/RowActionsMenu";
 import { periodOfDate, periodLabel, periodOptions } from "../utils/cutoff";
 
 const getFileUrl = (fileUrl) => {
@@ -448,6 +449,21 @@ const handleSaveEdit = async () => {
   // The admin can act on a request that is waiting for the admin ("pending") and,
   // as an override, on one still waiting for the supervisor.
   const isActionable = (status) => status === "pending" || status === "pending_supervisor";
+
+  // Less-used row actions live in the "⋯" menu
+  const getMenuItems = (request) => [
+    {
+      label: isActionable(request.status) ? "Edit request" : "Admin override edit",
+      icon: PencilIcon,
+      onClick: () => handleEditRequest(request),
+    },
+    {
+      label: "Delete",
+      icon: TrashIcon,
+      danger: true,
+      onClick: () => handleDelete(request),
+    },
+  ];
 
   const overrideTag = (request) =>
     request?.admin_override ? (
@@ -884,7 +900,7 @@ const handleSaveEdit = async () => {
                     </div>
                   </div>
 
-                  <div className="flex justify-end space-x-2 pt-2 border-t border-[#f1e7f2]">
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-[#f1e7f2]">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -908,20 +924,6 @@ const handleSaveEdit = async () => {
                       </button>
 ) : (
 <>
-<button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditRequest(request);
-                      }}
-                      className="p-2 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition"
-                      title={
-                        !isActionable(request.status)
-                          ? "Admin override edit"
-                          : "Edit"
-                      }
-                    >
-                      <PencilIcon className="h-4 w-4" />
-                    </button>
                     {isActionable(request.status) && (
                       <>
                         <button
@@ -929,34 +931,25 @@ const handleSaveEdit = async () => {
                             e.stopPropagation();
                             handleApproveClick(request);
                           }}
-                          className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition"
+                          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-green-50 px-3 text-sm font-medium text-green-700 transition hover:bg-green-100"
                           title="Approve"
                         >
-                          <CheckCircleIcon className="h-4 w-4" />
+                          <CheckCircleIcon className="h-4 w-4" /> Approve
                         </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleReject(request.id);
                           }}
-                          className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
+                          className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg bg-red-50 px-3 text-sm font-medium text-red-700 transition hover:bg-red-100"
                           title="Reject"
                         >
-                          <XCircleIcon className="h-4 w-4" />
+                          <XCircleIcon className="h-4 w-4" /> Reject
                         </button>
                       </>
                     )}
-<button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDelete(request);
-                        }}
-                        className="p-2 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
-                        title="Delete"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-</>
+                    <RowActionsMenu items={getMenuItems(request)} />
+                    </>
 )}
                   </div>
                 </div>
@@ -1162,43 +1155,28 @@ const handleSaveEdit = async () => {
                         </button>
 ) : (
 <>
-<button
-                          onClick={() => handleEditRequest(request)}
-                          className="p-1.5 mr-1 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg transition"
-                          title={
-                            !isActionable(request.status)
-                              ? "Admin override edit"
-                              : "Edit"
-                          }
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
                         {isActionable(request.status) && (
                           <>
                             <button
                               onClick={() => handleApproveClick(request)}
-                              className="p-1.5 mr-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded-lg transition"
+                              className="mr-1 inline-flex items-center gap-1 rounded-lg bg-green-50 p-2 text-sm font-medium text-green-700 transition hover:bg-green-100"
                               title="Approve"
                             >
                               <CheckCircleIcon className="h-4 w-4" />
+                              <span className="hidden xl:inline">Approve</span>
                             </button>
                             <button
                               onClick={() => handleReject(request.id)}
-                              className="p-1.5 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition"
+                              className="mr-1 inline-flex items-center gap-1 rounded-lg bg-red-50 p-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
                               title="Reject"
                             >
                               <XCircleIcon className="h-4 w-4" />
+                              <span className="hidden xl:inline">Reject</span>
                             </button>
                           </>
                         )}
-<button
-                          onClick={() => handleDelete(request)}
-                          className="p-1.5 ml-1 text-gray-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
-                          title="Delete"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-</>
+                        <RowActionsMenu items={getMenuItems(request)} />
+                        </>
 )}
                       </td>
                     </tr>

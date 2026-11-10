@@ -235,7 +235,7 @@ const Announcements = () => {
                       {/* Content Preview */}
                       <div className="mt-3 sm:mt-4 rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-[#faf0fa] px-3 sm:px-4 py-3 sm:py-4">
                         <div
-                          className="text-sm leading-6 text-gray-700 line-clamp-3 sm:line-clamp-none"
+                          className="rich-content text-sm leading-6 text-gray-700 line-clamp-3 sm:line-clamp-none"
                           dangerouslySetInnerHTML={{
                             __html: showViewModal
                               ? sanitizeHtml(announcement.content)
@@ -395,7 +395,7 @@ const Announcements = () => {
 
               <div className="rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-[#faf0fa] p-4 sm:p-5">
                 <div
-                  className="prose prose-sm max-w-none"
+                  className="rich-content prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{
                     __html: sanitizeHtml(viewingAnnouncement.content),
                   }}

@@ -41,6 +41,15 @@
     <meta property="twitter:description" content="Centralized hub for managing employee information" />
     
     <title>Employee Portal | Le Monet Hotel</title>
+
+    <!-- Apply a saved dark-mode choice before the page paints (no flash) -->
+    <script>
+      try {
+        if (localStorage.getItem('portal_theme') === 'dark') {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
