@@ -478,7 +478,7 @@ const handleSaveEdit = async () => {
   const getStatusBadge = (status, request) => {
     if (request?.deleted_at) {
       return (
-        <span className="rounded-full bg-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700">
+        <span className="inline-block whitespace-nowrap rounded-full bg-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700">
           Deleted
         </span>
       );
@@ -486,14 +486,14 @@ const handleSaveEdit = async () => {
     switch (status) {
       case "pending_supervisor":
         return (
-          <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800">
+          <span className="inline-block whitespace-nowrap rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800">
             Waiting for supervisor
           </span>
         );
       case "approved":
         return (
           <>
-            <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
+            <span className="inline-block whitespace-nowrap rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">
               Approved
             </span>
             {overrideTag(request)}
@@ -501,14 +501,14 @@ const handleSaveEdit = async () => {
         );
       case "pending":
         return (
-          <span className="rounded-full bg-[#f3e8a7] px-2.5 py-1 text-xs font-medium text-[#7a5d00]">
-            {request?.supervisor_decision === "approved" ? "Pending (supervisor approved)" : "Pending"}
+          <span className="inline-block whitespace-nowrap rounded-full bg-[#f3e8a7] px-2.5 py-1 text-xs font-medium text-[#7a5d00]">
+            {request?.supervisor_decision === "approved" ? "Supervisor approved" : "Pending"}
           </span>
         );
       case "rejected":
         return (
           <>
-            <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-800">
+            <span className="inline-block whitespace-nowrap rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-800">
               {request?.supervisor_decision === "rejected" ? "Rejected by supervisor" : "Rejected"}
             </span>
             {overrideTag(request)}
@@ -516,7 +516,7 @@ const handleSaveEdit = async () => {
         );
       default:
         return (
-          <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-800">
+          <span className="inline-block whitespace-nowrap rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-800">
             {status}
           </span>
         );
@@ -1137,7 +1137,7 @@ const handleSaveEdit = async () => {
                         {getStatusBadge(request.status, request)}
                         {getPayTypeBadge(request.leave_pay_type)}
                       </td>
-                      <td className="px-4 lg:px-6 py-4 text-right">
+                      <td className="px-4 lg:px-6 py-4 text-right whitespace-nowrap">
                         <button
                           onClick={() => handleView(request)}
                           className="p-1.5 mr-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition"
