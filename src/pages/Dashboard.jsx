@@ -480,7 +480,7 @@ const Dashboard = () => {
                   >
                     <p className="text-sm font-medium text-gray-800">{announcement.title}</p>
                     <div 
-  className="mt-1 text-xs text-gray-500 line-clamp-2"
+  className="rich-content mt-1 text-xs text-gray-500 line-clamp-2"
   dangerouslySetInnerHTML={{ 
     __html: previewHtml(announcement.content, 80)
   }}

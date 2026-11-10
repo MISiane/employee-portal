@@ -14,6 +14,7 @@ import {
     CloudArrowDownIcon
 } from '@heroicons/react/24/outline';
 import api from '../../api/config';
+import ThemeToggle from './ThemeToggle';
 
 const Header = () => {
   const { user, logout } = useAuth();
@@ -331,6 +332,7 @@ const handleSearch = async (e) => {
 
           {/* Right Side */}
           <div className="flex items-center space-x-2 sm:space-x-4">
+            <ThemeToggle />
 <button
   onClick={() => navigate('/mobile-app')}
   className="flex items-center gap-1.5 rounded-2xl px-2 sm:px-3 py-1.5 text-[#800080] transition-colors hover:bg-[#f5e6f7] hover:text-[#660066]"
