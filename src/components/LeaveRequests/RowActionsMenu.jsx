@@ -75,6 +75,7 @@ const RowActionsMenu = ({ items, label = 'More actions' }) => {
           <div
             ref={menuRef}
             role="menu"
+            onClick={(e) => e.stopPropagation()}
             style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width }}
             className="z-[70] rounded-xl border border-gray-200 bg-white p-1 shadow-xl"
           >

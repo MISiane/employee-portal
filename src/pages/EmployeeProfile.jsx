@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeftIcon, PencilSquareIcon, IdentificationIcon, CalendarDaysIcon,
   BriefcaseIcon, ClockIcon, EyeIcon, EyeSlashIcon,
@@ -79,6 +79,7 @@ const StatCard = ({ icon: Icon, label, value }) => (
 const EmployeeProfile = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [emp, setEmp] = useState(null);
   const [balances, setBalances] = useState(null);
@@ -86,7 +87,7 @@ const EmployeeProfile = () => {
   const [error, setError] = useState('');
   const [tab, setTab] = useState('overview');
   const [showIds, setShowIds] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(!!location.state?.edit);
   const [card, setCard] = useState(null);
   const [busy, setBusy] = useState(false);
   const [departments, setDepartments] = useState([]);
@@ -306,6 +307,7 @@ const EmployeeProfile = () => {
         isOpen={editing}
         onClose={() => {
           setEditing(false);
+          if (location.state?.edit) navigate(location.pathname, { replace: true, state: null });
           load();
         }}
         employee={emp}

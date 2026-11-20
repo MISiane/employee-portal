@@ -4,7 +4,6 @@ import {
   MagnifyingGlassIcon,
   PencilIcon,
   TrashIcon,
-  EyeIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   FunnelIcon,
@@ -16,7 +15,9 @@ import {
   KeyIcon,
   ClipboardDocumentIcon,
   CheckIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  IdentificationIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { getEmployees, deleteEmployee, getDepartments, updateEmployee, resetEmployeePassword } from '../api/employees';
 import { useAuth } from '../context/AuthContext';
@@ -26,6 +27,7 @@ import ReactivateConfirmModal from '../components/Employees/ReactivateConfirmMod
 import SupervisorModal from '../components/Employees/SupervisorModal';
 import { getSupervisorAssignments } from '../api/leave';
 import { getDepartmentStyle } from '../utils/departments';
+import RowActionsMenu from '../components/LeaveRequests/RowActionsMenu';
 import CredentialCard from '../components/Employees/CredentialCard';
 import { useNavigate } from 'react-router-dom';
 
@@ -222,10 +224,54 @@ const Employees = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // Editing happens on the employee's profile page (opens with the edit form ready).
   const handleEdit = (employee) => {
-    setSelectedEmployee(employee);
-    setModalMode('edit');
-    setShowEmployeeModal(true);
+    navigate(`/employees/${employee.id}`, { state: { edit: true } });
+  };
+
+  const handleCredentialCard = async (employee) => {
+    if (!confirm(`Print a credential card for ${employee.first_name} ${employee.last_name}? This resets their password to a new temporary one, and the old password stops working.`)) {
+      return;
+    }
+    try {
+      const response = await resetEmployeePassword(employee.id);
+      if (response.success) {
+        setCardInfo({
+          password: response.temporary_password,
+          employee: {
+            name: response.employee_name,
+            email: response.employee_email,
+            department: employee.department,
+            employee_code: employee.employee_code
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error creating credential card:', error);
+      alert('Error resetting password: ' + (error.response?.data?.error || 'Please try again.'));
+    }
+  };
+
+  // Less-used row actions live in the "⋯" menu.
+  const getMenuItems = (emp) => {
+    if (!emp.is_active) {
+      return [{ label: 'Reactivate', icon: ArrowPathIcon, onClick: () => handleReactivate(emp) }];
+    }
+    const isSupervisor = supervisorMap[emp.id]?.length > 0;
+    return [
+      { label: 'Credential card', icon: IdentificationIcon, onClick: () => handleCredentialCard(emp) },
+      { label: 'Reset password', icon: KeyIcon, onClick: () => handleResetPassword(emp) },
+      { label: isSupervisor ? 'Supervisor settings' : 'Set as supervisor', icon: UserGroupIcon, onClick: () => handleSupervisorClick(emp) },
+      {
+        label: 'Deactivate',
+        icon: TrashIcon,
+        danger: true,
+        onClick: () => {
+          setSelectedEmployee(emp);
+          setShowDeleteModal(true);
+        }
+      }
+    ];
   };
 
   const handleView = (employee) => {
@@ -422,7 +468,13 @@ const Employees = () => {
             employees.map((emp) => (
               <div key={emp.id} className="p-4 hover:bg-purple-50 transition-colors">
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-3">
+                  <div
+                    className="flex items-center space-x-3 cursor-pointer min-w-0"
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => handleView(emp)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleView(emp)}
+                  >
                     <div className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center font-semibold shadow ring-2 ring-purple-200">
                       {emp.first_name?.[0]}{emp.last_name?.[0]}
                     </div>
@@ -433,61 +485,16 @@ const Employees = () => {
                       <p className="text-xs text-gray-500">{emp.email}</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <button 
-                      onClick={() => handleView(emp)} 
-                      className="p-1.5 text-purple-600 hover:text-purple-800 transition rounded-lg hover:bg-purple-50"
-                      title="View"
-                    >
-                      <EyeIcon className="h-4 w-4" />
-                    </button>
-                    <button 
-                      onClick={() => handleEdit(emp)} 
-                      className="p-1.5 text-indigo-600 hover:text-indigo-800 transition rounded-lg hover:bg-indigo-50"
+                  <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      onClick={() => handleEdit(emp)}
+                      className="p-2 text-indigo-600 hover:text-indigo-800 transition rounded-lg hover:bg-indigo-50"
                       title="Edit"
+                      aria-label={`Edit ${emp.first_name} ${emp.last_name}`}
                     >
                       <PencilIcon className="h-4 w-4" />
                     </button>
-                    {emp.is_active && (
-                      <button 
-                        onClick={() => handleSupervisorClick(emp)} 
-                        className={`p-1.5 transition rounded-lg hover:bg-teal-50 ${supervisorMap[emp.id]?.length ? 'text-teal-700' : 'text-teal-400 hover:text-teal-700'}`}
-                        title={supervisorMap[emp.id]?.length ? `Supervisor of ${supervisorMap[emp.id].join(', ')}` : 'Set as department supervisor'}
-                      >
-                        <UserGroupIcon className="h-4 w-4" />
-                      </button>
-                    )}
-                    {emp.is_active && (
-                      <button 
-                        onClick={() => handleResetPassword(emp)} 
-                        className="p-1.5 text-yellow-600 hover:text-yellow-800 transition rounded-lg hover:bg-yellow-50"
-                        title="Reset Password"
-                      >
-                        <KeyIcon className="h-4 w-4" />
-                      </button>
-                    )}
-                    {emp.is_active ? (
-                      <button 
-                        onClick={() => {
-                          setSelectedEmployee(emp);
-                          setShowDeleteModal(true);
-                        }} 
-                        className="p-1.5 text-rose-500 hover:text-rose-700 transition rounded-lg hover:bg-rose-50"
-                        title="Deactivate"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    ) : (
-                      <button 
-                        onClick={() => handleReactivate(emp)} 
-                        className="p-1.5 text-green-600 hover:text-green-800 transition rounded-lg hover:bg-green-50"
-                        title="Reactivate"
-                      >
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                      </button>
-                    )}
+                    <RowActionsMenu items={getMenuItems(emp)} label={`More actions for ${emp.first_name} ${emp.last_name}`} />
                   </div>
                 </div>
                 
@@ -584,7 +591,7 @@ const Employees = () => {
                 </tr>
               ) : (
                 employees.map(emp => (
-                  <tr key={emp.id} className="hover:bg-purple-50 transition">
+                  <tr key={emp.id} className="hover:bg-purple-50 transition cursor-pointer" onClick={() => handleView(emp)}>
                     <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="h-9 w-9 lg:h-10 lg:w-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center font-semibold shadow ring-2 ring-purple-200">
@@ -624,61 +631,18 @@ const Employees = () => {
                     <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(emp.is_active)}
                     </td>
-                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right space-x-1 lg:space-x-2">
-                      <button 
-                        onClick={() => handleView(emp)} 
-                        className="p-1.5 lg:p-2 text-purple-600 hover:text-purple-800 transition rounded-lg hover:bg-purple-50"
-                        title="View"
-                      >
-                        <EyeIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                      </button>
-                      <button 
-                        onClick={() => handleEdit(emp)} 
-                        className="p-1.5 lg:p-2 text-indigo-600 hover:text-indigo-800 transition rounded-lg hover:bg-indigo-50"
-                        title="Edit"
-                      >
-                        <PencilIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                      </button>
-                      {emp.is_active && (
-                        <button 
-                          onClick={() => handleSupervisorClick(emp)} 
-                          className={`p-1.5 lg:p-2 transition rounded-lg hover:bg-teal-50 ${supervisorMap[emp.id]?.length ? 'text-teal-700' : 'text-teal-400 hover:text-teal-700'}`}
-                          title={supervisorMap[emp.id]?.length ? `Supervisor of ${supervisorMap[emp.id].join(', ')}` : 'Set as department supervisor'}
+                    <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          onClick={() => handleEdit(emp)}
+                          className="p-2 text-indigo-600 hover:text-indigo-800 transition rounded-lg hover:bg-indigo-50"
+                          title="Edit"
+                          aria-label={`Edit ${emp.first_name} ${emp.last_name}`}
                         >
-                          <UserGroupIcon className="h-4 w-4 lg:h-5 lg:w-5" />
+                          <PencilIcon className="h-4 w-4 lg:h-5 lg:w-5" />
                         </button>
-                      )}
-                      {emp.is_active && (
-                        <button 
-                          onClick={() => handleResetPassword(emp)} 
-                          className="p-1.5 lg:p-2 text-yellow-600 hover:text-yellow-800 transition rounded-lg hover:bg-yellow-50"
-                          title="Reset Password"
-                        >
-                          <KeyIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                        </button>
-                      )}
-                      {emp.is_active ? (
-                        <button 
-                          onClick={() => {
-                            setSelectedEmployee(emp);
-                            setShowDeleteModal(true);
-                          }} 
-                          className="p-1.5 lg:p-2 text-rose-500 hover:text-rose-700 transition rounded-lg hover:bg-rose-50"
-                          title="Deactivate"
-                        >
-                          <TrashIcon className="h-4 w-4 lg:h-5 lg:w-5" />
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => handleReactivate(emp)} 
-                          className="p-1.5 lg:p-2 text-green-600 hover:text-green-800 transition rounded-lg hover:bg-green-50"
-                          title="Reactivate"
-                        >
-                          <svg className="h-4 w-4 lg:h-5 lg:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                        </button>
-                      )}
+                        <RowActionsMenu items={getMenuItems(emp)} label={`More actions for ${emp.first_name} ${emp.last_name}`} />
+                      </div>
                     </td>
                   </tr>
                 ))
