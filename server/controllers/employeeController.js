@@ -1,6 +1,29 @@
 const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
-const { generateTempPassword } = require('../utils/password');
+const { generateTempPassword, setMustChangePassword } = require('../utils/password');
+const { isSupervisorReady } = require('../utils/schema');
+const { requeueOrphanedRequests } = require('../utils/supervisors');
+const { notifyMany, adminIds } = require('../utils/notify');
+
+// When someone who supervises a department is deactivated, leave requests that
+// were waiting only for them move on to the admin instead of sitting forever.
+// Never blocks or fails the deactivation itself.
+const releaseWaitingRequests = async () => {
+  if (!isSupervisorReady()) return;
+  try {
+    const moved = await requeueOrphanedRequests(pool);
+    if (moved > 0) {
+      await notifyMany(
+        await adminIds(),
+        'leave_status',
+        'Leave requests need your approval',
+        `${moved} leave request(s) were waiting for a supervisor who is no longer active, so they now wait for you.`
+      );
+    }
+  } catch (error) {
+    console.error('Could not move waiting leave requests:', error.message);
+  }
+};
 
 // Helper function to convert empty strings to null
 const sanitizeValue = (value) => {
@@ -367,6 +390,7 @@ const createEmployee = async (req, res) => {
     );
     
     await client.query('COMMIT');
+    await setMustChangePassword(pool, user.id, true);
     
     res.status(201).json({
       user: {
@@ -438,6 +462,7 @@ const updateEmployee = async (req, res) => {
           `UPDATE users SET ${userUpdates.join(', ')} WHERE id = $${userParamCount}`,
           userValues
         );
+        if (updates.is_active === false) await releaseWaitingRequests();
       }
     }
     
@@ -546,6 +571,8 @@ const deleteEmployee = async (req, res) => {
       return res.status(404).json({ error: 'Employee not found' });
     }
     
+    await releaseWaitingRequests();
+
     res.json({ message: 'Employee deactivated successfully' });
   } catch (error) {
     console.error('Error in deleteEmployee:', error);
@@ -933,6 +960,7 @@ const resetEmployeePassword = async (req, res) => {
       'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       [hashedPassword, id]
     );
+    await setMustChangePassword(pool, id, true);
     
     res.json({
       success: true,

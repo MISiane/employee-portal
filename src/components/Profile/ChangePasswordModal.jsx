@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { XMarkIcon, KeyIcon } from '@heroicons/react/24/outline';
 import api from '../../api/config';
 
-const ChangePasswordModal = ({ isOpen, onClose, onSuccess }) => {
+// `required`: shown at first login after an admin created or reset the account; it
+// cannot be closed until a new password is saved.
+const ChangePasswordModal = ({ isOpen, onClose, onSuccess, required = false }) => {
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -65,7 +67,7 @@ const ChangePasswordModal = ({ isOpen, onClose, onSuccess }) => {
         currentPassword: formData.currentPassword,
         newPassword: formData.newPassword
       });
-      onSuccess();
+      await onSuccess();
     } catch (err) {
       setError(err.response?.data?.error || 'Error changing password. Please try again.');
     } finally {
@@ -81,17 +83,27 @@ const ChangePasswordModal = ({ isOpen, onClose, onSuccess }) => {
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center">
             <KeyIcon className="h-6 w-6 text-blue-600 mr-2" />
-            <h2 className="text-xl font-bold text-gray-800">Change Password</h2>
+            <h2 className="text-xl font-bold text-gray-800">
+              {required ? 'Create your new password' : 'Change Password'}
+            </h2>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <XMarkIcon className="h-6 w-6 text-gray-500" />
-          </button>
+          {!required && (
+            <button
+              onClick={onClose}
+              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <XMarkIcon className="h-6 w-6 text-gray-500" />
+            </button>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="p-6">
+          {required && (
+            <div className="mb-4 bg-amber-50 border border-amber-300 text-amber-800 px-4 py-3 rounded-lg text-sm">
+              For your security, please replace the temporary password you were given with one only you know.
+            </div>
+          )}
+
           {error && (
             <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-sm">
               {error}
@@ -159,13 +171,15 @@ const ChangePasswordModal = ({ isOpen, onClose, onSuccess }) => {
           </div>
 
           <div className="flex space-x-3 mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
+            {!required && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            )}
             <button
               type="submit"
               disabled={loading}
