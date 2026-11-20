@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import Employees from './pages/Employees';
+import EmployeeProfile from './pages/EmployeeProfile';
 import MyProfile from './pages/MyProfile';
 import MyAttendance from './pages/MyAttendance';
 import MyLeaveRequests from './pages/MyLeaveRequests';
@@ -76,6 +77,7 @@ function App() {
               
               {/* Admin Only Routes */}
               <Route path="employees" element={<Employees />} />
+              <Route path="employees/:id" element={<EmployeeProfile />} />
               <Route path="leave-requests" element={<LeaveRequestsAdmin />} />
               <Route path="attendance" element={<AttendanceAdmin />} />
               <Route path="payslips" element={<AdminPayslips />} />
