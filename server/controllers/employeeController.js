@@ -235,6 +235,7 @@ const getEmployeeById = async (req, res) => {
         ep.emergency_contact_phone,
         ep.created_at as profile_created_at,
         ep.updated_at as profile_updated_at,
+        to_jsonb(ep)->>'about_me' AS about_me,
         TO_CHAR(ep.date_of_birth, 'YYYY-MM-DD') as date_of_birth_formatted,
         TO_CHAR(ep.hire_date, 'YYYY-MM-DD') as hire_date_formatted,
         TO_CHAR(ep.regularization_date, 'YYYY-MM-DD') as regularization_date_formatted,
@@ -282,6 +283,7 @@ const getEmployeeById = async (req, res) => {
       tin_number: result.rows[0].tin_number,
       emergency_contact_name: result.rows[0].emergency_contact_name,
       emergency_contact_phone: result.rows[0].emergency_contact_phone,
+      about_me: result.rows[0].about_me || '',
     };
     
     
@@ -659,6 +661,32 @@ const getDepartmentDistribution = async (req, res) => {
 };
 
 // Update employee profile (for employees to update their own info)
+// Short free-text "about me" shown on the Meet the Team card. Employees edit only their own.
+const ABOUT_ME_MAX = 300;
+const updateAboutMe = async (req, res) => {
+  const raw = req.body?.about_me;
+  if (raw !== undefined && raw !== null && typeof raw !== 'string') {
+    return res.status(400).json({ error: 'About me must be text' });
+  }
+  const text = (raw || '').replace(/\r\n/g, '\n').trim();
+  if (text.length > ABOUT_ME_MAX) {
+    return res.status(400).json({ error: `About me must be ${ABOUT_ME_MAX} characters or fewer` });
+  }
+  try {
+    const result = await pool.query(
+      'UPDATE employee_profiles SET about_me = $2, updated_at = CURRENT_TIMESTAMP WHERE user_id = $1 RETURNING user_id',
+      [req.user.id, text || null]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Employee profile not found' });
+    }
+    res.json({ success: true, about_me: text });
+  } catch (error) {
+    console.error('Error in updateAboutMe:', error);
+    res.status(500).json({ error: 'Could not save. Please try again.' });
+  }
+};
+
 const updateProfile = async (req, res) => {
   const userId = req.user.id;
   const updates = req.body;
@@ -1130,6 +1158,7 @@ const getEmployeeDirectory = async (req, res) => {
       `SELECT u.id, u.avatar_url,
               ep.first_name, ep.last_name, ep.employee_code, ep.department, ep.position, ep.date_of_birth, ep.hire_date,
               ep.high_five_count,
+              to_jsonb(ep)->>'about_me' AS about_me,
               EXTRACT(YEAR FROM AGE(CURRENT_DATE, ep.hire_date)) as years_at_company,
               EXTRACT(MONTH FROM AGE(CURRENT_DATE, ep.hire_date)) as months_at_company
        FROM users u
@@ -1348,6 +1377,7 @@ module.exports = {
   createEmployee,
   updateEmployee,
   updateProfile,
+  updateAboutMe,
   deleteEmployee,
   resetEmployeePassword,  
   getDepartments,

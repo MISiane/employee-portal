@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthContext";
 import {
   MagnifyingGlassIcon,
@@ -7,6 +7,9 @@ import {
   BuildingOfficeIcon,
   CakeIcon,
   SparklesIcon,
+  XMarkIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import api from "../api/config";
 
@@ -252,6 +255,7 @@ const EmployeeDirectory = () => {
   const [departments, setDepartments] = useState([]);
   const [sortBy, setSortBy] = useState("name");
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const [filterUpcomingBirthdays, setFilterUpcomingBirthdays] = useState(false);
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
   const [upcomingAnniversaries, setUpcomingAnniversaries] = useState([]);
@@ -507,6 +511,34 @@ const getTodayAnniversariesFromData = (employeesList) => {
   };
 
   const filteredEmployees = getSortedEmployees();
+
+  // Previous / next employee in the list the person is currently looking at
+  const selectedIndex = selectedEmployee
+    ? filteredEmployees.findIndex((e) => e.id === selectedEmployee.id)
+    : -1;
+  const canBrowse = selectedIndex !== -1 && filteredEmployees.length > 1;
+  const browseCard = useCallback(
+    (delta) => {
+      if (!canBrowse) return;
+      const n = filteredEmployees.length;
+      setPhotoOpen(false);
+      setSelectedEmployee(filteredEmployees[(selectedIndex + delta + n) % n]);
+    },
+    [canBrowse, filteredEmployees, selectedIndex],
+  );
+
+  useEffect(() => {
+    if (!selectedEmployee) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        if (photoOpen) setPhotoOpen(false);
+        else setSelectedEmployee(null);
+      } else if (e.key === "ArrowLeft" && !photoOpen) browseCard(-1);
+      else if (e.key === "ArrowRight" && !photoOpen) browseCard(1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedEmployee, photoOpen, browseCard]);
 
   const stats = {
     total: employees.length,
@@ -1079,72 +1111,103 @@ const getTop3Rank = (employeeId) => {
           onClick={() => setSelectedEmployee(null)}
         >
           <div
-            className="bg-white rounded-2xl max-w-md w-full overflow-hidden"
+            className="relative bg-white rounded-2xl max-w-md w-full overflow-hidden max-h-[92vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label={`${selectedEmployee.first_name} ${selectedEmployee.last_name}`}
           >
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6 text-white text-center">
+            <div className="relative bg-gradient-to-r from-purple-600 to-pink-600 px-6 pt-8 pb-6 text-white text-center">
+              <button
+                type="button"
+                onClick={() => setSelectedEmployee(null)}
+                className="absolute top-3 right-3 h-9 w-9 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition"
+                aria-label="Close"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+              {canBrowse && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => browseCard(-1)}
+                    className="absolute left-3 top-[4.5rem] h-9 w-9 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition"
+                    aria-label="Previous employee"
+                  >
+                    <ChevronLeftIcon className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => browseCard(1)}
+                    className="absolute right-3 top-[4.5rem] h-9 w-9 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 transition"
+                    aria-label="Next employee"
+                  >
+                    <ChevronRightIcon className="h-5 w-5" />
+                  </button>
+                </>
+              )}
               {selectedEmployee.avatar_url ? (
-                <img
-                  src={selectedEmployee.avatar_url}
-                  className="h-24 w-24 rounded-full mx-auto ring-4 ring-white object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => setPhotoOpen(true)}
+                  className="block mx-auto rounded-full focus:outline-none focus:ring-2 focus:ring-white"
+                  title="View photo"
+                  aria-label="View full photo"
+                >
+                  <img
+                    src={selectedEmployee.avatar_url}
+                    alt=""
+                    className="h-28 w-28 rounded-full mx-auto ring-4 ring-white object-cover cursor-zoom-in"
+                  />
+                </button>
               ) : (
-                <div className="h-24 w-24 rounded-full bg-white/20 flex items-center justify-center mx-auto ring-4 ring-white">
-                  <span className="text-3xl font-bold text-white">
+                <div className="h-28 w-28 rounded-full bg-white/20 flex items-center justify-center mx-auto ring-4 ring-white">
+                  <span className="text-4xl font-bold text-white">
                     {selectedEmployee.first_name?.charAt(0)}
                     {selectedEmployee.last_name?.charAt(0)}
                   </span>
                 </div>
               )}
               <div className="flex items-center justify-center gap-2 mt-3">
-{(() => {
-  const rank = getTop3Rank(selectedEmployee.id);
-  if (rank) {
-    return (
-      <button
-        onClick={() => setShowLeaderboard(true)}
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-sm hover:bg-white/30 transition cursor-pointer`}
-        title={`${rank.label} - Click to view leaderboard`}
-      >
-        <span>{rank.icon}</span>
-      </button>
-    );
-  }
-  return null;
-})()}
-  <h3 className="text-xl font-bold">{selectedEmployee.first_name} {selectedEmployee.last_name}</h3>
-</div>
-<p className="text-white/90">{selectedEmployee.position || 'Team Member'}</p>
-<p className="text-white/80 text-sm mt-1">{selectedEmployee.department || 'General'}</p>
+                {(() => {
+                  const rank = getTop3Rank(selectedEmployee.id);
+                  if (rank) {
+                    return (
+                      <button
+                        onClick={() => setShowLeaderboard(true)}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/20 text-sm hover:bg-white/30 transition cursor-pointer"
+                        title={`${rank.label} - Click to view leaderboard`}
+                      >
+                        <span>{rank.icon}</span>
+                      </button>
+                    );
+                  }
+                  return null;
+                })()}
+                <h3 className="text-xl font-bold">
+                  {selectedEmployee.first_name} {selectedEmployee.last_name}
+                </h3>
+              </div>
+              <p className="text-white/90">{selectedEmployee.position || "Team Member"}</p>
+              <p className="text-white/80 text-sm mt-1">{selectedEmployee.department || "General"}</p>
 
               {/* High-five count with inline button */}
               <div className="flex items-center justify-center gap-3 mt-3">
-                {/* Props count with clickable leaderboard trigger */}
                 <button
                   onClick={() => setShowLeaderboard(true)}
                   className="flex items-center gap-1 px-3 py-1.5 bg-white/20 rounded-full text-sm hover:bg-white/30 transition cursor-pointer group"
                   title="View leaderboard"
                 >
                   <span>👏</span>
-                  <span className="font-semibold">
-                    {selectedEmployee.high_five_count || 0}
-                  </span>
+                  <span className="font-semibold">{selectedEmployee.high_five_count || 0}</span>
                 </button>
-
-                {/* Small high-five button */}
                 <HighFiveButton
                   employeeId={selectedEmployee.id}
                   employeeName={selectedEmployee.first_name}
                   onHighFiveSuccess={(newCount) => {
-                    setSelectedEmployee((prev) => ({
-                      ...prev,
-                      high_five_count: newCount,
-                    }));
+                    setSelectedEmployee((prev) => ({ ...prev, high_five_count: newCount }));
                     setEmployees((prev) =>
                       prev.map((emp) =>
-                        emp.id === selectedEmployee.id
-                          ? { ...emp, high_five_count: newCount }
-                          : emp,
+                        emp.id === selectedEmployee.id ? { ...emp, high_five_count: newCount } : emp,
                       ),
                     );
                   }}
@@ -1153,19 +1216,19 @@ const getTop3Rank = (employeeId) => {
             </div>
 
             <div className="p-6 space-y-3">
-              <div className="flex justify-between py-2 border-b">
-                <span className="text-gray-500">Employee Code</span>
-                <span className="font-medium">
-                  {selectedEmployee.employee_code || "N/A"}
-                </span>
-              </div>
+              {selectedEmployee.about_me && (
+                <div className="rounded-xl bg-purple-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-purple-700 mb-1">About me</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                    {selectedEmployee.about_me}
+                  </p>
+                </div>
+              )}
 
               <div className="flex justify-between py-2 border-b">
                 <span className="text-gray-500">Time with the Company</span>
                 <div className="flex flex-col items-end gap-1">
-                  <span className="font-medium">
-                    {selectedEmployee.tenure || "Less than 1 month"}
-                  </span>
+                  <span className="font-medium">{selectedEmployee.tenure || "Less than 1 month"}</span>
                   {selectedEmployee.tenure &&
                     (() => {
                       const rank = getTenureRank(
@@ -1187,48 +1250,53 @@ const getTop3Rank = (employeeId) => {
               {selectedEmployee.date_of_birth && (
                 <div className="flex justify-between py-2 border-b">
                   <span className="text-gray-500">Birthday</span>
-                  <span className="font-medium">
-                    {formatBirthday(selectedEmployee.date_of_birth)}
-                  </span>
+                  <span className="font-medium">{formatBirthday(selectedEmployee.date_of_birth)}</span>
                 </div>
               )}
 
               {/* Celebration alerts */}
               {upcomingBirthdays.some((b) => b.id === selectedEmployee.id) && (
                 <div className="bg-pink-50 rounded-lg p-3 text-center">
-                  <p className="text-pink-600 font-medium text-sm">
-                    🎂 Birthday coming up soon!
-                  </p>
+                  <p className="text-pink-600 font-medium text-sm">🎂 Birthday coming up soon!</p>
                 </div>
               )}
 
-              {upcomingAnniversaries.some(
-                (a) => a.id === selectedEmployee.id,
-              ) &&
+              {upcomingAnniversaries.some((a) => a.id === selectedEmployee.id) &&
                 (() => {
-                  const anniv = upcomingAnniversaries.find(
-                    (a) => a.id === selectedEmployee.id,
-                  );
+                  const anniv = upcomingAnniversaries.find((a) => a.id === selectedEmployee.id);
                   return (
                     <div className="bg-blue-50 rounded-lg p-3 text-center">
                       <p className="text-blue-600 font-medium text-sm">
-                        🏆 Work anniversary soon! {anniv.yearsAtAnniversary}{" "}
-                        year{anniv.yearsAtAnniversary !== 1 ? "s" : ""} with us!
+                        🏆 Work anniversary soon! {anniv.yearsAtAnniversary} year
+                        {anniv.yearsAtAnniversary !== 1 ? "s" : ""} with us!
                       </p>
                     </div>
                   );
                 })()}
             </div>
-
-            <div className="p-4 border-t">
-              <button
-                onClick={() => setSelectedEmployee(null)}
-                className="w-full py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
-              >
-                Close
-              </button>
-            </div>
           </div>
+        </div>
+      )}
+
+      {/* Full-size photo */}
+      {selectedEmployee && photoOpen && selectedEmployee.avatar_url && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4"
+          onClick={() => setPhotoOpen(false)}
+        >
+          <img
+            src={selectedEmployee.avatar_url}
+            alt={`${selectedEmployee.first_name} ${selectedEmployee.last_name}`}
+            className="max-h-full max-w-full rounded-xl object-contain"
+          />
+          <button
+            type="button"
+            onClick={() => setPhotoOpen(false)}
+            className="absolute top-4 right-4 h-10 w-10 flex items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/30"
+            aria-label="Close photo"
+          >
+            <XMarkIcon className="h-6 w-6" />
+          </button>
         </div>
       )}
       {/* Leaderboard Modal */}

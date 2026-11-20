@@ -169,9 +169,9 @@ const EmployeeProfile = () => {
       <div className="rounded-2xl bg-gradient-to-r from-[#800080] to-[#a22ca2] p-5 text-white sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           {emp.avatar_url ? (
-            <img src={emp.avatar_url} alt="" className="h-24 w-24 rounded-xl border-2 border-white/60 object-cover" />
+            <img src={emp.avatar_url} alt="" className="h-24 w-24 rounded-xl border-2 border-[rgba(255,255,255,0.6)] object-cover" />
           ) : (
-            <div className="flex h-24 w-24 items-center justify-center rounded-xl border-2 border-white/60 bg-white/20 text-3xl font-bold">{initials}</div>
+            <div className="flex h-24 w-24 items-center justify-center rounded-xl border-2 border-[rgba(255,255,255,0.6)] bg-white/20 text-3xl font-bold">{initials}</div>
           )}
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-bold">{fullName}</h1>
