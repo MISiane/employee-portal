@@ -31,6 +31,8 @@ import RowActionsMenu from '../components/LeaveRequests/RowActionsMenu';
 import CredentialCard from '../components/Employees/CredentialCard';
 import { useNavigate } from 'react-router-dom';
 
+const DEFAULT_STATUS = 'active';
+
 const Employees = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -40,7 +42,8 @@ const Employees = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('');
+  // The list opens on Active employees; admins can switch to Inactive or All.
+  const [selectedStatus, setSelectedStatus] = useState(DEFAULT_STATUS);
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -293,11 +296,11 @@ const Employees = () => {
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedDepartment('');
-    setSelectedStatus('');
+    setSelectedStatus(DEFAULT_STATUS);
     setCurrentPage(1);
   };
 
-  const hasActiveFilters = searchTerm || selectedDepartment || selectedStatus;
+  const hasActiveFilters = searchTerm || selectedDepartment || selectedStatus !== DEFAULT_STATUS;
 
   const getStatusBadge = (isActive) => {
     return isActive ? (
@@ -406,6 +409,19 @@ const Employees = () => {
         </div>
 
         {/* Filter Panel */}
+        {selectedStatus && (
+          <p className="mt-3 text-sm text-gray-600">
+            Showing <strong>{selectedStatus}</strong> employees only.{' '}
+            <button
+              type="button"
+              onClick={() => { setSelectedStatus(''); setCurrentPage(1); }}
+              className="text-purple-700 hover:text-purple-900 underline"
+            >
+              Show all
+            </button>
+          </p>
+        )}
+
         {showFilters && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
