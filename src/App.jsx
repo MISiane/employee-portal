@@ -24,10 +24,11 @@ import PendingPayslips from './pages/PendingPayslips';
 import EmployeeDirectory from './pages/EmployeeDirectory';
 import MobileAppPage from './pages/MobileAppPage';
 import TeamLeaveRequests from './pages/TeamLeaveRequests';
+import ForcePasswordChange from './components/Profile/ForcePasswordChange';
 
 // Private Route Component
 const PrivateRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   
   if (loading) {
     return (
@@ -37,6 +38,8 @@ const PrivateRoute = ({ children }) => {
     );
   }
   
+  if (isAuthenticated && user?.must_change_password) return <ForcePasswordChange />;
+
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 

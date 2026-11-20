@@ -1,6 +1,7 @@
 const pool = require('../config/database');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { setMustChangePassword } = require('../utils/password');
 
 // Helper function to convert empty strings to null
 const sanitizeValue = (value) => {
@@ -107,6 +108,7 @@ const register = async (req, res) => {
     );
     
     await client.query('COMMIT');
+    await setMustChangePassword(pool, user.id, true);
     
     res.status(201).json({
       user,
@@ -126,6 +128,7 @@ const getCurrentUser = async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT u.id, u.email, u.role, u.is_active, u.last_login, u.avatar_url,
+              (to_jsonb(u)->>'must_change_password')::boolean AS must_change_password,
               ep.first_name, ep.last_name, ep.employee_code, ep.department,
               ep.position, ep.phone, ep.hire_date
        FROM users u
@@ -165,6 +168,13 @@ const getCurrentUser = async (req, res) => {
 const changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   const userId = req.user.id;
+
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters long' });
+  }
+  if (newPassword === currentPassword) {
+    return res.status(400).json({ error: 'New password must be different from the current password' });
+  }
   
   try {
     const result = await pool.query(
@@ -186,6 +196,7 @@ const changePassword = async (req, res) => {
       'UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
       [hashedPassword, userId]
     );
+    await setMustChangePassword(pool, userId, false);
     
     res.json({ message: 'Password changed successfully' });
   } catch (error) {

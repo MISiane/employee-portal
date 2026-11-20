@@ -25,4 +25,15 @@ const generateTempPassword = (length = 12) => {
   return chars.join('');
 };
 
-module.exports = { generateTempPassword };
+// Flags an account so the person must choose their own password at next login.
+// Best effort: if the column is missing (migration not applied yet) the account
+// still works, it just isn't forced to change.
+const setMustChangePassword = async (db, userId, value = true) => {
+  try {
+    await db.query('UPDATE users SET must_change_password = $2 WHERE id = $1', [userId, value]);
+  } catch (error) {
+    console.error('Could not update must_change_password:', error.message);
+  }
+};
+
+module.exports = { generateTempPassword, setMustChangePassword };

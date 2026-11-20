@@ -1011,6 +1011,18 @@ if (req.file) {
       client.release();
     }
 
+    // Admin decided from the list or the edit form: tell the employee, as the
+    // approve/reject buttons do.
+    if (isAdmin && result.rows[0].status !== request.status &&
+        ['approved', 'rejected'].includes(result.rows[0].status)) {
+      await notify(
+        request.user_id,
+        'leave_status',
+        `Leave request ${result.rows[0].status}`,
+        `Your ${result.rows[0].leave_type} request has been ${result.rows[0].status} by the admin.`
+      );
+    }
+
     if (resetToSupervisors.length > 0) {
       const name = await employeeName(request.user_id);
       await notifyMany(
@@ -1124,6 +1136,16 @@ const adminEditLeaveRequest = async (req, res) => {
     const balanceChange = await applyLeaveBalanceChange(client, locked.rows[0], result.rows[0]);
 
     await client.query('COMMIT');
+
+    if (result.rows[0].status !== locked.rows[0].status &&
+        ['approved', 'rejected'].includes(result.rows[0].status)) {
+      await notify(
+        locked.rows[0].user_id,
+        'leave_status',
+        `Leave request ${result.rows[0].status}`,
+        `Your ${result.rows[0].leave_type} request has been ${result.rows[0].status} by the admin.`
+      );
+    }
 
     let message = 'Leave request updated successfully';
     if (balanceChange.refunded) {
