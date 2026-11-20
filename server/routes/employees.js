@@ -6,6 +6,7 @@ const {
   createEmployee,
   updateEmployee,
   updateProfile,
+  updateAboutMe,
   deleteEmployee,
   resetEmployeePassword,
   getDepartments,
@@ -65,6 +66,7 @@ router.post('/', createEmployee);
 
 // Profile update route
 router.put('/profile', updateProfile);
+router.put('/about-me', updateAboutMe);
 
 // Password reset route (specific: /:id/reset-password before /:id)
 router.post('/:id/reset-password', resetEmployeePassword);

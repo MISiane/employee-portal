@@ -24,7 +24,7 @@ import {
   SwatchIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
-import { getEmployeeById, updateEmployee } from "../api/employees";
+import { getEmployeeById, updateEmployee, updateAboutMe } from "../api/employees";
 import { uploadAvatar, deleteAvatar } from "../api/auth";
 import ChangePasswordModal from "../components/Profile/ChangePasswordModal";
 
@@ -272,6 +272,10 @@ const StatCard = ({ title, value, icon: Icon, color }) => (
 const MyProfile = () => {
   const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
+  const [aboutText, setAboutText] = useState("");
+  const [aboutEditing, setAboutEditing] = useState(false);
+  const [aboutSaving, setAboutSaving] = useState(false);
+  const [aboutError, setAboutError] = useState("");
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({});
@@ -331,6 +335,7 @@ const MyProfile = () => {
     try {
       const data = await getEmployeeById(user.id);
       setProfile(data);
+      setAboutText(data.about_me || "");
       setFormData({
         phone: data.phone || "",
         address: data.address || "",
@@ -434,6 +439,29 @@ const MyProfile = () => {
 
     const percentage = Math.round((achievedWeight / totalWeight) * 100);
     setCompletion({ percentage, missingFields: missing });
+  };
+
+  const handleSaveAbout = async () => {
+    setAboutSaving(true);
+    setAboutError("");
+    try {
+      const res = await updateAboutMe(aboutText);
+      setProfile((prev) => ({ ...prev, about_me: res.about_me }));
+      setAboutText(res.about_me);
+      setAboutEditing(false);
+      setSuccessMessage("About me saved. It now shows on your Meet the Team card.");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (error) {
+      setAboutError(error.response?.data?.error || "Could not save. Please try again.");
+    } finally {
+      setAboutSaving(false);
+    }
+  };
+
+  const handleCancelAbout = () => {
+    setAboutText(profile?.about_me || "");
+    setAboutError("");
+    setAboutEditing(false);
   };
 
   const handleInputChange = (e) => {
@@ -931,6 +959,62 @@ const MyProfile = () => {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* About me (shown on the Meet the Team card) */}
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-sm p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm sm:text-base font-semibold text-gray-800">About me</h3>
+          {!aboutEditing && (
+            <button
+              type="button"
+              onClick={() => setAboutEditing(true)}
+              className="text-sm text-purple-700 hover:text-purple-900 font-medium"
+            >
+              {profile?.about_me ? "Edit" : "Add"}
+            </button>
+          )}
+        </div>
+        {aboutEditing ? (
+          <>
+            <textarea
+              value={aboutText}
+              onChange={(e) => setAboutText(e.target.value)}
+              maxLength={300}
+              rows={4}
+              placeholder="Tell your teammates a little about yourself: what you do, what you enjoy, a fun fact."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
+            <div className="mt-1 flex items-center justify-between text-xs text-gray-500">
+              <span>Everyone in the company can see this on the Meet the Team card.</span>
+              <span>{aboutText.length}/300</span>
+            </div>
+            {aboutError && <p className="mt-2 text-sm text-red-600">{aboutError}</p>}
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelAbout}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAbout}
+                disabled={aboutSaving}
+                className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50"
+              >
+                {aboutSaving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </>
+        ) : profile?.about_me ? (
+          <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{profile.about_me}</p>
+        ) : (
+          <p className="text-sm text-gray-500">
+            Nothing here yet. Add a short intro so teammates can get to know you.
+          </p>
+        )}
       </div>
 
       {/* Profile Completion Progress Bar */}

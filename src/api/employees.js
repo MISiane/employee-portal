@@ -154,3 +154,8 @@ export const getTodayAnniversaries = async () => {
     return { anniversaries: [], count: 0 };
   }
 };
+// Save my own short "about me" (shown on the Meet the Team card)
+export const updateAboutMe = async (aboutMe) => {
+  const response = await api.put('/employees/about-me', { about_me: aboutMe });
+  return response.data;
+};
