@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { XMarkIcon, ClipboardDocumentIcon, CheckIcon } from '@heroicons/react/24/outline';
 import { createEmployee, updateEmployee } from '../../api/employees';
 import api from '../../api/config';
+import CredentialCard from './CredentialCard';
 
 const EmployeeModal = ({ isOpen, onClose, employee, mode, departments }) => {
   const [formData, setFormData] = useState({
@@ -50,6 +51,8 @@ const EmployeeModal = ({ isOpen, onClose, employee, mode, departments }) => {
   const [newEmployeeName, setNewEmployeeName] = useState('');
   const [newEmployeeEmail, setNewEmployeeEmail] = useState('');
   const [copied, setCopied] = useState(false);
+  const [showCard, setShowCard] = useState(false);
+  const [newEmployeeInfo, setNewEmployeeInfo] = useState(null);
 
 useEffect(() => {
   const formatDate = (dateValue) => {
@@ -232,6 +235,7 @@ useEffect(() => {
       setLoading(false);
       setNewPassword(response.tempPassword);
       setNewEmployeeName(`${response.profile.first_name} ${response.profile.last_name}`);
+      setNewEmployeeInfo({ department: formData.department, employee_code: response.profile.employee_code || formData.employee_code });
       setNewEmployeeEmail(response.user.email);
       setShowPasswordModal(true);
     } else {
@@ -560,6 +564,12 @@ useEffect(() => {
                 Copy Password
               </button>
               <button
+                onClick={() => setShowCard(true)}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+              >
+                Credential card
+              </button>
+              <button
                 onClick={handlePasswordModalClose}
                 className="flex-1 px-4 py-2 bg-[#800080] text-white rounded-lg hover:bg-[#660066] transition"
               >
@@ -569,6 +579,12 @@ useEffect(() => {
           </div>
         </div>
       )}
+      <CredentialCard
+        isOpen={showCard}
+        onClose={() => setShowCard(false)}
+        employee={{ name: newEmployeeName, email: newEmployeeEmail, ...(newEmployeeInfo || {}) }}
+        password={newPassword}
+      />
     </>
   );
 };

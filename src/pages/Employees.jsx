@@ -26,9 +26,13 @@ import ReactivateConfirmModal from '../components/Employees/ReactivateConfirmMod
 import SupervisorModal from '../components/Employees/SupervisorModal';
 import { getSupervisorAssignments } from '../api/leave';
 import { getDepartmentStyle } from '../utils/departments';
+import CredentialCard from '../components/Employees/CredentialCard';
+import { useNavigate } from 'react-router-dom';
 
 const Employees = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [cardInfo, setCardInfo] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -200,7 +204,9 @@ const Employees = () => {
         setResetPasswordData({
           password: response.temporary_password,
           employeeName: response.employee_name,
-          employeeEmail: response.employee_email
+          employeeEmail: response.employee_email,
+          department: employee.department,
+          employeeCode: employee.employee_code
         });
         setShowPasswordModal(true);
       }
@@ -223,9 +229,7 @@ const Employees = () => {
   };
 
   const handleView = (employee) => {
-    setSelectedEmployee(employee);
-    setModalMode('view');
-    setShowEmployeeModal(true);
+    navigate(`/employees/${employee.id}`);
   };
 
   const handleAdd = () => {
@@ -763,6 +767,20 @@ const Employees = () => {
                 Copy Password
               </button>
               <button
+                onClick={() => setCardInfo({
+                  password: resetPasswordData.password,
+                  employee: {
+                    name: resetPasswordData.employeeName,
+                    email: resetPasswordData.employeeEmail,
+                    department: resetPasswordData.department,
+                    employee_code: resetPasswordData.employeeCode
+                  }
+                })}
+                className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+              >
+                Credential card
+              </button>
+              <button
                 onClick={() => setShowPasswordModal(false)}
                 className="flex-1 px-4 py-2 bg-[#800080] text-white rounded-lg hover:bg-[#660066] transition"
               >
@@ -798,6 +816,13 @@ const Employees = () => {
         employee={selectedEmployee}
         mode={modalMode}
         departments={departments}
+      />
+
+      <CredentialCard
+        isOpen={!!cardInfo}
+        onClose={() => setCardInfo(null)}
+        employee={cardInfo?.employee}
+        password={cardInfo?.password}
       />
 
       <DeleteConfirmModal
