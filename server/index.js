@@ -9,6 +9,7 @@ const leaveRoutes = require('./routes/leave');
 const announcementRoutes = require('./routes/announcements');
 const feedbackRoutes = require('./routes/feedback');
 const pollRoutes = require('./routes/polls');
+const triviaRoutes = require('./routes/trivia');
 const errorHandler = require('./middleware/errorHandler');
 const authMiddleware = require('./middleware/auth');
 const { isOriginAllowed } = require('./utils/cors');
@@ -117,6 +118,7 @@ app.use('/api/announcements', announcementRoutes);
 // Polls and notifications authenticate here, explicitly. They used to rely on
 // the feedback router's blanket router.use(authMiddleware) running first.
 app.use('/api/polls', authMiddleware, pollRoutes);
+app.use('/api/trivia', authMiddleware, triviaRoutes);
 app.use('/api/notifications', authMiddleware, notificationsRouter);
 app.use('/api', feedbackRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

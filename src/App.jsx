@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import EmployeeDashboard from './pages/EmployeeDashboard';
 import Employees from './pages/Employees';
 import EmployeeProfile from './pages/EmployeeProfile';
+import Trivia from './pages/Trivia';
 import MyProfile from './pages/MyProfile';
 import MyAttendance from './pages/MyAttendance';
 import MyLeaveRequests from './pages/MyLeaveRequests';
@@ -95,6 +96,7 @@ function App() {
               
               {/* Shared Routes */}
               <Route path="announcements" element={<Announcements />} />
+              <Route path="trivia" element={<Trivia />} />
               <Route path="settings" element={<Settings />} />
               <Route path="/policies" element={<CompanyPolicies />} />
               <Route path="/support" element={<Support />} />
