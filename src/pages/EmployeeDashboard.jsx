@@ -18,7 +18,7 @@ import { getMyLeaveRequests, getLeaveBalances } from "../api/leave";
 import { getLatestAnnouncements } from "../api/announcements";
 import { getTodayBirthdays, getTodayAnniversaries } from "../api/employees";
 import BirthdayComments from "../components/BirthdayComments";
-import TriviaCard from "../components/Trivia/TriviaCard";
+import TriviaStrip from "../components/Trivia/TriviaStrip";
 import { previewHtml } from "../utils/sanitize";
 
 const EmployeeDashboard = () => {
@@ -265,8 +265,8 @@ const EmployeeDashboard = () => {
           </div>
         </div>
       </div>
-      {/* Daily trivia (hides itself if it can't load) */}
-      <TriviaCard compact />
+      {/* Daily trivia strip (hides itself if it can't load) */}
+      <TriviaStrip />
 
       {/* Birthday Banner - Scaled Down */}
       {birthdayCelebrants.length > 0 && (

@@ -12,8 +12,9 @@ const StreakChip = ({ streak }) => (
   </span>
 );
 
-// Today's question. `compact` is the dashboard version (hides itself if trivia can't load).
-const TriviaCard = ({ compact = false }) => {
+// Today's question. `bare` drops the outer box (used inside a modal). `onAnswered` lets the
+// dashboard strip refresh; `onOpenLeaderboard` swaps the leaderboard link for a callback.
+const TriviaCard = ({ bare = false, onAnswered, onOpenLeaderboard }) => {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -43,6 +44,7 @@ const TriviaCard = ({ compact = false }) => {
     setError('');
     try {
       const res = await submitTriviaAnswer(selected);
+      if (onAnswered) onAnswered(res);
       setData((prev) => ({
         ...prev,
         answered: true,
@@ -58,26 +60,43 @@ const TriviaCard = ({ compact = false }) => {
     }
   };
 
+  const shell = bare ? '' : 'rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-white p-4 sm:p-6 shadow-sm';
+
   if (loading) {
-    return compact ? null : <div className="rounded-2xl border border-[#e6cce6] bg-white p-6 text-gray-500">Loading today's question…</div>;
+    return <div className={`${shell} text-gray-500`}>Loading today's question…</div>;
   }
   if (failed || !data) {
-    return compact ? null : (
-      <div className="rounded-2xl border border-[#e6cce6] bg-white p-6 text-gray-600">
+    return (
+      <div className={`${shell} text-gray-600`}>
         Daily trivia isn't available right now. Please try again later.
       </div>
     );
   }
 
   const { question, answered, my_answer: mine, stats, next_date: nextDate } = data;
-  const shell = 'rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-white p-4 sm:p-6 shadow-sm';
 
   const header = (
-    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <div className={`mb-3 flex flex-wrap items-center justify-between gap-2 ${bare ? 'pr-10' : ''}`}>
       <h2 className="text-base sm:text-lg font-bold text-gray-900">💡 Daily Trivia</h2>
       {stats?.current_streak > 0 && <StreakChip streak={stats.current_streak} />}
     </div>
   );
+
+  if (data.coming_soon) {
+    return (
+      <div className={shell}>
+        {header}
+        <div className="rounded-xl bg-purple-50 p-5 text-center">
+          <p className="text-3xl">🎉</p>
+          <p className="mt-2 text-lg font-bold text-[#800080]">Coming soon!</p>
+          <p className="mt-1 text-sm text-gray-700">
+            Daily Trivia starts on <strong>{formatTriviaDate(data.starts_on)}</strong>. Every day there will be one new
+            question about our hotel, our values and our handbook. Get ready to test what you know!
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!question) {
     return (
@@ -163,7 +182,7 @@ const TriviaCard = ({ compact = false }) => {
           </span>
           <button
             type="button"
-            onClick={() => navigate('/trivia?tab=leaderboard')}
+            onClick={() => (onOpenLeaderboard ? onOpenLeaderboard() : navigate('/trivia?tab=leaderboard'))}
             className="font-medium text-[#800080] hover:underline"
           >
             See the leaderboard →

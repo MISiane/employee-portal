@@ -4,6 +4,12 @@ const pool = require('../config/database');
 const TZ = 'Asia/Manila';
 const TODAY_SQL = `(now() AT TIME ZONE '${TZ}')::date`;
 const LEADERBOARD_LIMIT = 20;
+// Nothing is shown to staff before this day, even if HR has already imported and scheduled
+// questions. Override with the TRIVIA_START_DATE environment variable (YYYY-MM-DD).
+const startDate = () => {
+  const v = process.env.TRIVIA_START_DATE;
+  return /^\d{4}-\d{2}-\d{2}$/.test(v || '') ? v : '2026-12-01';
+};
 
 const dateStr = (d) => {
   if (!d) return null;
@@ -98,8 +104,9 @@ const computeStreaks = (questionDays, answeredSet, today) => {
 const questionDays = async (today) => {
   const r = await pool.query(
     `SELECT scheduled_date AS d FROM trivia_questions
-     WHERE status = 'approved' AND scheduled_date IS NOT NULL AND scheduled_date <= $1::date`,
-    [today]
+     WHERE status = 'approved' AND scheduled_date IS NOT NULL
+       AND scheduled_date >= $2::date AND scheduled_date <= $1::date`,
+    [today, startDate()]
   );
   return r.rows.map((row) => dateStr(row.d));
 };
@@ -128,14 +135,19 @@ const userStats = async (userId, today) => {
 const getTodayQuestion = async (req, res) => {
   try {
     const today = await getToday();
+    const stats = await userStats(req.user.id, today);
+    const base = { today, stats };
+
+    if (today < startDate()) {
+      return res.json({ ...base, question: null, coming_soon: true, starts_on: startDate() });
+    }
+
     const qr = await pool.query(
       `SELECT id, question, options, correct_index, explanation, source
        FROM trivia_questions
        WHERE status = 'approved' AND scheduled_date = $1::date`,
       [today]
     );
-    const stats = await userStats(req.user.id, today);
-    const base = { today, stats };
 
     if (qr.rows.length === 0) {
       const next = await pool.query(
@@ -175,6 +187,9 @@ const submitAnswer = async (req, res) => {
   const idx = Number(req.body?.answer_index);
   try {
     const today = await getToday();
+    if (today < startDate()) {
+      return res.status(403).json({ error: 'Daily trivia has not started yet' });
+    }
     const qr = await pool.query(
       `SELECT id, options, correct_index, explanation, source
        FROM trivia_questions

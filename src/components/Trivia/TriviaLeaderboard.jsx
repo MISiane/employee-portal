@@ -40,7 +40,7 @@ const Row = ({ row, isMe }) => (
   </li>
 );
 
-const TriviaLeaderboard = () => {
+const TriviaLeaderboard = ({ bare = false }) => {
   const [period, setPeriod] = useState('month');
   const [data, setData] = useState(null);
   const [error, setError] = useState(false);
@@ -65,8 +65,8 @@ const TriviaLeaderboard = () => {
   const meInList = data?.leaders?.some((r) => r.user_id === data.me?.user_id);
 
   return (
-    <div className="rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-white p-4 sm:p-6 shadow-sm">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <div className={bare ? '' : 'rounded-xl sm:rounded-2xl border border-[#e6cce6] bg-white p-4 sm:p-6 shadow-sm'}>
+      <div className={`mb-4 flex flex-wrap items-center justify-between gap-2 ${bare ? 'pr-10' : ''}`}>
         <h2 className="text-base sm:text-lg font-bold text-gray-900">🏆 Leaderboard</h2>
         <div className="inline-flex rounded-xl bg-gray-100 p-1">
           {tabs.map((t) => (
