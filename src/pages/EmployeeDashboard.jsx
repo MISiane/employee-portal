@@ -18,6 +18,7 @@ import { getMyLeaveRequests, getLeaveBalances } from "../api/leave";
 import { getLatestAnnouncements } from "../api/announcements";
 import { getTodayBirthdays, getTodayAnniversaries } from "../api/employees";
 import BirthdayComments from "../components/BirthdayComments";
+import TriviaStrip from "../components/Trivia/TriviaStrip";
 import { previewHtml } from "../utils/sanitize";
 
 const EmployeeDashboard = () => {
@@ -264,6 +265,9 @@ const EmployeeDashboard = () => {
           </div>
         </div>
       </div>
+      {/* Daily trivia strip (hides itself if it can't load) */}
+      <TriviaStrip />
+
       {/* Birthday Banner - Scaled Down */}
       {birthdayCelebrants.length > 0 && (
         <div className="overflow-hidden rounded-xl sm:rounded-[30px] bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 text-white shadow-lg">

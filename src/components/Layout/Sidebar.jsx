@@ -15,7 +15,8 @@ import {
   ChatBubbleLeftIcon, 
   QuestionMarkCircleIcon,
   ClipboardDocumentCheckIcon  ,
-  UserGroupIcon 
+  UserGroupIcon,
+  LightBulbIcon
 } from '@heroicons/react/24/outline';
 import {
   HomeIcon as HomeIconSolid,
@@ -61,6 +62,7 @@ const Sidebar = () => {
   { name: 'Payslips', href: '/payslips', icon: CurrencyDollarIcon },
   { name: 'Leave Requests', href: '/leave-requests', icon: CalendarIcon },
   { name: 'Announcements', href: '/announcements', icon: MegaphoneIcon },
+  { name: 'Daily Trivia', href: '/trivia', icon: LightBulbIcon },
   { name: 'Employee Handbook', href: '/policies', icon: BookOpenIcon },
     { name: 'Feedback', href: '/feedback', icon: ChatBubbleLeftIcon },
 
@@ -72,6 +74,7 @@ const employeeNavigation = [
   { name: 'My Payslips', href: '/my-payslips', icon: CurrencyDollarIcon },
   { name: 'My Leave Requests', href: '/my-leave-requests', icon: CalendarIcon },
   { name: 'Announcements', href: '/announcements', icon: MegaphoneIcon },
+  { name: 'Daily Trivia', href: '/trivia', icon: LightBulbIcon },
   { name: 'Meet the Team', href: '/directory', icon: UserGroupIcon },
   { name: 'Employee Handbook', href: '/policies', icon: BookOpenIcon },
     { name: 'Support', href: '/support', icon: ChatBubbleLeftIcon },
