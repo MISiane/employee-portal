@@ -37,7 +37,7 @@ const LeaveRequestsAdmin = () => {
   const [searchTerm, setSearchTerm] = useState("");
   // Payroll cutoff period (11th-25th, 26th-10th), by leave start date
   const [filterPeriod, setFilterPeriod] = useState("");
-  const [groupByCutoff, setGroupByCutoff] = useState(true);
+  const [groupByCutoff, setGroupByCutoff] = useState(false);
   const cutoffOptions = periodOptions();
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
